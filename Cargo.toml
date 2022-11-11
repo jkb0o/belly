@@ -1,0 +1,14 @@
+[package]
+name = "bevy_bsx"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = "0.8.1"
+bsx = { path = "bsx" }
+bml_core = { path = "bml_core" }
+proc-macro2 = "1.0.47"
+procout = { version = "0.1.13", features = ["procout"] }
+bevy-inspector-egui = "0.13.0"

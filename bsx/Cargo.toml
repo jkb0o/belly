@@ -1,0 +1,17 @@
+[package]
+name = "bsx"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = "0.8.1"
+quote = "1.0.21"
+syn-rsx = "0.8.1"
+bml_core = { path = "../bml_core" }
+proc-macro2 = "1.0.47"
+procout = "0.1.13"
