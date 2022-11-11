@@ -1,3 +1,3 @@
 // use bevy::prelude::*;
-pub use bml_core::*;
-pub use bsx::*;
+pub use bevy_elements_core::*;
+pub use bevy_elements_macro::*;

@@ -7,5 +7,5 @@ edition = "2021"
 
 [dependencies]
 bevy = "0.8.1"
-bml_core = { path = "../bml_core" }
-bsx = { path = "../bsx" }
+bevy_elements_core = { path = "../bevy_elements_core" }
+bevy_elements_macro = { path = "../bevy_elements_macro" }

@@ -326,18 +326,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy_bsx"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bevy-inspector-egui",
- "bml_core",
- "bsx",
- "proc-macro2",
- "procout",
-]
-
-[[package]]
 name = "bevy_core"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -436,6 +424,44 @@ dependencies = [
  "egui",
  "thread_local",
  "webbrowser",
+]
+
+[[package]]
+name = "bevy_elements"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy-inspector-egui",
+ "bevy_elements_core",
+ "bevy_elements_macro",
+ "proc-macro2",
+ "procout",
+]
+
+[[package]]
+name = "bevy_elements_core"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy-inspector-egui",
+ "cssparser",
+ "lazy_static",
+ "smallvec",
+ "tagstr",
+ "tagstr_core",
+]
+
+[[package]]
+name = "bevy_elements_macro"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy_elements_core",
+ "proc-macro2",
+ "procout",
+ "quote",
+ "syn",
+ "syn-rsx",
 ]
 
 [[package]]
@@ -945,32 +971,6 @@ name = "block"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d8c1fef690941d3e7788d328517591fecc684c084084702d6ff1641e993699a"
-
-[[package]]
-name = "bml_core"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bevy-inspector-egui",
- "cssparser",
- "lazy_static",
- "smallvec",
- "tagstr",
- "tagstr_core",
-]
-
-[[package]]
-name = "bsx"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bml_core",
- "proc-macro2",
- "procout",
- "quote",
- "syn",
- "syn-rsx",
-]
 
 [[package]]
 name = "bumpalo"

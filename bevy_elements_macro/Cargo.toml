@@ -1,5 +1,5 @@
 [package]
-name = "bsx"
+name = "bevy_elements_macro"
 version = "0.1.0"
 edition = "2021"
 
@@ -12,7 +12,7 @@ proc-macro = true
 bevy = "0.8.1"
 quote = "1.0.21"
 syn-rsx = "0.9.0"
-bml_core = { path = "../bml_core" }
+bevy_elements_core = { path = "../bevy_elements_core" }
 proc-macro2 = "1.0.47"
 procout = "0.1.13"
 syn = "1.0.103"

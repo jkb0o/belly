@@ -855,7 +855,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d8c1fef690941d3e7788d328517591fecc684c084084702d6ff1641e993699a"
 
 [[package]]
-name = "bml_core"
+name = "bevy_elements_core"
 version = "0.1.0"
 dependencies = [
  "bevy",
@@ -866,7 +866,7 @@ name = "bsx"
 version = "0.1.0"
 dependencies = [
  "bevy",
- "bml_core",
+ "bevy_elements_core",
  "proc-macro2",
  "procout",
  "quote",
@@ -3248,7 +3248,7 @@ name = "widgets"
 version = "0.1.0"
 dependencies = [
  "bevy",
- "bml_core",
+ "bevy_elements_core",
  "bsx",
 ]
 

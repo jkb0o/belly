@@ -1,5 +1,5 @@
 [package]
-name = "bevy_bsx"
+name = "bevy_elements"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 bevy = "0.8.1"
-bsx = { path = "bsx" }
-bml_core = { path = "bml_core" }
+bevy_elements_macro = { path = "bevy_elements_macro" }
+bevy_elements_core = { path = "bevy_elements_core" }
 proc-macro2 = "1.0.47"
 procout = { version = "0.1.13", features = ["procout"] }
 bevy-inspector-egui = "0.13.0"

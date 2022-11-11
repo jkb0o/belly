@@ -48,7 +48,7 @@ use std::sync::Once;
 use bevy::{
     prelude::*, ecs::{schedule::IntoSystemDescriptor, system::{EntityCommands, BoxedSystem}}
 };
-use bevy_bsx::*;
+use bevy_elements::*;
 use bevy_inspector_egui::WorldInspectorPlugin;
 
 fn main() {
@@ -213,7 +213,7 @@ fn test() {
 }
 
 fn test2<Params, F: IntoSystem<(), (), Params>>(f: F) {
-    use bml_core::attributes::*;
+    use bevy_elements_core::attributes::*;
     let a = IntoAttr::into_attr("hello".to_string());
     let b = IntoAttr::into_attr(f);
     let c = IntoAttr::into_attr(2);

@@ -1,5 +1,5 @@
 [package]
-name = "bml_core"
+name = "bevy_elements_core"
 version = "0.1.0"
 edition = "2021"
 

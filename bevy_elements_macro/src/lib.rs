@@ -1,4 +1,4 @@
-use bml_core::attributes::component;
+use bevy_elements_core::attributes::component;
 use proc_macro2::TokenStream;
 use quote::*;
 extern crate proc_macro;
@@ -47,7 +47,7 @@ fn create_command_stmts(expr: &Expr) -> TokenStream {
     };
     let expr_span = expr.span();
     quote_spanned! {expr_span=>
-        __ctx.attributes.add(::bml_core::attributes::Attribute::from_commands("with", ::std::boxed::Box::new(move |c| {
+        __ctx.attributes.add(::bevy_elements_core::attributes::Attribute::from_commands("with", ::std::boxed::Box::new(move |c| {
             #with_body
         })));
     }
@@ -58,9 +58,9 @@ fn create_attr_stmt(attr: &NodeAttribute) -> TokenStream {
     match &attr.value {
         None => {
             return quote! {
-                __ctx.attributes.add(::bml_core::attributes::Attribute::new(
+                __ctx.attributes.add(::bevy_elements_core::attributes::Attribute::new(
                     #attr_name.into(),
-                    ::bml_core::attributes::AttributeValue::Empty
+                    ::bevy_elements_core::attributes::AttributeValue::Empty
                 ));
             };
         }
@@ -70,7 +70,7 @@ fn create_attr_stmt(attr: &NodeAttribute) -> TokenStream {
                 return create_command_stmts(attr_value);
             } else {
                 return quote! {
-                    __ctx.attributes.add(::bml_core::attributes::Attribute::new(
+                    __ctx.attributes.add(::bevy_elements_core::attributes::Attribute::new(
                         #attr_name.into(),
                         (#attr_value).into()
                     ));
@@ -109,11 +109,11 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                         {
                             let __text_entity = __world.spawn().id();
                             __ctx.add_child(__text_entity.clone());
-                            ::bml_core::context::internal::push_text(__world, __text_entity, #text.to_string());
+                            ::bevy_elements_core::context::internal::push_text(__world, __text_entity, #text.to_string());
                             __world
-                                .resource::<::bml_core::builders::TextElementBuilder>().clone()
+                                .resource::<::bevy_elements_core::builders::TextElementBuilder>().clone()
                                 .build(__world);
-                            ::bml_core::context::internal::pop_context(__world);
+                            ::bevy_elements_core::context::internal::pop_context(__world);
                         }
                     };
                 },
@@ -141,17 +141,17 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
             {
                 #parent
                 let __tag_name = #tag.into();
-                let mut __ctx = ::bml_core::context::ElementContext::new(__tag_name, __parent);
+                let mut __ctx = ::bevy_elements_core::context::ElementContext::new(__tag_name, __parent);
                 
                 #children
                 
-                ::bml_core::context::internal::push_element(__world, __ctx);
+                ::bevy_elements_core::context::internal::push_element(__world, __ctx);
                 __world
-                    .resource::<::bml_core::builders::ElementBuilderRegistry>()
+                    .resource::<::bevy_elements_core::builders::ElementBuilderRegistry>()
                     .get_builder(__tag_name)
                     .expect( #invalid_element_msg )
                     .build(__world);
-                ::bml_core::context::internal::pop_context(__world);
+                ::bevy_elements_core::context::internal::pop_context(__world);
                 __parent
             }
         }
@@ -170,7 +170,7 @@ pub fn bsx(tree: proc_macro::TokenStream) -> proc_macro::TokenStream {
             let body = walk_nodes(&nodes[0], false);
             // nodes[0]
             let wraped = quote! {
-                ::bml_core::ElementsBuilder::new(
+                ::bevy_elements_core::ElementsBuilder::new(
                     move |
                         __world: &mut ::bevy::prelude::World,
                         __parent: ::bevy::prelude::Entity

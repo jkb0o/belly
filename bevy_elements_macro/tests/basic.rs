@@ -1,4 +1,4 @@
-use bsx::*;
+use bevy_elements_macro::*;
 
 #[test]
 fn test_valid_syntax() {
