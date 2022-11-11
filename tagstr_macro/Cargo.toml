@@ -10,4 +10,5 @@ proc-macro = true
 
 [dependencies]
 quote = "1.0.21"
+syn = "1.0.103"
 tagstr_core = { path = "../tagstr_core" }

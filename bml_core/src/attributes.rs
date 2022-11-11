@@ -5,9 +5,13 @@ use std::{
 };
 
 use super::ElementsBuilder;
-use crate::tags::*;
 use crate::property::*;
-use bevy::{ecs::system::EntityCommands, prelude::*, utils::{HashMap, HashSet, hashbrown::hash_map::{Iter, Values, Drain}},};
+use crate::tags::*;
+use bevy::{
+    ecs::{system::{EntityCommands, BoxedSystem}, schedule::IntoSystemDescriptor},
+    prelude::*,
+    utils::{hashbrown::hash_map::Drain, HashMap, HashSet},
+};
 
 pub type ApplyCommands = Box<dyn FnOnce(&mut EntityCommands)>;
 
@@ -62,7 +66,95 @@ fn try_take<T: 'static, F: 'static>(v: F) -> Option<T> {
     }
 }
 
+// pub trait AddAttribute<T:'static> {
+//     type Params;
+//     fn add<Params>(&mut self, name: &str, attr: T);
+// } 
+
+// struct Attrs;
+// impl<F: IntoSystem<(), (), Self::Params> + 'static> AddAttribute<F> for Attrs {
+//     fn add(&mut self, name: &str, attr: F) {
+        
+//     }
+//     // type Params = Params;
+
+// }
+
+pub trait IntoAttr<Params> {
+    fn into_attr(value: Self) -> AttributeValue;
+}
+
+pub trait IntoCommands {
+
+}
+
+impl<Params, S: IntoSystem<(), (), Params>> IntoAttr<Params> for S {
+    fn into_attr(value: Self) -> AttributeValue {
+        let s = IntoSystem::into_system(value);
+        AttributeValue::Empty
+    }
+}
+
+pub struct WithoutParams;
+
+impl IntoAttr<WithoutParams> for String {
+    fn into_attr(value: Self) -> AttributeValue {
+        AttributeValue::Empty
+    }
+}
+
+impl IntoAttr<WithoutParams> for i32 {
+    fn into_attr(value: Self) -> AttributeValue {
+        AttributeValue::Empty
+    }
+}
+
+pub struct AttributeCommands(Box<dyn FnOnce(&mut EntityCommands)>);
+impl AttributeCommands {
+    pub fn new<F: FnOnce(&mut EntityCommands) + 'static>(commands: F) -> AttributeCommands {
+        AttributeCommands(Box::new(commands))
+    }
+}
+
+impl<F: FnOnce(&mut EntityCommands) + 'static> From<F> for AttributeCommands {
+    fn from(f: F) -> Self {
+        AttributeCommands::new(f)
+    }
+}
+
+pub struct NoFunc;
+impl IntoAttr<WithoutParams> for AttributeCommands {
+    fn into_attr(value: Self) -> AttributeValue {
+        AttributeValue::Empty
+    }
+}
+
+fn x() { }
+fn t2<Params, S: IntoSystem<(), (), Params>>(s: S) {
+    let x = IntoSystem::into_system(s);
+}
+fn test() {
+    IntoAttr::into_attr(|mut commands: Commands| {});
+}
+
+// fn test<T: 'static>(value: T) {
+//     {
+//         let a = (&value as &dyn Any).downcast_ref::<IntoSystem<(), (), i32>>();
+//     }
+// }
+
+// impl<S: IntoSystem<(), (), SystemParam>> IntoAttr for S {
+//     fn into_attr(value: Self) -> AttributeValue {
+//         let s: BoxedSystem<(), ()> = Box::new(IntoSystem::into_system(value));
+//     }
+// }
+
 impl AttributeValue {
+    // pub fn new<T:Any + 'static>(value: T) {
+    //     let boxed: Box<dyn Any> = Box::new(value);
+    //     let boxed = boxed.downcast::<BoxedSystem<(), ()>>().unwrap();
+    //     let value = Some(*boxed);
+    // }
     pub fn is<T: 'static>(&self) -> bool {
         match self {
             AttributeValue::Empty => false,
@@ -146,6 +238,10 @@ pub struct Attribute {
 }
 
 impl Attribute {
+    pub fn from_commands(name: &str, commands: ApplyCommands) -> Attribute {
+        let value = AttributeValue::Commands(commands);
+        Attribute { name: name.as_tag(), value, target: AttributeTarget::Attribute }
+    }
     pub fn new(name: &str, value: AttributeValue) -> Attribute {
         if name.starts_with("c:") {
             Attribute {
@@ -156,7 +252,7 @@ impl Attribute {
         } else if name.starts_with("s:") {
             Attribute {
                 name: name.strip_prefix("s:").unwrap().as_tag(),
-                value: AttributeValue::Empty,
+                value,
                 target: AttributeTarget::Style,
             }
         } else {
@@ -179,7 +275,7 @@ pub struct Attributes(HashMap<Tag, Attribute>);
 
 impl Attributes {
     pub fn add(&mut self, mut attr: Attribute) {
-        if attr.name == Tag::params() {
+        if attr.name == tags::params() {
             if let Some(mut attrs) = attr.take::<Attributes>() {
                 let this = mem::take(self);
                 attrs.merge(this);
@@ -189,9 +285,18 @@ impl Attributes {
                 panic!("Params attribute should an Attributes type.")
             }
         }
+        if attr.name == tags::class() {
+            if let Some(existed) = self.get_mut::<String>(attr.name) {
+                if let Some(classes) = attr.take::<String>() {
+                    existed.push_str(" ");
+                    existed.push_str(classes.as_str());
+                    return;
+                }
+            }
+        }
         match attr.target {
             AttributeTarget::Attribute => self.0.insert(attr.name, attr),
-            AttributeTarget::Class => match self.0.get_mut(&Tag::class()) {
+            AttributeTarget::Class => match self.0.get_mut(&tags::class()) {
                 Some(class) => {
                     let classes = class
                         .value
@@ -199,18 +304,19 @@ impl Attributes {
                         .expect("Class attribute should be a String type");
                     classes.push_str(" ");
                     classes.push_str(attr.name.into());
+                    println!("extending existed class attribute {:?}", attr.name);
                     None
                 }
                 None => {
-                    // println!("adding class attribute {:?}", attr.name);
+                    println!("adding new class attribute {:?}", attr.name);
                     attr = Attribute::new(
-                        Tag::class().into(),
+                        tags::class().into(),
                         AttributeValue::String(attr.name.into()),
                     );
-                    self.0.insert(Tag::class(), attr)
+                    self.0.insert(tags::class(), attr)
                 }
             },
-            AttributeTarget::Style => match self.0.get_mut(&Tag::styles()) {
+            AttributeTarget::Style => match self.0.get_mut(&tags::styles()) {
                 Some(styles) => {
                     let styles = styles
                         .value
@@ -225,8 +331,8 @@ impl Attributes {
                     attr.target = AttributeTarget::Attribute;
                     styles.add(attr);
                     let attr =
-                        Attribute::new(Tag::styles().into(), AttributeValue::Attributes(styles));
-                    self.0.insert(Tag::styles(), attr)
+                        Attribute::new(tags::styles().into(), AttributeValue::Attributes(styles));
+                    self.0.insert(tags::styles(), attr)
                 }
             },
         };
@@ -237,8 +343,8 @@ impl Attributes {
     }
 
     pub fn merge(&mut self, mut other: Self) {
-        if let Some(other_classes) = other.0.remove(&Tag::class()) {
-            if let Some(self_classes) = self.0.get_mut(&Tag::class()) {
+        if let Some(other_classes) = other.0.remove(&tags::class()) {
+            if let Some(self_classes) = self.0.get_mut(&tags::class()) {
                 let self_class_string = self_classes
                     .value
                     .get_mut::<String>()
@@ -250,11 +356,11 @@ impl Attributes {
                 self_class_string.push_str(" ");
                 self_class_string.push_str(other_class_string.as_str());
             } else {
-                self.0.insert(Tag::class(), other_classes);
+                self.0.insert(tags::class(), other_classes);
             }
         }
-        if let Some(mut other_styles) = other.0.remove(&Tag::styles()) {
-            if let Some(self_styles) = self.0.get_mut(&Tag::styles()) {
+        if let Some(mut other_styles) = other.0.remove(&tags::styles()) {
+            if let Some(self_styles) = self.0.get_mut(&tags::styles()) {
                 let self_styles_value = self_styles
                     .value
                     .get_mut::<Attributes>()
@@ -267,7 +373,7 @@ impl Attributes {
                     self_styles_value.add(attr);
                 }
             } else {
-                self.0.insert(Tag::styles(), other_styles);
+                self.0.insert(tags::styles(), other_styles);
             }
         }
         for (name, attr) in other.0.drain() {
@@ -280,20 +386,25 @@ impl Attributes {
     }
 
     pub fn commands(&mut self, name: Tag) -> Option<ApplyCommands> {
-        self.remove::<ApplyCommands>(name)
+        self.drop::<ApplyCommands>(name)
     }
 
     pub fn styles(&mut self) -> HashMap<Tag, PropertyValues> {
-        if let Some(mut styles) = self.remove::<Attributes>(Tag::styles()) {
+        if let Some(mut styles) = self.drop::<Attributes>(tags::styles()) {
             let mut result: HashMap<Tag, PropertyValues> = Default::default();
             for (tag, attr) in styles.drain() {
                 if let Some(value) = attr.value.get::<String>() {
                     match value.as_str().try_into() {
                         Ok(parsed) => result.insert(tag, parsed),
-                        Err(err) => panic!("Unable to parse style {} for key {}: {}", value, tag, err)
+                        Err(err) => {
+                            panic!("Unable to parse style {} for key {}: {}", value, tag, err)
+                        }
                     };
                 } else {
-                    panic!("For now only String supported as style values, {} got {:?}", tag, attr);
+                    panic!(
+                        "For now only String supported as style values, {} got {:?}",
+                        tag, attr
+                    );
                 }
             }
             result
@@ -302,7 +413,7 @@ impl Attributes {
         }
     }
     pub fn classes(&mut self) -> HashSet<Tag> {
-        self.remove::<String>(Tag::class())
+        self.drop::<String>(tags::class())
             .unwrap_or("".to_string())
             .split(" ")
             .filter(|s| !s.is_empty())
@@ -310,13 +421,23 @@ impl Attributes {
             .collect()
     }
     pub fn id(&mut self) -> Option<String> {
-        self.remove(Tag::id())
+        self.drop(tags::id())
     }
     pub fn get<T: 'static>(&self, key: Tag) -> Option<&T> {
         self.0.get(&key).and_then(|v| v.value.get::<T>())
     }
-    fn remove<T: 'static>(&mut self, key: Tag) -> Option<T> {
+    pub fn get_mut<T: 'static>(&mut self, key: Tag) -> Option<&mut T> {
+        self.0.get_mut(&key).and_then(|v| v.value.get_mut::<T>())
+    }
+    pub fn drop<T: 'static>(&mut self, key: Tag) -> Option<T> {
         self.0.remove(&key).and_then(|mut a| a.take())
+    }
+    pub fn drop_or_default<T: 'static>(&mut self, key: Tag, default: T) -> T {
+        if let Some(value) = self.drop(key) {
+            value
+        } else {
+            default
+        }
     }
     pub fn apply_commands(&mut self, for_attribute: Tag, commands: &mut EntityCommands) {
         if let Some(attribute_commands) = self.commands(for_attribute) {
@@ -364,5 +485,62 @@ impl From<ApplyCommands> for AttributeValue {
 impl From<Attributes> for AttributeValue {
     fn from(v: Attributes) -> Self {
         AttributeValue::Attributes(v)
+    }
+}
+
+trait Marker {
+
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_basic_classes() {
+        let mut attrs = Attributes::default();
+        attrs.add(Attribute::new("class", "some-class".into()));
+        assert_eq!(
+            attrs.classes(),
+            ["some-class".as_tag()].iter().cloned().collect()
+        );
+    }
+
+    #[test]
+    fn test_c_not_overrides_class() {
+        let mut attrs = Attributes::default();
+        attrs.add(Attribute::new("class", "class1 class2".into()));
+        attrs.add(Attribute::new("c:some-other-class", AttributeValue::Empty));
+        assert_eq!(
+            attrs.classes(),
+            ["class1", "class2", "some-other-class"]
+                .iter()
+                .map(|s| s.as_tag())
+                .collect()
+        );
+    }
+
+    #[test]
+    fn test_class_not_overrides_c() {
+        let mut attrs = Attributes::default();
+        attrs.add(Attribute::new("c:some-other-class", AttributeValue::Empty));
+        attrs.add(Attribute::new("class", "class1 class2".into()));
+        assert_eq!(
+            attrs.classes(),
+            ["class1", "class2", "some-other-class"]
+                .iter()
+                .map(|s| s.as_tag())
+                .collect()
+        );
+    }
+
+    #[test]
+    fn test_basic_styles() {
+        let mut attrs = Attributes::default();
+        attrs.add(Attribute::new("s:color", "black".into()));
+        let styles = attrs.drop::<Attributes>("styles".as_tag());
+        assert!(styles.is_some());
+        let styles = styles.unwrap();
+        assert_eq!(styles.get::<String>("color".as_tag()), Some(&"black".to_string()));
     }
 }

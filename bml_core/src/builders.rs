@@ -62,7 +62,7 @@ pub (crate) fn default_postprocessor(
     let mut params = ctx.params();
     commands.insert(Name::new(tag.to_string()));
     
-    if let Some(attr_commands) = params.commands(Tag::with()) {
+    if let Some(attr_commands) = params.commands(tags::with()) {
         attr_commands(&mut commands);
     }
     if let Ok(mut element) = elements.get_mut(element) {

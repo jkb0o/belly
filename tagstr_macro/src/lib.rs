@@ -1,10 +1,11 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::quote;
+use syn::{parse_macro_input, LitStr};
 
 #[proc_macro]
 pub fn tag(name: TokenStream) -> TokenStream {
-    let name = name.to_string();
+    let name = parse_macro_input!(name as LitStr);
     TokenStream::from(quote! {
         unsafe {
             static mut __tag: ::tagstr_core::Tag = ::tagstr_core::undefined_tag();

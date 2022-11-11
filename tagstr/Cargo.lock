@@ -59,6 +59,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "syn"
+version = "1.0.103"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a864042229133ada95abf3b54fdc62ef5ccabe9515b64717bcb9a1919e59445d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-ident",
+]
+
+[[package]]
 name = "tagstr"
 version = "0.1.0"
 dependencies = [
@@ -79,6 +90,7 @@ name = "tagstr_macro"
 version = "0.1.0"
 dependencies = [
  "quote",
+ "syn",
  "tagstr_core",
 ]
 

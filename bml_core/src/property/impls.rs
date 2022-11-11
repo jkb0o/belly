@@ -1,6 +1,7 @@
 use bevy::{ecs::query::QueryItem, prelude::*};
 
-use crate::ElementsErroror;
+use crate::ElementsError;
+use tagstr::*;
 
 use super::{Property, PropertyValues};
 
@@ -27,15 +28,15 @@ mod style {
                 type Components = &'static mut Style;
                 type Filters = With<Node>;
 
-                fn name() -> &'static str {
-                    $name
+                fn name() -> Tag {
+                    tag!($name)
                 }
 
-                fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsErroror> {
+                fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
                     if let Some(val) = values.rect() {
                         Ok(val)
                     } else {
-                        Err(ElementsErroror::InvalidPropertyValue(Self::name().to_string()))
+                        Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
                     }
                 }
 
@@ -72,15 +73,15 @@ mod style {
                 type Components = &'static mut Style;
                 type Filters = With<Node>;
 
-                fn name() -> &'static str {
-                    $name
+                fn name() -> Tag {
+                    tag!($name)
                 }
 
-                fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsErroror> {
+                fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
                     if let Some(val) = values.$parse_func() {
                         Ok(val)
                     } else {
-                        Err(ElementsErroror::InvalidPropertyValue(Self::name().to_string()))
+                        Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
                     }
                 }
 
@@ -101,6 +102,9 @@ mod style {
     impl_style_single_value!("right", RightProperty, Val, val, position.right);
     impl_style_single_value!("top", TopProperty, Val, val, position.top);
     impl_style_single_value!("bottom", BottomProperty, Val, val, position.bottom);
+    
+    impl_style_single_value!("margin-left", MarginLeftProperty, Val, val, margin.left);
+    impl_style_single_value!("margin-left", PaddingLeftProperty, Val, val, padding.left);
 
     impl_style_single_value!("width", WidthProperty, Val, val, size.width);
     impl_style_single_value!("height", HeightProperty, Val, val, size.height);
@@ -142,11 +146,11 @@ mod style {
                 type Components = &'static mut Style;
                 type Filters = With<Node>;
 
-                fn name() -> &'static str {
-                    $name
+                fn name() -> Tag {
+                    tag!($name)
                 }
 
-                fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsErroror> {
+                fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
                     if let Some(identifier) = values.identifier() {
                         use $cache::*;
                         // Chain if-let when `cargofmt` supports it
@@ -157,7 +161,7 @@ mod style {
                         }
                     }
 
-                    Err(ElementsErroror::InvalidPropertyValue(Self::name().to_string()))
+                    Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
                 }
 
                 fn apply<'w>(
@@ -255,15 +259,15 @@ mod text {
         type Components = &'static mut Text;
         type Filters = With<Node>;
 
-        fn name() -> &'static str {
-            "color"
+        fn name() -> Tag {
+            tag!("color")
         }
 
-        fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsErroror> {
+        fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
             if let Some(color) = values.color() {
                 Ok(color)
             } else {
-                Err(ElementsErroror::InvalidPropertyValue(Self::name().to_string()))
+                Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
             }
         }
 
@@ -289,15 +293,15 @@ mod text {
         type Components = &'static mut Text;
         type Filters = With<Node>;
 
-        fn name() -> &'static str {
-            "font"
+        fn name() -> Tag {
+            tag!("font")
         }
 
-        fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsErroror> {
+        fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
             if let Some(path) = values.string() {
                 Ok(path)
             } else {
-                Err(ElementsErroror::InvalidPropertyValue(Self::name().to_string()))
+                Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
             }
         }
 
@@ -323,15 +327,15 @@ mod text {
         type Components = &'static mut Text;
         type Filters = With<Node>;
 
-        fn name() -> &'static str {
-            "font-size"
+        fn name() -> Tag {
+            tag!("font-size")
         }
 
-        fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsErroror> {
+        fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
             if let Some(size) = values.f32() {
                 Ok(size)
             } else {
-                Err(ElementsErroror::InvalidPropertyValue(Self::name().to_string()))
+                Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
             }
         }
 
@@ -358,11 +362,11 @@ mod text {
         type Components = &'static mut Text;
         type Filters = With<Node>;
 
-        fn name() -> &'static str {
-            "vertical-align"
+        fn name() -> Tag {
+            tag!("vertical-align")
         }
 
-        fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsErroror> {
+        fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
             if let Some(ident) = values.identifier() {
                 match ident {
                     "top" => return Ok(Some(VerticalAlign::Top)),
@@ -371,7 +375,7 @@ mod text {
                     _ => (),
                 }
             }
-            Err(ElementsErroror::InvalidPropertyValue(Self::name().to_string()))
+            Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
         }
 
         fn apply<'w>(
@@ -394,11 +398,11 @@ mod text {
         type Components = &'static mut Text;
         type Filters = With<Node>;
 
-        fn name() -> &'static str {
-            "text-align"
+        fn name() -> Tag {
+            tag!("text-align")
         }
 
-        fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsErroror> {
+        fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
             if let Some(ident) = values.identifier() {
                 match ident {
                     "left" => return Ok(Some(HorizontalAlign::Left)),
@@ -407,7 +411,7 @@ mod text {
                     _ => (),
                 }
             }
-            Err(ElementsErroror::InvalidPropertyValue(Self::name().to_string()))
+            Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
         }
 
         fn apply<'w>(
@@ -429,15 +433,15 @@ mod text {
         type Components = &'static mut Text;
         type Filters = With<Node>;
 
-        fn name() -> &'static str {
-            "text-content"
+        fn name() -> Tag {
+            tag!("text-content")
         }
 
-        fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsErroror> {
+        fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
             if let Some(content) = values.string() {
                 Ok(content)
             } else {
-                Err(ElementsErroror::InvalidPropertyValue(Self::name().to_string()))
+                Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
             }
         }
 
@@ -465,15 +469,15 @@ impl Property for UiColorProperty {
     type Components = Entity;
     type Filters = With<UiColor>;
 
-    fn name() -> &'static str {
-        "background-color"
+    fn name() -> Tag {
+        tag!("background-color")
     }
 
-    fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsErroror> {
+    fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
         if let Some(color) = values.color() {
             Ok(color)
         } else {
-            Err(ElementsErroror::InvalidPropertyValue(Self::name().to_string()))
+            Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
         }
     }
 

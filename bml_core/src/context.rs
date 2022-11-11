@@ -1,8 +1,11 @@
+use bevy::ecs::entity;
+use bevy::ecs::system::BoxedSystem;
 use bevy::prelude::*;
 use std::ops::{Deref, DerefMut};
 use std::mem;
 
-use crate::attributes::*;
+use crate::{attributes::*, ElementsBuilder};
+use crate::builders::TextElementBuilder;
 use crate::tags::*;
 
 #[derive(Default)]
@@ -89,6 +92,10 @@ impl ElementContext {
         mem::take(&mut self.child_elements)
     }
 
+    pub fn param<T:'static>(&mut self, param: &str, default: T) -> T {
+        self.attributes.drop_or_default(param.as_tag(), default)
+    }
+
     pub fn params(&mut self) -> Attributes {
         mem::take(&mut self.attributes)
     }
@@ -125,4 +132,95 @@ pub mod internal {
         }
         data
     }
+}
+
+pub trait IntoContent {
+    fn into_content(self, world: &mut World) -> Vec<Entity>;
+}
+
+impl IntoContent for String {
+    fn into_content(self, world: &mut World) -> Vec<Entity> {
+        let text_entity = world.spawn().id();
+        internal::push_text(world, text_entity, self);
+        world
+            .resource::<TextElementBuilder>().clone()
+            .build(world);
+        internal::pop_context(world);
+        vec![text_entity]
+    }
+}
+
+impl IntoContent for Vec<Entity> {
+    fn into_content(self, _world: &mut World) -> Vec<Entity> {
+        self
+    }
+}
+
+impl<T: Iterator, F: Fn(T::Item) -> ElementsBuilder> IntoContent for ExpandElements<T, F> {
+    fn into_content(self, world: &mut World) -> Vec<Entity> {
+        let mut result = vec![];
+        for builder in self {
+            let entity = world.spawn().id();
+            result.push(entity.clone());
+            builder.with_entity(entity)(world);
+        }
+        result
+    }
+}
+
+impl IntoContent for Vec<ElementsBuilder> {
+    fn into_content(self, world: &mut World) -> Vec<Entity> {
+        let mut result = vec![];
+        for builder in self {
+            let entity = world.spawn().id();
+            result.push(entity.clone());
+            builder.with_entity(entity)(world);
+        }
+        result
+    }
+}
+
+impl IntoContent for BoxedSystem<(), ElementsBuilder> {
+    fn into_content(self, world: &mut World) -> Vec<Entity> {
+        vec![]
+    }
+}
+
+pub struct ExpandElements<I:Iterator, F:Fn(I::Item) -> ElementsBuilder> {
+    mapper: F,
+    previous: I
+}
+
+impl<I, F> Iterator for ExpandElements<I, F>
+where
+    I: Iterator,
+    F:Fn(I::Item) -> ElementsBuilder
+{
+    type Item = ElementsBuilder;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(x) = self.previous.next() {
+            return Some((self.mapper)(x));
+        }
+        None
+    }
+}
+
+pub trait ExpandElementsExt: Iterator {
+    fn elements<F:Fn(Self::Item) -> ElementsBuilder>(self, mapper:F) -> ExpandElements<Self, F> 
+    where
+        Self: Sized
+    {
+        ExpandElements { mapper, previous: self }
+
+    }
+}
+
+impl<I: Iterator> ExpandElementsExt for I {}
+
+ 
+// impl<I: Iterator> ExpandExt for I {}
+
+fn test() {
+    // ["1", "2"].iter().elements(|e| bsx!{ <el>{e}</el>})
 }

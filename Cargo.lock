@@ -956,6 +956,7 @@ dependencies = [
  "lazy_static",
  "smallvec",
  "tagstr",
+ "tagstr_core",
 ]
 
 [[package]]
@@ -967,6 +968,7 @@ dependencies = [
  "proc-macro2",
  "procout",
  "quote",
+ "syn",
  "syn-rsx",
 ]
 
@@ -3276,13 +3278,14 @@ dependencies = [
 
 [[package]]
 name = "syn-rsx"
-version = "0.8.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d793e849cad8b35561e8d9652ff5269d19231b7037977863b50500651952ccc"
+checksum = "0b7b0f81c7d3e9bbe4b3005599a3e0b0bbb27bd3514f2b0567b478cc548c3736"
 dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+ "thiserror",
 ]
 
 [[package]]
@@ -3319,6 +3322,7 @@ name = "tagstr_macro"
 version = "0.1.0"
 dependencies = [
  "quote",
+ "syn",
  "tagstr_core",
 ]
 

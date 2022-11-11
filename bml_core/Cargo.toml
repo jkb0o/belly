@@ -12,3 +12,4 @@ cssparser = "0.29.6"
 lazy_static = "1.4.0"
 smallvec = "1.10.0"
 tagstr = { path = "../tagstr" }
+tagstr_core = { path = "../tagstr_core" }

@@ -841,7 +841,7 @@ checksum = "f6e9aa1866c1cf7ee000f281ce9e90d02d701f5c7380a107252017e58e2f5246"
 dependencies = [
  "ahash 0.7.6",
  "getrandom",
- "hashbrown",
+ "hashbrown 0.12.3",
  "instant",
  "tracing",
  "uuid",
@@ -937,6 +937,8 @@ dependencies = [
  "cssparser",
  "lazy_static",
  "smallvec",
+ "tagstr",
+ "tagstr_core",
 ]
 
 [[package]]
@@ -1787,7 +1789,7 @@ checksum = "0b0c02e1ba0bdb14e965058ca34e09c020f8e507a760df1121728e0aef68d57a"
 dependencies = [
  "bitflags",
  "gpu-descriptor-types",
- "hashbrown",
+ "hashbrown 0.12.3",
 ]
 
 [[package]]
@@ -1837,6 +1839,15 @@ checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 dependencies = [
  "ahash 0.7.6",
  "serde",
+]
+
+[[package]]
+name = "hashbrown"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33ff8ae62cd3a9102e5637afc8452c55acf3844001bd5374e0b0bd7b6616c038"
+dependencies = [
+ "ahash 0.8.1",
 ]
 
 [[package]]
@@ -1924,7 +1935,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10a35a97730320ffe8e2d410b5d3b69279b98d2c14bdb8b70ea89ecf7888d41e"
 dependencies = [
  "autocfg",
- "hashbrown",
+ "hashbrown 0.12.3",
 ]
 
 [[package]]
@@ -3143,6 +3154,31 @@ dependencies = [
  "hash32-derive",
  "num-traits",
  "typenum",
+]
+
+[[package]]
+name = "tagstr"
+version = "0.1.0"
+dependencies = [
+ "tagstr_core",
+ "tagstr_macro",
+]
+
+[[package]]
+name = "tagstr_core"
+version = "0.1.0"
+dependencies = [
+ "hashbrown 0.13.1",
+ "lazy_static",
+]
+
+[[package]]
+name = "tagstr_macro"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn",
+ "tagstr_core",
 ]
 
 [[package]]

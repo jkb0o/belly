@@ -12,7 +12,7 @@ use smallvec::SmallVec;
 mod colors;
 pub (crate) mod impls;
 
-use crate::element::*;
+use crate::{element::*, ElementsError};
 use crate::tags::*;
 
 
@@ -338,7 +338,7 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
     ///
     /// This function is called only once, on the first time a matching property is found while applying style rule.
     /// If an error is returned, it is also cached so no more attempt are made.
-    fn parse(values: &PropertyValues) -> Result<Self::Cache, String>;
+    fn parse(values: &PropertyValues) -> Result<Self::Cache, ElementsError>;
 
     /// Applies on the given [`Components`](Property::Components) the [`Cache`](Property::Cache) value.
     /// Additionally, an [`AssetServer`] and [`Commands`] parameters are provided for more complex use cases.

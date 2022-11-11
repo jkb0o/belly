@@ -17,6 +17,11 @@ pub struct BsxPlugin;
 
 use crate::builders::*;
 pub use context::BuildingContext;
+pub use property::Property;
+pub use tagstr::*;
+pub use context::IntoContent;
+pub use context::ExpandElements;
+pub use context::ExpandElementsExt;
 
 impl Plugin for BsxPlugin {
     fn build(&self, app: &mut App) {
@@ -27,6 +32,8 @@ impl Plugin for BsxPlugin {
 
         // TODO: may be desabled with feature
         app.add_startup_system(setup_default_font);
+
+        register_properties(app);
     }
 }
 
@@ -48,6 +55,8 @@ fn register_properties(app: &mut bevy::prelude::App) {
     app.register_property::<RightProperty>();
     app.register_property::<TopProperty>();
     app.register_property::<BottomProperty>();
+    app.register_property::<MarginLeftProperty>();
+    app.register_property::<PaddingLeftProperty>();
     app.register_property::<WidthProperty>();
     app.register_property::<HeightProperty>();
     app.register_property::<MinWidthProperty>();
@@ -193,5 +202,25 @@ impl ElementsBuilder {
         move |world: &mut World| {
             (self.builder)(world, entity);
         }
+    }
+}
+
+/// Utility trait which adds the [`register_property`](RegisterProperty::register_property) function on [`App`](bevy::prelude::App) to add a [`Property`] parser.
+///
+/// You need to register only custom properties which implements [`Property`] trait.
+pub trait RegisterProperty {
+    fn register_property<T>(&mut self) -> &mut Self
+    where
+        T: Property + 'static;
+}
+
+impl RegisterProperty for bevy::prelude::App {
+    fn register_property<T>(&mut self) -> &mut Self
+    where
+        T: Property + 'static,
+    {
+        self.add_system(T::apply_defaults /* .label(EcssSystem::Apply) */);
+
+        self
     }
 }

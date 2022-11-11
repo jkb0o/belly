@@ -11,7 +11,8 @@ proc-macro = true
 [dependencies]
 bevy = "0.8.1"
 quote = "1.0.21"
-syn-rsx = "0.8.1"
+syn-rsx = "0.9.0"
 bml_core = { path = "../bml_core" }
 proc-macro2 = "1.0.47"
 procout = "0.1.13"
+syn = "1.0.103"
