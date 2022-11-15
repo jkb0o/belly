@@ -340,6 +340,10 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
     /// If an error is returned, it is also cached so no more attempt are made.
     fn parse(values: &PropertyValues) -> Result<Self::Cache, ElementsError>;
 
+    fn validate(values: &PropertyValues) -> Result<(), ElementsError> {
+        Self::parse(values).map(|_| ())
+    }
+
     /// Applies on the given [`Components`](Property::Components) the [`Cache`](Property::Cache) value.
     /// Additionally, an [`AssetServer`] and [`Commands`] parameters are provided for more complex use cases.
     ///
@@ -396,6 +400,11 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
             }
         }
     }
+}
+
+pub trait CompoundProperty: Default + Sized + Send + Sync + 'static {
+    fn name() -> Tag;
+    fn parse(values: PropertyValues) -> Result<HashMap<Tag, PropertyValues>, ElementsError>;
 }
 
 

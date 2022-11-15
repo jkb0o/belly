@@ -1,10 +1,16 @@
+use std::any::TypeId;
 use std::error::Error;
 use std::fmt::Display;
+use std::sync::Arc;
 
+use bevy::ecs::component::ComponentId;
+use bevy::utils::HashMap;
 use bevy::{
     ecs::system::EntityCommands,
     prelude::*
 };
+use bevy_inspector_egui::egui::mutex::RwLock;
+use property::PropertyValues;
 
 pub mod attributes;
 pub mod tags;
@@ -12,6 +18,7 @@ pub mod context;
 pub mod builders;
 pub mod element;
 pub mod property;
+pub mod css;
 
 pub struct BsxPlugin;
 
@@ -205,6 +212,33 @@ impl ElementsBuilder {
     }
 }
 
+#[derive(Default, Clone)]
+pub (crate) struct PropertyValidator(Arc<RwLock<HashMap<Tag, Box<dyn Fn(&PropertyValues) -> Result<(), ElementsError>>>>>);
+impl PropertyValidator {
+    pub (crate) fn validate(&self, name: Tag, value: &PropertyValues) -> Result<(), ElementsError> {
+        self.0.read().get(&name)
+            .ok_or(ElementsError::UnsupportedProperty(name.to_string()))
+            .and_then(|validator| validator(value))
+    }
+}
+
+pub (crate) struct PropertyExtractor(Arc<RwLock<HashMap<Tag, Box<dyn Fn(PropertyValues) -> Result<HashMap<Tag, PropertyValues>, ElementsError>>>>>);
+impl PropertyExtractor {
+    pub (crate) fn is_compound_property(&self, name: Tag) -> bool {
+        self.0.read().contains_key(&name)
+    }
+
+    pub (crate) fn extract(&self, name: Tag, value: PropertyValues) -> Result<HashMap<Tag, PropertyValues>, ElementsError> {
+        self.0.read().get(&name)
+            .ok_or(ElementsError::UnsupportedProperty(name.to_string()))
+            .and_then(|extractor| extractor(value))
+    }
+}
+
+
+unsafe impl Send for PropertyValidator { }
+unsafe impl Sync for PropertyValidator { }
+
 /// Utility trait which adds the [`register_property`](RegisterProperty::register_property) function on [`App`](bevy::prelude::App) to add a [`Property`] parser.
 ///
 /// You need to register only custom properties which implements [`Property`] trait.
@@ -219,6 +253,10 @@ impl RegisterProperty for bevy::prelude::App {
     where
         T: Property + 'static,
     {
+        self.world.get_resource_or_insert_with(PropertyValidator::default)
+            .0.write().insert(T::name(), Box::new(|props| {
+                T::validate(props)
+            }));
         self.add_system(T::apply_defaults /* .label(EcssSystem::Apply) */);
 
         self

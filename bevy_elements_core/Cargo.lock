@@ -421,6 +421,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_elements_core"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy-inspector-egui",
+ "cssparser",
+ "lazy_static",
+ "smallvec",
+ "tagstr",
+ "tagstr_core",
+]
+
+[[package]]
 name = "bevy_encase_derive"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -927,19 +940,6 @@ name = "block"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d8c1fef690941d3e7788d328517591fecc684c084084702d6ff1641e993699a"
-
-[[package]]
-name = "bevy_elements_core"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "bevy-inspector-egui",
- "cssparser",
- "lazy_static",
- "smallvec",
- "tagstr",
- "tagstr_core",
-]
 
 [[package]]
 name = "bumpalo"
