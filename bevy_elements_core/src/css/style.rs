@@ -1,28 +1,30 @@
-use bevy::{prelude::default, utils::HashSet};
-use smallvec::SmallVec;
+use bevy::{
+    prelude::{default, Changed, Entity, Parent, Query},
+    utils::HashSet,
+};
+use smallvec::{SmallVec, smallvec};
 use tagstr::Tag;
 
+use crate::element::Element;
 
-pub (crate) struct StyleRule {
-
-}
+pub(crate) struct StyleRule {}
 
 #[derive(Default)]
 struct SelectorIndex(Option<usize>);
 
-pub (crate) enum SelectorElement {
+pub(crate) enum SelectorElement {
     AnyChild,
     Id(Tag),
     Class(Tag),
     Tag(Tag),
-    Attribute(Tag)
+    Attribute(Tag),
 }
 
 impl SelectorElement {
     pub fn is_any_child(&self) -> bool {
         match self {
             SelectorElement::AnyChild => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -36,7 +38,7 @@ impl SelectorElement {
             SelectorElement::Attribute(attr) => node.has_attribute(attr),
             SelectorElement::Tag(tag) => node.tag() == *tag,
             SelectorElement::Class(class) => node.has_class(class),
-            _ => false
+            _ => false,
         }
     }
 }
@@ -45,12 +47,15 @@ type SelectorElements = SmallVec<[SelectorElement; 8]>;
 
 pub struct SelectorSlice<'a> {
     offset: usize,
-    elements: &'a SelectorElements
+    elements: &'a SelectorElements,
 }
 
 impl<'a> SelectorSlice<'a> {
     fn new(elements: &'a SelectorElements) -> SelectorSlice<'a> {
-        SelectorSlice { elements, offset: 0 }
+        SelectorSlice {
+            elements,
+            offset: 0,
+        }
     }
     fn next(&self) -> Option<SelectorSlice<'a>> {
         let mut offset = self.offset;
@@ -63,7 +68,7 @@ impl<'a> SelectorSlice<'a> {
                 return Some(SelectorSlice { offset, elements });
             }
         }
-        
+
         while offset < elements.len() && !elements[offset].is_any_child() {
             offset += 1;
         }
@@ -98,34 +103,38 @@ impl<'a> SelectorSlice<'a> {
         }
         true
     }
-
 }
 
 #[derive(Default)]
-pub (crate) struct Selector {
+pub(crate) struct Selector {
     index: SelectorIndex,
-    elements: SelectorElements
+    elements: SelectorElements,
 }
-
 
 impl Selector {
     pub fn new(mut elements: SelectorElements) -> Selector {
-        Selector { elements, ..default() }
+        Selector {
+            elements,
+            ..default()
+        }
     }
 
     pub fn slice(&self) -> SelectorSlice {
-        SelectorSlice { offset: 0, elements: &self.elements }
+        SelectorSlice {
+            offset: 0,
+            elements: &self.elements,
+        }
     }
 
     pub fn matches(&self, branch: impl EmlBranch) -> bool {
         let slice = SelectorSlice::new(&self.elements);
-        branch.root().fits(&slice)
+        branch.tail().fits(&slice)
     }
 }
 
 pub trait EmlBranch {
     type Node: EmlNode;
-    fn root(&self) -> Self::Node;
+    fn tail(&self) -> Self::Node;
 }
 
 pub trait EmlNode: Sized {
@@ -152,7 +161,7 @@ pub trait EmlNode: Sized {
                 (None, None) => true,
                 (Some(next_node), Some(next_slice)) => next_node.fits(&next_slice),
                 (Some(_node), None) => true,
-                (None, Some(_slice)) => false
+                (None, Some(_slice)) => false,
             }
         } else {
             false
@@ -160,52 +169,74 @@ pub trait EmlNode: Sized {
     }
 }
 
-struct TestBranch(Vec<TestNodeData>);
+pub struct ElementsBranch<'e>(SmallVec<[&'e Element; 12]>);
 
-impl<'a> EmlBranch for &'a TestBranch {
-    type Node = TestNode<'a>;
-
-    fn root(&self) -> Self::Node {
-        TestNode { 
-            index: 0,
-            branch: self
-        }
-    }
-   
+pub struct ElementNode<'b, 'e> {
+    idx: usize,
+    branch: &'b ElementsBranch<'e>,
 }
 
-#[derive(Default)]
-struct TestNodeData {
-    id: Option<Tag>,
-    tag: Tag,
-    classes: HashSet<Tag>,
-    attributes: HashSet<Tag>
-}
-
-struct TestNode<'a> {
-    index: usize,
-    branch: &'a TestBranch
-}
-
-impl<'a> EmlNode for TestNode<'a> {
+impl<'b, 'e> EmlNode for ElementNode<'b, 'e> {
     fn id(&self) -> Option<Tag> {
-        self.branch.0[self.index].id
+        self.branch.0[self.idx].id
     }
     fn tag(&self) -> Tag {
-        self.branch.0[self.index].tag
+        self.branch.0[self.idx].name
     }
-    fn has_attribute(&self, tag: &Tag) -> bool {
-        self.branch.0[self.index].attributes.contains(tag)
-    }
+
     fn has_class(&self, class: &Tag) -> bool {
-        self.branch.0[self.index].classes.contains(class)
+        self.branch.0[self.idx].classes.contains(class)
     }
+
+    fn has_attribute(&self, tag: &Tag) -> bool {
+        false
+    }
+
     fn next(&self) -> Option<Self> {
-        let index = self.index + 1;
-        if index >= self.branch.0.len() {
+        let idx = self.idx + 1;
+        let branch = self.branch;
+        if idx >= branch.0.len() {
             None
         } else {
-            Some(TestNode { index, branch: self.branch })
+            Some(ElementNode { idx, branch })
+        }
+    }
+}
+
+impl<'b, 'e> EmlBranch for &'b ElementsBranch<'e> {
+    type Node = ElementNode<'b, 'e>;
+
+    fn tail(&self) -> Self::Node {
+        ElementNode {
+            idx: 0,
+            branch: *self,
+        }
+    }
+}
+
+fn _example(
+    entities: Query<Entity, Changed<Element>>,
+    parents: Query<&Parent>,
+    elements: Query<&Element>,
+) {
+    for entity in entities.iter() {
+        // build branch for each entity
+        let mut branch = smallvec![];
+        let mut tail = entity;
+        while let Ok(element) = elements.get(tail) {
+            branch.push(element);
+            if let Ok(parent) = parents.get(tail) {
+                tail = parent.get();
+            } else {
+                break;
+            }
+        }
+        let branch = ElementsBranch(branch);
+
+        // can now find all matching rules
+        let selector: Selector = "div span".into();
+        if selector.matches(&branch) {
+            // apply rules here
         }
     }
 }
@@ -224,26 +255,34 @@ impl From<&str> for Selector {
         let mut next = NEXT_TAG;
         while let Ok(token) = parser.next_including_whitespace() {
             match token {
-                Ident(v) => { 
+                Ident(v) => {
                     match next {
-                        NEXT_TAG => selector.elements.insert(0, SelectorElement::Tag(v.to_string().as_tag())),
-                        NEXT_CLASS => selector.elements.insert(0, SelectorElement::Class(v.to_string().as_tag())),
-                        NEXT_ATTR => selector.elements.insert(0, SelectorElement::Attribute(v.to_string().as_tag())),
-                        _ => panic!("Invalid NEXT_TAG")
+                        NEXT_TAG => selector
+                            .elements
+                            .insert(0, SelectorElement::Tag(v.to_string().as_tag())),
+                        NEXT_CLASS => selector
+                            .elements
+                            .insert(0, SelectorElement::Class(v.to_string().as_tag())),
+                        NEXT_ATTR => selector
+                            .elements
+                            .insert(0, SelectorElement::Attribute(v.to_string().as_tag())),
+                        _ => panic!("Invalid NEXT_TAG"),
                     };
                     next = NEXT_TAG;
-                },
+                }
                 IDHash(v) => {
                     if v.is_empty() {
                         panic!("Invalid #id selector");
                     } else {
-                        selector.elements.insert(0, SelectorElement::Id(v.to_string().as_tag()));
+                        selector
+                            .elements
+                            .insert(0, SelectorElement::Id(v.to_string().as_tag()));
                     }
                 }
                 WhiteSpace(_) => selector.elements.insert(0, SelectorElement::AnyChild),
                 Colon => next = NEXT_ATTR,
                 Delim(c) if *c == '.' => next = NEXT_CLASS,
-                _ => panic!("Unexpected token: {}", token.to_css_string())
+                _ => panic!("Unexpected token: {}", token.to_css_string()),
             }
         }
 
@@ -251,49 +290,99 @@ impl From<&str> for Selector {
     }
 }
 
-impl From<Selector> for TestBranch {
-    fn from(selector: Selector) -> Self {
-        let mut branch = TestBranch(vec!());
-        let mut node = TestNodeData::default();
-        let mut has_values = false;
-        let void = |_| ();
-        for element in selector.elements {
-            match element {
-                SelectorElement::AnyChild => {
-                    if has_values {
-                        branch.0.push(node);
-                        node = TestNodeData::default();
-                    }
-                    has_values = false;
-                    continue;
-                    
-                },
-                SelectorElement::Attribute(attr) => void(node.attributes.insert(attr)),
-                SelectorElement::Class(class) => void(node.classes.insert(class)),
-                SelectorElement::Id(id) => node.id = Some(id),
-                SelectorElement::Tag(tag) => node.tag = tag
-            };
-            has_values = true;
-        }
-        if has_values {
-            branch.0.push(node);
-        }
-        branch
-    }
-}
-
-impl From<&str> for TestBranch {
-    fn from(selector: &str) -> Self {
-        let selector: Selector = selector.into();
-        selector.into()
-    }
-}
-
 #[cfg(test)]
 mod test {
-    use super::TestBranch;
     use super::*;
     use tagstr::*;
+
+    struct TestBranch(Vec<TestNodeData>);
+
+    impl<'a> EmlBranch for &'a TestBranch {
+        type Node = TestNode<'a>;
+
+        fn tail(&self) -> Self::Node {
+            TestNode {
+                index: 0,
+                branch: self,
+            }
+        }
+    }
+
+    #[derive(Default)]
+    struct TestNodeData {
+        id: Option<Tag>,
+        tag: Tag,
+        classes: HashSet<Tag>,
+        attributes: HashSet<Tag>,
+    }
+
+    struct TestNode<'a> {
+        index: usize,
+        branch: &'a TestBranch,
+    }
+
+    impl<'a> EmlNode for TestNode<'a> {
+        fn id(&self) -> Option<Tag> {
+            self.branch.0[self.index].id
+        }
+        fn tag(&self) -> Tag {
+            self.branch.0[self.index].tag
+        }
+        fn has_attribute(&self, tag: &Tag) -> bool {
+            self.branch.0[self.index].attributes.contains(tag)
+        }
+        fn has_class(&self, class: &Tag) -> bool {
+            self.branch.0[self.index].classes.contains(class)
+        }
+        fn next(&self) -> Option<Self> {
+            let index = self.index + 1;
+            if index >= self.branch.0.len() {
+                None
+            } else {
+                Some(TestNode {
+                    index,
+                    branch: self.branch,
+                })
+            }
+        }
+    }
+
+    impl From<Selector> for TestBranch {
+        fn from(selector: Selector) -> Self {
+            let mut branch = TestBranch(vec![]);
+            let mut node = TestNodeData::default();
+            let mut has_values = false;
+            let void = |_| ();
+            for element in selector.elements {
+                match element {
+                    SelectorElement::AnyChild => {
+                        if has_values {
+                            branch.0.push(node);
+                            node = TestNodeData::default();
+                        }
+                        has_values = false;
+                        continue;
+                    }
+                    SelectorElement::Attribute(attr) => void(node.attributes.insert(attr)),
+                    SelectorElement::Class(class) => void(node.classes.insert(class)),
+                    SelectorElement::Id(id) => node.id = Some(id),
+                    SelectorElement::Tag(tag) => node.tag = tag,
+                };
+                has_values = true;
+            }
+            if has_values {
+                branch.0.push(node);
+            }
+            branch
+        }
+    }
+
+    impl From<&str> for TestBranch {
+        fn from(selector: &str) -> Self {
+            let selector: Selector = selector.into();
+            selector.into()
+        }
+    }
 
     #[test]
     fn selector_construct_test_branch() {
@@ -357,11 +446,15 @@ mod test {
             ".green .red",
             "#id:pressed .red",
             "div span span",
-            ".red .red"
+            ".red .red",
         ];
         for src in valid_selectors {
             let selector: Selector = src.clone().into();
-            assert!(selector.matches(&branch), "Selector '{}' should be matched", src);
+            assert!(
+                selector.matches(&branch),
+                "Selector '{}' should be matched",
+                src
+            );
         }
         let invalid_selectors: &[&str] = &[
             "#id",
@@ -374,11 +467,15 @@ mod test {
             "#id div",
             "#id.red .red .green",
             "div span span .red",
-            ".red .green :pressed"
+            ".red .green :pressed",
         ];
         for src in invalid_selectors {
             let selector: Selector = src.clone().into();
-            assert!(!selector.matches(&branch), "Selector '{}' shouldn't be matched", src);
+            assert!(
+                !selector.matches(&branch),
+                "Selector '{}' shouldn't be matched",
+                src
+            );
         }
     }
 }

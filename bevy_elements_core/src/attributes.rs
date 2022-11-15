@@ -420,7 +420,7 @@ impl Attributes {
             .map(|s| s.as_tag())
             .collect()
     }
-    pub fn id(&mut self) -> Option<String> {
+    pub fn id(&mut self) -> Option<Tag> {
         self.drop(tags::id())
     }
     pub fn get<T: 'static>(&self, key: Tag) -> Option<&T> {

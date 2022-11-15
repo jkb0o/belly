@@ -17,7 +17,7 @@ pub enum DisplayElement {
 #[derive(Component, Default)]
 pub struct Element {
     pub name: Tag,
-    pub id: Option<String>,
+    pub id: Option<Tag>,
     pub classes: HashSet<Tag>,
     pub display: DisplayElement,
     pub content: Option<Entity>,
