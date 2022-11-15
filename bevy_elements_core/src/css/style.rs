@@ -151,11 +151,9 @@ pub trait EmlNode: Sized {
             match (self.next(), selector.next()) {
                 (None, None) => true,
                 (Some(next_node), Some(next_slice)) => next_node.fits(&next_slice),
-                (Some(next_node), None) => next_node.fits(selector),
+                (Some(_node), None) => true,
                 (None, Some(_slice)) => false
             }
-        } else if let Some(next) = self.next() {
-            next.fits(selector)
         } else {
             false
         }
@@ -228,9 +226,9 @@ impl From<&str> for Selector {
             match token {
                 Ident(v) => { 
                     match next {
-                        NEXT_TAG => selector.elements.push(SelectorElement::Tag(v.to_string().as_tag())),
-                        NEXT_CLASS => selector.elements.push(SelectorElement::Class(v.to_string().as_tag())),
-                        NEXT_ATTR => selector.elements.push(SelectorElement::Attribute(v.to_string().as_tag())),
+                        NEXT_TAG => selector.elements.insert(0, SelectorElement::Tag(v.to_string().as_tag())),
+                        NEXT_CLASS => selector.elements.insert(0, SelectorElement::Class(v.to_string().as_tag())),
+                        NEXT_ATTR => selector.elements.insert(0, SelectorElement::Attribute(v.to_string().as_tag())),
                         _ => panic!("Invalid NEXT_TAG")
                     };
                     next = NEXT_TAG;
@@ -239,10 +237,10 @@ impl From<&str> for Selector {
                     if v.is_empty() {
                         panic!("Invalid #id selector");
                     } else {
-                        selector.elements.push(SelectorElement::Id(v.to_string().as_tag()));
+                        selector.elements.insert(0, SelectorElement::Id(v.to_string().as_tag()));
                     }
                 }
-                WhiteSpace(_) => selector.elements.push(SelectorElement::AnyChild),
+                WhiteSpace(_) => selector.elements.insert(0, SelectorElement::AnyChild),
                 Colon => next = NEXT_ATTR,
                 Delim(c) if *c == '.' => next = NEXT_CLASS,
                 _ => panic!("Unexpected token: {}", token.to_css_string())
@@ -327,11 +325,11 @@ mod test {
         // complex
         let branch: TestBranch = " div#id.cls span:attr ".into();
         assert_eq!(branch.0.len(), 2);
-        assert_eq!(branch.0[0].tag, "div".as_tag());
-        assert_eq!(branch.0[1].tag, "span".as_tag());
-        assert_eq!(branch.0[0].id, Some("id".as_tag()));
-        assert_eq!(branch.0[0].classes.contains(&"cls".as_tag()), true);
-        assert_eq!(branch.0[1].attributes.contains(&"attr".as_tag()), true);
+        assert_eq!(branch.0[1].tag, "div".as_tag());
+        assert_eq!(branch.0[0].tag, "span".as_tag());
+        assert_eq!(branch.0[1].id, Some("id".as_tag()));
+        assert_eq!(branch.0[1].classes.contains(&"cls".as_tag()), true);
+        assert_eq!(branch.0[0].attributes.contains(&"attr".as_tag()), true);
     }
 
     #[test]
