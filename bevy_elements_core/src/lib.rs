@@ -212,9 +212,13 @@ impl ElementsBuilder {
     }
 }
 
+pub (crate) type ValidateProperty =  Box<dyn Fn(&PropertyValues) -> Result<(), ElementsError>>;
 #[derive(Default, Clone)]
-pub (crate) struct PropertyValidator(Arc<RwLock<HashMap<Tag, Box<dyn Fn(&PropertyValues) -> Result<(), ElementsError>>>>>);
+pub (crate) struct PropertyValidator(Arc<RwLock<HashMap<Tag, ValidateProperty>>>);
 impl PropertyValidator {
+    pub (crate) fn new(rules: HashMap<Tag, ValidateProperty>) -> PropertyValidator {
+        PropertyValidator(Arc::new(RwLock::new(rules)))
+    }
     pub (crate) fn validate(&self, name: Tag, value: &PropertyValues) -> Result<(), ElementsError> {
         self.0.read().get(&name)
             .ok_or(ElementsError::UnsupportedProperty(name.to_string()))
@@ -222,8 +226,13 @@ impl PropertyValidator {
     }
 }
 
-pub (crate) struct PropertyExtractor(Arc<RwLock<HashMap<Tag, Box<dyn Fn(PropertyValues) -> Result<HashMap<Tag, PropertyValues>, ElementsError>>>>>);
+pub (crate) type ExtractProperty = Box<dyn Fn(PropertyValues) -> Result<HashMap<Tag, PropertyValues>, ElementsError>>;
+#[derive(Default, Clone)]
+pub (crate) struct PropertyExtractor(Arc<RwLock<HashMap<Tag, ExtractProperty>>>);
 impl PropertyExtractor {
+    pub (crate) fn new(rules: HashMap<Tag, ExtractProperty>) -> PropertyExtractor {
+        PropertyExtractor(Arc::new(RwLock::new(rules)))
+    }
     pub (crate) fn is_compound_property(&self, name: Tag) -> bool {
         self.0.read().contains_key(&name)
     }

@@ -1,13 +1,16 @@
 use bevy::{
     prelude::{default, Changed, Entity, Parent, Query},
-    utils::HashSet,
+    utils::{HashSet, HashMap},
 };
 use smallvec::{SmallVec, smallvec};
 use tagstr::Tag;
 
-use crate::element::Element;
+use crate::{element::Element, property::PropertyValues};
 
-pub(crate) struct StyleRule {}
+pub(crate) struct StyleRule {
+    pub(crate) selector: Selector,
+    pub(crate) properties: HashMap<Tag, PropertyValues>
+}
 
 #[derive(Default)]
 struct SelectorIndex(Option<usize>);
@@ -45,19 +48,19 @@ impl SelectorElement {
 
 type SelectorElements = SmallVec<[SelectorElement; 8]>;
 
-pub struct SelectorSlice<'a> {
+pub struct SelectorEntry<'a> {
     offset: usize,
     elements: &'a SelectorElements,
 }
 
-impl<'a> SelectorSlice<'a> {
-    fn new(elements: &'a SelectorElements) -> SelectorSlice<'a> {
-        SelectorSlice {
+impl<'a> SelectorEntry<'a> {
+    fn new(elements: &'a SelectorElements) -> SelectorEntry<'a> {
+        SelectorEntry {
             elements,
             offset: 0,
         }
     }
-    fn next(&self) -> Option<SelectorSlice<'a>> {
+    fn next(&self) -> Option<SelectorEntry<'a>> {
         let mut offset = self.offset;
         let elements = self.elements;
         if elements[offset].is_any_child() {
@@ -65,7 +68,7 @@ impl<'a> SelectorSlice<'a> {
             if offset >= elements.len() {
                 return None;
             } else {
-                return Some(SelectorSlice { offset, elements });
+                return Some(SelectorEntry { offset, elements });
             }
         }
 
@@ -76,8 +79,20 @@ impl<'a> SelectorSlice<'a> {
         if offset >= elements.len() {
             return None;
         } else {
-            return Some(SelectorSlice { offset, elements });
+            return Some(SelectorEntry { offset, elements });
         }
+    }
+
+    pub fn len(&self) -> u8 {
+        let mut len = 0;
+        for element in self.elements.iter().skip(self.offset) {
+            if element.is_any_child() {
+                return len;
+            } else {
+                len += 1;
+            }
+        }
+        len
     }
 
     pub fn is_any_child(&self) -> bool {
@@ -88,6 +103,39 @@ impl<'a> SelectorSlice<'a> {
         !self.is_any_child()
     }
 
+    pub fn has_id(&self, id: Tag) -> bool {
+        for element in self.elements.iter().skip(self.offset) {
+            match element {
+                SelectorElement::AnyChild => return false,
+                SelectorElement::Id(element_id) if id == *element_id => return true,
+                _ => continue
+            }
+        }
+        false
+    }
+    
+    pub fn has_class(&self, class: Tag) -> bool {
+        for element in self.elements.iter().skip(self.offset) {
+            match element {
+                SelectorElement::AnyChild => return false,
+                SelectorElement::Class(element_class) if class == *element_class => return true,
+                _ => continue
+            }
+        }
+        false
+    }
+
+    pub fn has_tag(&self, tag: Tag) -> bool {
+        for element in self.elements.iter().skip(self.offset) {
+            match element {
+                SelectorElement::AnyChild => return false,
+                SelectorElement::Tag(element_tag) if tag == *element_tag => return true,
+                _ => continue
+            }
+        }
+        false
+    }
+    
     pub fn describes_node(&self, node: &impl EmlNode) -> bool {
         let mut offset = self.offset;
         let elements = self.elements;
@@ -119,15 +167,27 @@ impl Selector {
         }
     }
 
-    pub fn slice(&self) -> SelectorSlice {
-        SelectorSlice {
+    pub fn tail(&self) -> SelectorEntry {
+        SelectorEntry {
             offset: 0,
             elements: &self.elements,
         }
     }
 
+    pub fn entries(&self) -> SmallVec<[SelectorEntry; 8]> {
+        let mut entries = smallvec![];
+        let mut tail = Some(self.tail());
+        while let Some(entry) =  tail {
+            tail = entry.next();
+            if entry.is_value() {
+                entries.insert(0, entry);
+            }
+        }
+        entries
+    }
+
     pub fn matches(&self, branch: impl EmlBranch) -> bool {
-        let slice = SelectorSlice::new(&self.elements);
+        let slice = SelectorEntry::new(&self.elements);
         branch.tail().fits(&slice)
     }
 }
@@ -145,7 +205,7 @@ pub trait EmlNode: Sized {
 
     fn next(&self) -> Option<Self>;
 
-    fn fits(&self, selector: &SelectorSlice) -> bool {
+    fn fits(&self, selector: &SelectorEntry) -> bool {
         if selector.is_any_child() {
             let next_selector = selector.next().unwrap();
             if self.fits(&next_selector) {
