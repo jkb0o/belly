@@ -19,6 +19,7 @@ pub mod builders;
 pub mod element;
 pub mod property;
 pub mod css;
+pub mod bind;
 
 pub struct BsxPlugin;
 
