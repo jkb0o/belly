@@ -24,3 +24,7 @@ pub struct Element {
     pub styles: HashMap<Tag, PropertyValues>,
 }
 
+impl Element {
+    pub fn invalidate(&mut self) { }
+}
+

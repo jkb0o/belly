@@ -1,21 +1,25 @@
 use bevy::{
-    prelude::{default, Changed, Entity, Parent, Query},
-    utils::{HashSet, HashMap},
+    prelude::{default, Changed, Entity, Parent, Query, Deref, Assets, AssetServer, Component, With, App, Transform, Mut, World, IntoSystem, System, Schedule, Stage, CoreStage, SystemStage, Local},
+    utils::{HashSet, HashMap}, reflect::TypeUuid, ecs::{system::{Command, BoxedSystem}, schedule::{IntoSystemDescriptor, ShouldRun}}, sprite::Sprite,
 };
+use std::{ops::Deref, sync::{RwLock, Arc}, any::TypeId};
 use smallvec::{SmallVec, smallvec};
 use tagstr::Tag;
 
-use crate::{element::Element, property::PropertyValues};
+use crate::{element::Element, property::PropertyValues, PropertyExtractor, PropertyValidator};
 
-pub(crate) struct StyleRule {
-    pub(crate) selector: Selector,
-    pub(crate) properties: HashMap<Tag, PropertyValues>
-}
+use super::{parser::StyleSheetParser, Styles};
 
 #[derive(Default)]
-struct SelectorIndex(Option<usize>);
+pub struct SelectorIndex(usize);
 
-pub(crate) enum SelectorElement {
+impl SelectorIndex {
+    pub fn new(value: usize) -> SelectorIndex {
+        SelectorIndex(value)
+    }
+}
+
+pub enum SelectorElement {
     AnyChild,
     Id(Tag),
     Class(Tag),
@@ -46,7 +50,7 @@ impl SelectorElement {
     }
 }
 
-type SelectorElements = SmallVec<[SelectorElement; 8]>;
+pub type SelectorElements = SmallVec<[SelectorElement; 8]>;
 
 pub struct SelectorEntry<'a> {
     offset: usize,
@@ -154,9 +158,10 @@ impl<'a> SelectorEntry<'a> {
 }
 
 #[derive(Default)]
-pub(crate) struct Selector {
-    index: SelectorIndex,
-    elements: SelectorElements,
+pub struct Selector {
+    pub index: SelectorIndex,
+    pub weight: u32,
+    pub elements: SelectorElements,
 }
 
 impl Selector {
@@ -229,12 +234,23 @@ pub trait EmlNode: Sized {
     }
 }
 
+#[derive(Default)]
 pub struct ElementsBranch<'e>(SmallVec<[&'e Element; 12]>);
 
+impl<'e> ElementsBranch<'e> {
+    pub fn new() -> ElementsBranch<'e> {
+        ElementsBranch::default()
+    }
+
+    pub fn insert(&mut self, element: &'e Element) {
+        self.0.push(element);
+    }
+}
 pub struct ElementNode<'b, 'e> {
     idx: usize,
     branch: &'b ElementsBranch<'e>,
 }
+
 
 impl<'b, 'e> EmlNode for ElementNode<'b, 'e> {
     fn id(&self) -> Option<Tag> {

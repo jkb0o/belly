@@ -8,7 +8,7 @@ use super::ElementsBuilder;
 use crate::property::*;
 use crate::tags::*;
 use bevy::{
-    ecs::{system::{EntityCommands, BoxedSystem}, schedule::IntoSystemDescriptor},
+    ecs::system::EntityCommands,
     prelude::*,
     utils::{hashbrown::hash_map::Drain, HashMap, HashSet},
 };

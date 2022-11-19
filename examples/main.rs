@@ -1,54 +1,9 @@
-// use bevy::{prelude::*, ecs::system::SystemParam};
-// pub struct Context {
-//     pub name: &'static str,
-//     pub element: Entity,
-//     pub child_elements: Vec<Entity>,
-// }
-
-// impl Context {
-//     pub fn new(name: &'static str, element: Entity) -> Context {
-//         Context {
-//             name, element,
-//             child_elements: vec![],
-//         }
-//     }
-// }
-
-// fn build_stuff(In(_): In<Context>) {
-//     ();
-// }
-
-// fn register_stuff_builder<Param, Marker, Func>(func: Func, world: &mut World)
-//     where 
-//         Func: SystemParamFunction<Context, (), Param, Marker>,
-//         Param: SystemParam + 'static,
-//         Marker: 'static,
-// {
-//     let entity = world.spawn().id();
-//     let ctx = Context::new("a", entity);
-//     // For the real world I store this system as 
-//     // resource into world and use it later
-//     let mut system = IntoSystem::into_system(func);
-//     system.run(ctx, world);
-// }
-
-// fn setup_things(mut commands: Commands) {
-//     commands.add(|world: &mut World| {
-//         register_stuff_builder(build_stuff, world);
-//     });
-// }
-
-// fn main() {
-//     App::new()
-//         .add_system(setup_things);
-// }
-
 use std::sync::Once;
 
 use bevy::{
     prelude::*, ecs::{schedule::IntoSystemDescriptor, system::{EntityCommands, BoxedSystem}}
 };
-use bevy_elements::*;
+use bevy_elements::{*, ess::Stylesheet};
 use bevy_inspector_egui::WorldInspectorPlugin;
 
 fn main() {
@@ -109,17 +64,6 @@ fn build_vbox(
             {content}
         </el>
     });
-    // let mut elem = commands.entity(ctx.element);
-    // elem.insert_bundle(NodeBundle {
-    //     color: UiColor(Color::NONE),
-    //     style: Style {
-    //         justify_content: JustifyContent::Center,
-    //         flex_direction: FlexDirection::ColumnReverse,
-    //         ..default()
-    //     },
-    //     ..default()
-    // }).push_children(&ctx.content());
-
 }
 
 fn build_hbox(    
@@ -146,7 +90,7 @@ fn build_window(
     let content = ctx.content();
     let header = ctx.param("title", "Title".to_string());
     commands.entity(ctx.element).with_elements(bsx! {
-        <vbox class="window" c:cool-window s:background-color="palevioletred" s:margin-left="100px" s:padding-left="100px">
+        <vbox class="window" c:cool-window s:background-color="palevioletred">
             <el class="window-header">
                 <el class="window-header-text">
                     {header}
@@ -171,6 +115,12 @@ fn setup(
     mut commands: Commands,
 ) {
     commands.spawn_bundle(Camera2dBundle::default());
+    commands.add(Stylesheet::parse(r#"
+        .winxxx {
+            padding-left: 20px;
+            margin-left: 20px;
+        }
+    "#));
     // let x = bsx! { };
 
     let transform = Transform::default();
@@ -178,7 +128,7 @@ fn setup(
 
     commands.spawn().with_elements(bsx! {
         <ui>
-            <window title="I'm a window!" s:height="400px" s:width="300px" with=(transform,Test)>
+            <window title="I'm a window!" c:win s:height="400px" s:width="300px" with=(transform,Test)>
                 <vbox>
                     "hello world!"
                     {elements.iter().elements(|e| { bsx! {

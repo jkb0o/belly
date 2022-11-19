@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{any::Any, hash::Hash};
 
 use bevy::{
     ecs::query::{QueryItem, WorldQuery},
@@ -12,23 +12,58 @@ use smallvec::SmallVec;
 mod colors;
 pub (crate) mod impls;
 
-use crate::{element::*, ElementsError};
+use crate::{element::*, ElementsError, ess::{Styles, Stylesheet, ElementsBranch}};
 use crate::tags::*;
 
 
 // pub(crate) mod impls;
 
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Hash)]
+pub struct Number([u8;4]);
+
+impl Number {
+    fn from_float(value: f32) -> Self {
+        Number(value.to_le_bytes())
+    }
+    fn to_float(&self) -> f32 {
+        f32::from_le_bytes(self.0)
+    }
+}
+
+impl From<f32> for Number {
+    fn from(v: f32) -> Self {
+        Number::from_float(v)
+    }
+}
+impl From<&f32> for Number {
+    fn from(v: &f32) -> Self {
+        Number::from_float(*v)
+    }
+}
+
+impl From<Number> for f32 {
+    fn from(v: Number) -> Self {
+        v.to_float()
+    }
+}
+
+impl From<&Number> for f32 {
+    fn from(v: &Number) -> Self {
+        v.to_float()
+    }
+}
+
 /// A property value token which was parsed from a CSS rule.
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Hash)]
 pub enum PropertyToken {
     /// A value which was parsed percent value, like `100%` or `73.23%`.
-    Percentage(f32),
+    Percentage(Number),
     /// A value which was parsed dimension value, like `10px` or `35em.
     ///
     /// Currently there is no distinction between [`length-values`](https://developer.mozilla.org/en-US/docs/Web/CSS/length).
-    Dimension(f32),
+    Dimension(Number),
     /// A numeric float value, like `31.1` or `43`.
-    Number(f32),
+    Number(Number),
     /// A plain identifier, like `none` or `center`.
     Identifier(String),
     /// A identifier prefixed by a hash, like `#001122`.
@@ -36,6 +71,17 @@ pub enum PropertyToken {
     /// A quoted string, like `"some value"`.
     String(String),
 }
+
+// impl Eq for PropertyToken { }
+// impl Hash for PropertyToken {
+//     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+//         match self {
+//             PropertyToken::Percentage(v) => state.
+//             PropertyToken::Dimension(v) =>
+//             PropertyToken::Number(v) => 
+//         }
+//     }
+// }
 
 impl<'i> TryFrom<Token<'i>> for PropertyToken {
     type Error = String;
@@ -46,17 +92,23 @@ impl<'i> TryFrom<Token<'i>> for PropertyToken {
             Token::Hash(val) => Ok(Self::Hash(val.to_string())),
             Token::IDHash(val) => Ok(Self::Hash(val.to_string())),
             Token::QuotedString(val) => Ok(Self::String(val.to_string())),
-            Token::Number { value, .. } => Ok(Self::Number(value)),
-            Token::Percentage { unit_value, .. } => Ok(Self::Percentage(unit_value * 100.0)),
-            Token::Dimension { value, .. } => Ok(Self::Dimension(value)),
+            Token::Number { value, .. } => Ok(Self::Number(value.into())),
+            Token::Percentage { unit_value, .. } => Ok(Self::Percentage((unit_value * 100.0).into())),
+            Token::Dimension { value, .. } => Ok(Self::Dimension(value.into())),
             token => Err(format!("Invalid token: {:?}", token)),
         }
     }
 }
 
 /// A list of [`PropertyToken`] which was parsed from a single property.
-#[derive(Debug, Default, Clone, Deref, PartialEq)]
+#[derive(Debug, Default, Clone, Deref, PartialEq, Eq, Hash)]
 pub struct PropertyValues(pub(crate) SmallVec<[PropertyToken; 8]>);
+
+impl From<&PropertyValues> for PropertyValues {
+    fn from(v: &PropertyValues) -> Self {
+        v.clone()
+    }
+}
 
 impl PropertyValues {
     /// Tries to parses the current values as a single [`String`].
@@ -111,8 +163,8 @@ impl PropertyValues {
     /// where former is converted to [`Val::Percent`] and latter is converted to [`Val::Px`].
     pub fn val(&self) -> Option<Val> {
         self.0.iter().find_map(|token| match token {
-            PropertyToken::Percentage(val) => Some(Val::Percent(*val)),
-            PropertyToken::Dimension(val) => Some(Val::Px(*val)),
+            PropertyToken::Percentage(val) => Some(Val::Percent(val.into())),
+            PropertyToken::Dimension(val) => Some(Val::Px(val.into())),
             _ => None,
         })
     }
@@ -125,7 +177,7 @@ impl PropertyValues {
         self.0.iter().find_map(|token| match token {
             PropertyToken::Percentage(val)
             | PropertyToken::Dimension(val)
-            | PropertyToken::Number(val) => Some(*val),
+            | PropertyToken::Number(val) => Some(val.into()),
             _ => None,
         })
     }
@@ -143,7 +195,7 @@ impl PropertyValues {
         self.0.iter().find_map(|token| match token {
             PropertyToken::Percentage(val)
             | PropertyToken::Dimension(val)
-            | PropertyToken::Number(val) => Some(Some(*val)),
+            | PropertyToken::Number(val) => Some(Some(val.into())),
             PropertyToken::Identifier(ident) => match ident.as_str() {
                 "none" => Some(None),
                 _ => None,
@@ -166,8 +218,8 @@ impl PropertyValues {
                 .iter()
                 .fold((None, 0), |(rect, idx), token| {
                     let val = match token {
-                        PropertyToken::Percentage(val) => Val::Percent(*val),
-                        PropertyToken::Dimension(val) => Val::Px(*val),
+                        PropertyToken::Percentage(val) => Val::Percent(val.into()),
+                        PropertyToken::Dimension(val) => Val::Px(val.into()),
                         _ => return (rect, idx),
                     };
                     let mut rect: UiRect<Val> = rect.unwrap_or_default();
@@ -237,19 +289,14 @@ pub enum CacheState<T> {
 // pub struct PropertyMeta<T: Property>(HashMap<u64, CachedProperties<T::Cache>>);
 
 #[derive(Default)]
-pub struct CachedDefaultProperties<T: Property>(HashMap<Entity, HashMap<Tag, CacheState<T::Cache>>>);
-impl <T:Property> CachedDefaultProperties<T> {
-    fn get_or_parse(&mut self, entity: &Entity, defaults: &HashMap<Tag, PropertyValues>) -> &CacheState<T::Cache>{
-        let cachemap = self.0.entry(entity.clone()).or_insert(Default::default());
-        cachemap.entry(T::name()).or_insert_with(|| {
-            if let Some(unparsed) = defaults.get(&T::name()) {
-                if let Ok(parsed) = T::parse(unparsed) {
-                    CacheState::Ok(parsed)
-                } else {
-                    CacheState::Error
-                }
+pub struct CachedProperties<T: Property>(HashMap<PropertyValues, CacheState<T::Cache>>);
+impl <T:Property> CachedProperties<T> {
+    fn get_or_parse(&mut self, value: &PropertyValues) -> &CacheState<T::Cache>{
+        self.0.entry_ref(value).or_insert_with(|| {
+            if let Ok(parsed) = T::parse(value) {
+                CacheState::Ok(parsed)
             } else {
-                CacheState::None
+                CacheState::Error
             }
         })
     }
@@ -389,14 +436,60 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
     // }
 
     fn apply_defaults(
-        mut defaults: Local<CachedDefaultProperties<Self>>,
-        mut elements: Query<(Entity, &Element, Self::Components), (Changed<Element>, Self::Filters)>,
+        mut cached_properties: Local<CachedProperties<Self>>,
+        mut components: Query<(Entity, Self::Components), (Changed<Element>, Self::Filters)>,
         mut commands: Commands,
-        asset_server: Res<AssetServer>
+        asset_server: Res<AssetServer>,
+        styles: Res<Styles>,
+        stylesheets: Res<Assets<Stylesheet>>,
+        parents: Query<&Parent>,
+        elements: Query<&Element>
     ) {
-        for (entity, element, components) in elements.iter_mut() {
-            if let CacheState::Ok(property) = defaults.get_or_parse(&entity, &element.styles) {
-                Self::apply(property, components, &asset_server, &mut commands)
+        if components.is_empty() {
+            return;
+        }
+        // TODO: this should be cached
+        let mut rules: Vec<_> = styles
+            .iter()
+            .filter_map(|h| stylesheets.get(h))
+            .flat_map(|s| s.iter())
+            .filter(|r| r.properties.contains_key(&Self::name()))
+            .collect();
+        rules.sort_by_key(|r| r.selector.weight);
+
+        for (entity, components) in components.iter_mut() {
+            let element = elements.get(entity);
+            if element.is_err() {
+                continue;
+            }
+            let element = element.unwrap();
+
+            // extract default value
+            let mut default = element.styles.get(&Self::name());
+
+            // compute branch
+            let mut branch = ElementsBranch::new();
+            let mut tail = entity;
+            while let Ok(element) = elements.get(tail) {
+                branch.insert(element);
+                if let Ok(parent) = parents.get(tail) {
+                    tail = parent.get();
+                } else {
+                    break;
+                }
+            }
+
+            // apply rules
+            let property = rules.iter()
+                .filter(|r| r.selector.matches(&branch))
+                .map(|r| r.properties.get(&Self::name()).unwrap())
+                .next()
+                .or(default);
+
+            if let Some(property) = property {
+                if let CacheState::Ok(property) = cached_properties.get_or_parse(property) {
+                    Self::apply(property, components, &asset_server, &mut commands);
+                }
             }
         }
     }
@@ -414,8 +507,8 @@ mod test {
     #[test]
     fn parse_value() {
         let expected = PropertyValues(SmallVec::from_vec(vec![
-            PropertyToken::Percentage(21.),
-            PropertyToken::Dimension(22.)
+            PropertyToken::Percentage(21f32.into()),
+            PropertyToken::Dimension(22f32.into())
         ]));
         let value = "21% 22px";
         assert_eq!(Ok(expected), value.try_into());

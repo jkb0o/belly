@@ -104,7 +104,7 @@ mod style {
     impl_style_single_value!("bottom", BottomProperty, Val, val, position.bottom);
     
     impl_style_single_value!("margin-left", MarginLeftProperty, Val, val, margin.left);
-    impl_style_single_value!("margin-left", PaddingLeftProperty, Val, val, padding.left);
+    impl_style_single_value!("padding-left", PaddingLeftProperty, Val, val, padding.left);
 
     impl_style_single_value!("width", WidthProperty, Val, val, size.width);
     impl_style_single_value!("height", HeightProperty, Val, val, size.height);

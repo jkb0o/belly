@@ -10,6 +10,7 @@ use bevy::{
     prelude::*
 };
 use bevy_inspector_egui::egui::mutex::RwLock;
+use ess::{Styles, EssPlugin};
 use property::PropertyValues;
 
 pub mod attributes;
@@ -18,7 +19,7 @@ pub mod context;
 pub mod builders;
 pub mod element;
 pub mod property;
-pub mod css;
+pub mod ess;
 pub mod bind;
 
 pub struct BsxPlugin;
@@ -36,7 +37,8 @@ impl Plugin for BsxPlugin {
         app.register_text_element_builder(build_text)
             .register_element_builder("el", build_element)
             .register_elements_postprocessor(default_postprocessor)
-            .insert_resource(DefaultFont::default());
+            .insert_resource(DefaultFont::default())
+            .add_plugin(EssPlugin::default());
 
         // TODO: may be desabled with feature
         app.add_startup_system(setup_default_font);
@@ -216,6 +218,8 @@ impl ElementsBuilder {
 pub (crate) type ValidateProperty =  Box<dyn Fn(&PropertyValues) -> Result<(), ElementsError>>;
 #[derive(Default, Clone)]
 pub (crate) struct PropertyValidator(Arc<RwLock<HashMap<Tag, ValidateProperty>>>);
+unsafe impl Send for PropertyValidator { }
+unsafe impl Sync for PropertyValidator { }
 impl PropertyValidator {
     pub (crate) fn new(rules: HashMap<Tag, ValidateProperty>) -> PropertyValidator {
         PropertyValidator(Arc::new(RwLock::new(rules)))
@@ -230,6 +234,8 @@ impl PropertyValidator {
 pub (crate) type ExtractProperty = Box<dyn Fn(PropertyValues) -> Result<HashMap<Tag, PropertyValues>, ElementsError>>;
 #[derive(Default, Clone)]
 pub (crate) struct PropertyExtractor(Arc<RwLock<HashMap<Tag, ExtractProperty>>>);
+unsafe impl Send for PropertyExtractor { }
+unsafe impl Sync for PropertyExtractor { }
 impl PropertyExtractor {
     pub (crate) fn new(rules: HashMap<Tag, ExtractProperty>) -> PropertyExtractor {
         PropertyExtractor(Arc::new(RwLock::new(rules)))
@@ -244,10 +250,6 @@ impl PropertyExtractor {
             .and_then(|extractor| extractor(value))
     }
 }
-
-
-unsafe impl Send for PropertyValidator { }
-unsafe impl Sync for PropertyValidator { }
 
 /// Utility trait which adds the [`register_property`](RegisterProperty::register_property) function on [`App`](bevy::prelude::App) to add a [`Property`] parser.
 ///

@@ -6,7 +6,8 @@ use tagstr::{Tag, AsTag};
 
 use crate::{
     ElementsError,
-    css::style::{StyleRule, Selector, SelectorElement }, PropertyValidator, PropertyExtractor, property::PropertyValues
+    ess::StyleRule,
+    ess::selector::{Selector, SelectorElement }, PropertyValidator, PropertyExtractor, property::PropertyValues
 };
 
 pub(crate) struct StyleSheetParser {
@@ -219,7 +220,7 @@ fn parse_values<'i, 'tt>(
 
 #[cfg(test)]
 mod tests {
-    use crate::{property::PropertyToken, ExtractProperty, ValidateProperty, css::style::EmlNode};
+    use crate::{property::PropertyToken, ExtractProperty, ValidateProperty, ess::selector::EmlNode};
 
     use super::*;
     use std::ops::Deref;
@@ -442,7 +443,7 @@ mod tests {
         use PropertyToken::*;
         let expected = [
             ("a", vec![Identifier("a".to_string())]),
-            ("b", vec![Dimension(0.0)]),
+            ("b", vec![Dimension(0.0.into())]),
             ("c", vec![Hash("f".to_string())]),
             (
                 "d",
@@ -452,9 +453,9 @@ mod tests {
                     Identifier("j".to_string()),
                 ],
             ),
-            ("e-e", vec![Percentage(100.0)]),
-            ("f", vec![Dimension(15.3), Percentage(3.0)]),
-            ("i", vec![Number(12.9)]),
+            ("e-e", vec![Percentage(100.0.into())]),
+            ("f", vec![Dimension(15.3.into()), Percentage(3.0.into())]),
+            ("i", vec![Number(12.9.into())]),
             ("j", vec![String("str".to_string())]),
             (
                 "k",
@@ -464,9 +465,9 @@ mod tests {
                     Hash("r".to_string()),
                     Hash("s".to_string()),
                     String("t".to_string()),
-                    Number(1.0),
-                    Percentage(45.67),
-                    Dimension(33.0),
+                    Number(1.0.into()),
+                    Percentage(45.67.into()),
+                    Dimension(33.0.into()),
                 ],
             ),
         ];
