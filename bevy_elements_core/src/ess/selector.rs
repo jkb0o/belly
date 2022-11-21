@@ -24,7 +24,7 @@ pub enum SelectorElement {
     Id(Tag),
     Class(Tag),
     Tag(Tag),
-    Attribute(Tag),
+    State(Tag),
 }
 
 impl SelectorElement {
@@ -42,10 +42,20 @@ impl SelectorElement {
     pub fn describes_node(&self, node: &impl EmlNode) -> bool {
         match self {
             SelectorElement::Id(id) => node.id() == Some(*id),
-            SelectorElement::Attribute(attr) => node.has_attribute(attr),
+            SelectorElement::State(attr) => node.has_state(attr),
             SelectorElement::Tag(tag) => node.tag() == *tag,
             SelectorElement::Class(class) => node.has_class(class),
             _ => false,
+        }
+    }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            SelectorElement::AnyChild => " ".to_string(),
+            SelectorElement::State(s) => format!(":{}", s),
+            SelectorElement::Tag(t) => format!("{}", t),
+            SelectorElement::Class(c) => format!(".{}", c),
+            SelectorElement::Id(i) => format!("#{}", i),
         }
     }
 }
@@ -195,6 +205,14 @@ impl Selector {
         let slice = SelectorEntry::new(&self.elements);
         branch.tail().fits(&slice)
     }
+
+    pub fn to_string(&self) -> String {
+        let mut result = "".to_string();
+        for token in self.elements.iter().rev() {
+            result.push_str(&token.to_string());
+        }
+        result
+    }
 }
 
 pub trait EmlBranch {
@@ -205,7 +223,7 @@ pub trait EmlBranch {
 pub trait EmlNode: Sized {
     fn id(&self) -> Option<Tag>;
     fn tag(&self) -> Tag;
-    fn has_attribute(&self, tag: &Tag) -> bool;
+    fn has_state(&self, tag: &Tag) -> bool;
     fn has_class(&self, class: &Tag) -> bool;
 
     fn next(&self) -> Option<Self>;
@@ -245,6 +263,26 @@ impl<'e> ElementsBranch<'e> {
     pub fn insert(&mut self, element: &'e Element) {
         self.0.push(element);
     }
+
+    pub fn to_string(&self) -> String {
+        let mut result = "".to_string();
+        for (idx, node) in self.0.iter().enumerate().rev() {
+            result.push_str(&format!("{}", node.name));
+            if let Some(id) = node.id {
+                result.push_str(&format!("#{}", id));
+            }
+            for class in node.classes.iter() {
+                result.push_str(&format!(".{}", class));
+            }
+            for state in node.state.iter() {
+                result.push_str(&format!(":{}", state));
+            }
+            if idx != 0 {
+                result.push_str(" ");
+            }
+        }
+        result
+    }
 }
 pub struct ElementNode<'b, 'e> {
     idx: usize,
@@ -264,8 +302,8 @@ impl<'b, 'e> EmlNode for ElementNode<'b, 'e> {
         self.branch.0[self.idx].classes.contains(class)
     }
 
-    fn has_attribute(&self, tag: &Tag) -> bool {
-        false
+    fn has_state(&self, tag: &Tag) -> bool {
+        self.branch.0[self.idx].state.contains(tag)
     }
 
     fn next(&self) -> Option<Self> {
@@ -341,7 +379,7 @@ impl From<&str> for Selector {
                             .insert(0, SelectorElement::Class(v.to_string().as_tag())),
                         NEXT_ATTR => selector
                             .elements
-                            .insert(0, SelectorElement::Attribute(v.to_string().as_tag())),
+                            .insert(0, SelectorElement::State(v.to_string().as_tag())),
                         _ => panic!("Invalid NEXT_TAG"),
                     };
                     next = NEXT_TAG;
@@ -404,7 +442,7 @@ mod test {
         fn tag(&self) -> Tag {
             self.branch.0[self.index].tag
         }
-        fn has_attribute(&self, tag: &Tag) -> bool {
+        fn has_state(&self, tag: &Tag) -> bool {
             self.branch.0[self.index].attributes.contains(tag)
         }
         fn has_class(&self, class: &Tag) -> bool {
@@ -439,7 +477,7 @@ mod test {
                         has_values = false;
                         continue;
                     }
-                    SelectorElement::Attribute(attr) => void(node.attributes.insert(attr)),
+                    SelectorElement::State(attr) => void(node.attributes.insert(attr)),
                     SelectorElement::Class(class) => void(node.classes.insert(class)),
                     SelectorElement::Id(id) => node.id = Some(id),
                     SelectorElement::Tag(tag) => node.tag = tag,

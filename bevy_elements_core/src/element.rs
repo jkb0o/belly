@@ -19,6 +19,7 @@ pub struct Element {
     pub name: Tag,
     pub id: Option<Tag>,
     pub classes: HashSet<Tag>,
+    pub state: HashSet<Tag>,
     pub display: DisplayElement,
     pub content: Option<Entity>,
     pub styles: HashMap<Tag, PropertyValues>,

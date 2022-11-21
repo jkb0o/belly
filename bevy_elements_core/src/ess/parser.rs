@@ -90,7 +90,7 @@ impl<'i> QualifiedRuleParser<'i> for StyleSheetParser {
                     match next {
                         NextElement::Tag => elements.insert(0, SelectorElement::Tag(v.to_string().as_tag())),
                         NextElement::Class => elements.insert(0, SelectorElement::Class(v.to_string().as_tag())),
-                        NextElement::Attribute => elements.insert(0, SelectorElement::Attribute(v.to_string().as_tag()))
+                        NextElement::Attribute => elements.insert(0, SelectorElement::State(v.to_string().as_tag()))
                     };
                     next = NextElement::Tag;
                 },
@@ -103,7 +103,7 @@ impl<'i> QualifiedRuleParser<'i> for StyleSheetParser {
                 }
                 WhiteSpace(_) => elements.insert(0, SelectorElement::AnyChild),
                 Delim(c) if *c == '.' => next = NextElement::Class,
-                Delim(c) if *c == ':' => next = NextElement::Attribute,
+                Colon => next = NextElement::Attribute,
                 _ => {
                     let token = token.to_css_string();
                     return Err(input.new_custom_error(ElementsError::UnexpectedToken(token)));
