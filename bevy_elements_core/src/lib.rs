@@ -11,6 +11,7 @@ use bevy::{
 };
 use bevy_inspector_egui::egui::mutex::RwLock;
 use ess::{Styles, EssPlugin};
+use focus::{Focused, update_focus};
 use property::PropertyValues;
 
 pub mod attributes;
@@ -21,16 +22,20 @@ pub mod element;
 pub mod property;
 pub mod ess;
 pub mod bind;
+pub mod focus;
 
 pub struct BsxPlugin;
 
 use crate::builders::*;
 pub use context::BuildingContext;
 pub use property::Property;
+pub use element::Element;
 pub use tagstr::*;
 pub use context::IntoContent;
 pub use context::ExpandElements;
 pub use context::ExpandElementsExt;
+
+use bind::process_binds_system;
 
 impl Plugin for BsxPlugin {
     fn build(&self, app: &mut App) {
@@ -38,7 +43,10 @@ impl Plugin for BsxPlugin {
             .register_element_builder("el", build_element)
             .register_elements_postprocessor(default_postprocessor)
             .insert_resource(DefaultFont::default())
-            .add_plugin(EssPlugin::default());
+            .add_plugin(EssPlugin::default())
+            .init_resource::<Focused>()
+            .add_system(update_focus)
+            .add_system(process_binds_system.exclusive_system());
 
         // TODO: may be desabled with feature
         app.add_startup_system(setup_default_font);

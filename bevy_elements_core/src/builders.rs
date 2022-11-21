@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use bevy::ui::FocusPolicy;
 use bevy::utils::HashMap;
 use std::rc::Rc;
 use std::ops::Deref;
@@ -7,20 +8,22 @@ use bevy::ecs::system::BoxedSystem;
 use bevy::prelude::*;
 use crate::context::*;
 use crate::element::*;
-use crate::tags::*;
+use crate::tags;
+use tagstr::*;
 
 pub (crate) fn build_element(mut ctx: ResMut<BuildingContext>, mut commands: Commands) {
     commands
         .entity(ctx.element)
         .insert_bundle(NodeBundle {
             color: UiColor(Color::NONE),
+            focus_policy: FocusPolicy::Pass,
             ..Default::default()
         })
         .push_children(&ctx.content());
 }
 
 #[derive(Default)]
-pub (crate) struct DefaultFont(Handle<Font>);
+pub struct DefaultFont(pub Handle<Font>);
 
 pub (crate) fn setup_default_font(mut fonts: ResMut<Assets<Font>>, mut default_font: ResMut<DefaultFont>) {
     let default_font_bytes = include_bytes!("SourceCodePro-Light.ttf").to_vec();
