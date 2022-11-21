@@ -72,16 +72,18 @@ pub enum PropertyToken {
     String(String),
 }
 
-// impl Eq for PropertyToken { }
-// impl Hash for PropertyToken {
-//     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-//         match self {
-//             PropertyToken::Percentage(v) => state.
-//             PropertyToken::Dimension(v) =>
-//             PropertyToken::Number(v) => 
-//         }
-//     }
-// }
+impl PropertyToken {
+    fn to_string(&self) -> String {
+        match self {
+            PropertyToken::Percentage(v) => format!("{}%", v.to_float()),
+            PropertyToken::Dimension(v) => format!("{}px", v.to_float()),
+            PropertyToken::Number(v) => format!("{}", v.to_float()),
+            PropertyToken::Identifier(v) => format!("{}", v),
+            PropertyToken::Hash(v) => format!("#{}", v),
+            PropertyToken::String(v) => format!("\"{}\"", v)
+        }
+    }
+}
 
 impl<'i> TryFrom<Token<'i>> for PropertyToken {
     type Error = String;
@@ -236,6 +238,14 @@ impl PropertyValues {
                 .0
         }
     }
+
+    pub fn to_string(&self) -> String {
+        let mut result = "".to_string();
+        for value in self.0.iter() {
+            result.push_str(&value.to_string());
+        }
+        result
+    }
 }
 
 impl TryFrom<&str> for PropertyValues {
@@ -293,10 +303,12 @@ pub struct CachedProperties<T: Property>(HashMap<PropertyValues, CacheState<T::C
 impl <T:Property> CachedProperties<T> {
     fn get_or_parse(&mut self, value: &PropertyValues) -> &CacheState<T::Cache>{
         self.0.entry_ref(value).or_insert_with(|| {
-            if let Ok(parsed) = T::parse(value) {
-                CacheState::Ok(parsed)
-            } else {
-                CacheState::Error
+            match T::parse(value) {
+                Ok(parsed) => CacheState::Ok(parsed),
+                Err(err) => {
+                    warn!("Failed to parse `{}` for {} property: {:?}", value.to_string(), T::name(), err);
+                    CacheState::Error
+                }
             }
         })
     }
@@ -465,7 +477,7 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
             let element = element.unwrap();
 
             // extract default value
-            let mut default = element.styles.get(&Self::name());
+            let default = element.styles.get(&Self::name());
 
             // compute branch
             let mut branch = ElementsBranch::new();
@@ -479,12 +491,18 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
                 }
             }
 
+            // info!("testing branch {}", branch.to_string());
+
             // apply rules
             let property = rules.iter()
                 .filter(|r| r.selector.matches(&branch))
                 .map(|r| r.properties.get(&Self::name()).unwrap())
                 .next()
                 .or(default);
+
+            // if let Some(rule) = rules.iter().filter(|r| r.selector.matches(&branch)).next() {
+            //     info!("matched selector: {:?} for branch {}", rule.selector.to_string(), branch.to_string());
+            // }
 
             if let Some(property) = property {
                 if let CacheState::Ok(property) = cached_properties.get_or_parse(property) {

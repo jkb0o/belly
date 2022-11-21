@@ -1,18 +1,17 @@
 use bevy::prelude::Color;
 
 pub(super) fn parse_hex_color(hex: &str) -> Option<Color> {
-    None
-    // if let Ok(cssparser::Color::RGBA(cssparser::RGBA {
-    //     red,
-    //     green,
-    //     blue,
-    //     alpha,
-    // })) = cssparser::Color::parse_hash(hex.as_bytes())
-    // {
-    //     Some(Color::rgba_u8(red, green, blue, alpha))
-    // } else {
-    //     None
-    // }
+    if let Ok(cssparser::Color::RGBA(cssparser::RGBA {
+        red,
+        green,
+        blue,
+        alpha,
+    })) = cssparser::Color::parse_hash(hex.as_bytes())
+    {
+        Some(Color::rgba_u8(red, green, blue, alpha))
+    } else {
+        None
+    }
 }
 
 // Source: https://developer.mozilla.org/en-US/docs/Web/CSS/named-color
