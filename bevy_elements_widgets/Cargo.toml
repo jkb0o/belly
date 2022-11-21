@@ -1,0 +1,11 @@
+[package]
+name = "bevy_elements_widgets"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = "0.8.1"
+bevy_elements_core = { path = "../bevy_elements_core" }
+bevy_elements_macro = { path = "../bevy_elements_macro" }

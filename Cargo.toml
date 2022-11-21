@@ -9,6 +9,7 @@ edition = "2021"
 bevy = "0.8.1"
 bevy_elements_macro = { path = "bevy_elements_macro" }
 bevy_elements_core = { path = "bevy_elements_core" }
+bevy_elements_widgets = { path = "bevy_elements_widgets" }
 proc-macro2 = "1.0.47"
 procout = { version = "0.1.13", features = ["procout"] }
 bevy-inspector-egui = "0.13.0"
