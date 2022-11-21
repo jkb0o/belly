@@ -5,8 +5,9 @@ use std::{
 };
 
 use super::ElementsBuilder;
-use crate::property::*;
-use crate::tags::*;
+use crate::{property::*, bind::{BindFrom, BindValue, BindFromUntyped}, BuildingContext};
+use crate::tags;
+use tagstr::*;
 use bevy::{
     ecs::system::EntityCommands,
     prelude::*,
@@ -25,6 +26,7 @@ pub enum AttributeValue {
     Commands(ApplyCommands),
     Elements(ElementsBuilder),
     Attributes(Attributes),
+    BindFrom(BindFromUntyped)
 }
 
 impl Debug for AttributeValue {
@@ -37,6 +39,7 @@ impl Debug for AttributeValue {
             AttributeValue::Attributes(v) => write!(f, "AttributeValue::Attributes({:?})", v),
             AttributeValue::Commands(_) => write!(f, "AttributeValue::Commands"),
             AttributeValue::Elements(_) => write!(f, "AttributeValue::Elements"),
+            AttributeValue::BindFrom(_) => write!(f, "AttributeValue::BindFrom"),
         }
     }
 }
@@ -164,6 +167,7 @@ impl AttributeValue {
             AttributeValue::Commands(_) => TypeId::of::<T>() == TypeId::of::<ApplyCommands>(),
             AttributeValue::Elements(_) => TypeId::of::<T>() == TypeId::of::<ElementsBuilder>(),
             AttributeValue::Attributes(_) => TypeId::of::<T>() == TypeId::of::<Attributes>(),
+            AttributeValue::BindFrom(_) => TypeId::of::<T>() == TypeId::of::<BindFromUntyped>(),
         }
     }
 
@@ -176,6 +180,8 @@ impl AttributeValue {
             AttributeValue::Commands(v) => try_cast::<T, ApplyCommands>(v),
             AttributeValue::Elements(v) => try_cast::<T, ElementsBuilder>(v),
             AttributeValue::Attributes(v) => try_cast::<T, Attributes>(v),
+            AttributeValue::BindFrom(v) => try_cast::<T, BindFromUntyped>(v),
+
         }
     }
     pub fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
@@ -187,10 +193,11 @@ impl AttributeValue {
             AttributeValue::Commands(v) => try_cast_mut::<T, ApplyCommands>(v),
             AttributeValue::Elements(v) => try_cast_mut::<T, ElementsBuilder>(v),
             AttributeValue::Attributes(v) => try_cast_mut::<T, Attributes>(v),
+            AttributeValue::BindFrom(v) => try_cast_mut::<T, BindFromUntyped>(v),
         }
     }
 
-    fn take<T: 'static>(self) -> Option<T> {
+    pub fn take<T: 'static>(self) -> Option<T> {
         match self {
             AttributeValue::Empty => None,
             AttributeValue::Int(v) => try_take::<T, i32>(v),
@@ -199,6 +206,7 @@ impl AttributeValue {
             AttributeValue::Commands(v) => try_take::<T, ApplyCommands>(v),
             AttributeValue::Elements(v) => try_take::<T, ElementsBuilder>(v),
             AttributeValue::Attributes(v) => try_take::<T, Attributes>(v),
+            AttributeValue::BindFrom(v) => try_take::<T, BindFromUntyped>(v),
         }
     }
 
@@ -266,6 +274,10 @@ impl Attribute {
 
     pub fn take<T: 'static>(&mut self) -> Option<T> {
         mem::take(&mut self.value).take()
+    }
+
+    pub fn take_varint(&mut self) -> AttributeValue {
+        mem::take(&mut self.value)
     }
 }
 
@@ -426,11 +438,17 @@ impl Attributes {
     pub fn get<T: 'static>(&self, key: Tag) -> Option<&T> {
         self.0.get(&key).and_then(|v| v.value.get::<T>())
     }
+    pub fn get_variant(&self, key: Tag) -> Option<&AttributeValue> {
+        self.0.get(&key).map(|v| &v.value)
+    }
     pub fn get_mut<T: 'static>(&mut self, key: Tag) -> Option<&mut T> {
         self.0.get_mut(&key).and_then(|v| v.value.get_mut::<T>())
     }
     pub fn drop<T: 'static>(&mut self, key: Tag) -> Option<T> {
         self.0.remove(&key).and_then(|mut a| a.take())
+    }
+    pub fn drop_variant(&mut self, key: Tag) -> Option<AttributeValue> {
+        self.0.remove(&key).map(|mut a| a.take_varint())
     }
     pub fn drop_or_default<T: 'static>(&mut self, key: Tag, default: T) -> T {
         if let Some(value) = self.drop(key) {
@@ -488,8 +506,41 @@ impl From<Attributes> for AttributeValue {
     }
 }
 
-trait Marker {
+impl<W:Component, T:BindValue> From<BindFrom<W, T>> for AttributeValue {
+    fn from(bind: BindFrom<W, T>) -> Self {
+        AttributeValue::BindFrom(bind.to_untyped())   
+    }
+}
 
+
+#[macro_export]
+macro_rules! bindattr {
+    ($ctx:ident, $cmd:ident, $key:ident:$typ:ident => $($target:tt)*) => {
+        {
+            let elem = $ctx.element.clone();
+            let key = stringify!($key).as_tag();
+            let attr = $ctx.attributes.drop_variant(key);
+            let mut value = Default::default();
+            match attr {
+                Some(AttributeValue::BindFrom(b)) => $cmd.add(b.to($crate::bind!(=> elem, $($target)*))),
+                Some(AttributeValue::$typ(v)) => value = Some(v),
+                Some(attr) => error!("Unsupported value for '{}' attribute: {:?}", key, attr),
+                _ => ()
+            };
+            value
+        }
+    };
+}
+
+pub(crate) use bindattr;
+
+
+use bevy::prelude::*;
+fn ta(
+    mut ctx: ResMut<BuildingContext>,
+    mut commands: Commands,
+) {
+    let x = bindattr!(ctx, commands, value:String => Text.sections[0].value);
 }
 
 #[cfg(test)]
