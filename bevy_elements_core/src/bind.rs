@@ -195,11 +195,11 @@ pub struct BindFrom<R: Component, T: BindValue> {
 }
 
 impl<R: Component, T: BindValue> BindFrom<R, T> {
-    fn new(source: Entity, reader: fn(&R) -> T) -> BindFrom<R, T> {
+    pub fn new(source: Entity, reader: fn(&R) -> T) -> BindFrom<R, T> {
         BindFrom { source, reader }
     }
 
-    fn write(&self, world: &mut World, target: Entity, writer_id: usize) {
+    pub fn write(&self, world: &mut World, target: Entity, writer_id: usize) {
         {
             let systems = world.get_resource_or_insert_with(BindingSystems::default);
             if systems.0.write().unwrap().add_collect_system::<R, T>() {
@@ -336,6 +336,10 @@ impl BindFromUntyped {
     pub fn write(&self, world: &mut World, descriptor: UntypedWriteDescriptor) {
         (self.0)(world, descriptor);
     }
+
+    pub fn to<W: Component, T: BindValue>(self, bind: BindTo<W, T>) -> BindUntyped {
+        BindUntyped { bind_from: self, bind_to: bind.to_untyped() }
+    }
 }
 
 pub struct BindToUntyped(Box<dyn Fn(&mut World) -> UntypedWriteDescriptor>);
@@ -383,7 +387,7 @@ macro_rules! bind {
         $s_entity:expr, $s_class:ident$(.$s_prop:ident)+ =>
         $t_entity:expr, $t_class:ident$(.$t_prop:ident)+
     ) => {
-        Bind::build(
+        $crate::bind::Bind::build(
             $s_entity.clone(),
             |s: &$s_class| { s$(.$s_prop)+.clone() },
             $t_entity.clone(),
@@ -398,7 +402,7 @@ macro_rules! bind {
         $s_entity:expr, $s_class:ident$(.$s_prop:ident)+:$s_getter:ident =>
         $t_entity:expr, $t_class:ident$(.$t_prop:ident)+
     ) => {
-        Bind::build(
+        $crate::bind::Bind::build(
             $s_entity.clone(),
             |s: &$s_class| { s$(.$s_prop)+.$s_getter().clone() },
             $t_entity.clone(),
@@ -413,7 +417,7 @@ macro_rules! bind {
         $s_entity:expr, $s_class:ident$(.$s_prop:ident)+ =>
         $t_entity:expr, $t_class:ident$(.$t_prop:ident)+:$t_getter:ident:$t_setter:ident
     ) => {
-        Bind::build(
+        $crate::bind::Bind::build(
             $s_entity.clone(),
             |s: &$s_class| { s$(.$s_prop)+.clone() },
             $t_entity.clone(),
@@ -431,7 +435,15 @@ macro_rules! bind {
     (
         $s_entity:expr, $s_class:ident$(.$s_prop:ident)+ =>
     ) => {
-        BindFrom::new(
+        $crate::bind::BindFrom::new(
+            $s_entity.clone(),
+            |s: &$s_class| { s$(.$s_prop)+.clone() },
+        )
+    };
+    (
+        <= $s_entity:expr, $s_class:ident$(.$s_prop:ident)+
+    ) => {
+        $crate::bind::BindFrom::new(
             $s_entity.clone(),
             |s: &$s_class| { s$(.$s_prop)+.clone() },
         )
@@ -441,7 +453,7 @@ macro_rules! bind {
     (
         $s_entity:expr, $s_class:ident$(.$s_prop:ident)+:$s_getter:ident =>
     ) => {
-        BindFrom::new(
+        $crate::bind::BindFrom::new(
             $s_entity.clone(),
             |s: &$s_class| { s$(.$s_prop)+.$s_getter().clone() },
         )
@@ -454,12 +466,12 @@ macro_rules! bind {
     // bind target by value
     // bind!(-> player, Health.value)
     (
-        => $t_entity:expr, $t_class:ident$(.$t_prop:ident)+
+        => $t_entity:expr, $t_class:ident$(.$t_prop:ident$([$t_idx:literal])?)+
     ) => {
-        BindTo::new(
+        $crate::bind::BindTo::new(
             $t_entity.clone(),
-            |t: &$t_class, v| &t$(.$t_prop)+ == v,
-            |t: &mut $t_class, v| { t$(.$t_prop)+.clone_from(v); }
+            |t: &$t_class, v| &t$(.$t_prop$([$t_idx])?)+ == v,
+            |t: &mut $t_class, v| { t$(.$t_prop$([$t_idx])?)+.clone_from(v); }
         )
     };
 
@@ -468,7 +480,7 @@ macro_rules! bind {
     (
         => $t_entity:expr, $t_class:ident$(.$t_prop:ident)+:$t_getter:ident:$t_setter:ident
     ) => {
-        BindTo::new(
+        $crate::bind::BindTo::new(
             $t_entity.clone(),
             |t: &$t_class, v| &t$(.$t_prop)+.$t_getter() == v,
             |t: &mut $t_class, v| { t$(.$t_prop)+.$t_setter(*v); }
