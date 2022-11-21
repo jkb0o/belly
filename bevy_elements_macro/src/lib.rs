@@ -3,7 +3,7 @@ use proc_macro2::TokenStream;
 use quote::*;
 extern crate proc_macro;
 use syn::{Expr, spanned::Spanned, Error, ExprPath};
-use syn_rsx::{Node, NodeType, parse, NodeAttribute};
+use syn_rsx::{Node, NodeType, parse, NodeAttribute, NodeName};
 
 fn create_single_command_stmt(expr: &ExprPath) -> TokenStream {
     let component_span = expr.span();
@@ -66,10 +66,11 @@ fn create_attr_stmt(attr: &NodeAttribute) -> TokenStream {
         }
         Some(attr_value) => {
             let attr_value = attr_value.as_ref();
+            let attr_span = attr_value.span();
             if attr_name == "with" {
                 return create_command_stmts(attr_value);
             } else {
-                return quote! {
+                return quote_spanned! {attr_span=>
                     __ctx.attributes.add(::bevy_elements_core::attributes::Attribute::new(
                         #attr_name.into(),
                         (#attr_value).into()
@@ -130,13 +131,56 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                 _ => ()
             };
         }
-        let tag = element.name.to_string();
-        let invalid_element_msg = format!("Invalid tag name: {}", tag);
+
         let parent = if create_entity {
             quote! { let __parent = __world.spawn().id(); }
         } else {
             quote! { }
         };
+        // let tag = element.name.to_string();
+        let tag_span = element.name.span();
+        let (tag, parent) = match &element.name {
+            NodeName::Path(path) => {
+                if path.path.segments.len() == 1 {
+                    (element.name.to_string(), parent)
+                } else {
+                    return Error::new(tag_span, "Invalid tag name, only '<tag>' or '<tag:entity>' supported").into_compile_error()
+                }
+            },
+            NodeName::Punctuated(name) => {
+                match name.len() {
+                    0 => return Error::new(tag_span, "Invalid tag name").into_compile_error(),
+                    1 => (element.name.to_string(), parent),
+                    n if n > 1 => {
+                        let pair = name.pairs().next().unwrap();
+                        let sep = pair.punct().unwrap();
+                        let sep_span = sep.span();
+                        if sep.as_char() == '-' {
+                            (element.name.to_string(), parent)
+                        } else if n == 2 && sep.as_char() == ':' {
+                            let tag = name.first().unwrap().to_string();
+                            let entity = name.last().unwrap();
+                            let entity_span = entity.span();
+                            let parent = quote_spanned!(entity_span=>
+                                let __parent = #entity;
+                            );
+                            (tag, parent)
+                        } else {
+                            return Error::new(sep_span, "Invalid tag name separator, only ':' supported").into_compile_error();
+                        }
+                    },
+                    _ => return Error::new(tag_span, "Invalid tag name separator, only ':' supported").into_compile_error()
+                }
+            },
+            _ => return Error::new(tag_span, "Invalid tag name, only '<tag>' or '<tag:entity>' supported").into_compile_error()
+        };
+        // let parts: Vec<_> = element.name.to_string().split(":").collect();
+        // if parts.len() < 1 {
+        //     return Error::new(tag_span, "Invalid tag name").into_compile_error()
+        // }
+
+        let invalid_element_msg = format!("Invalid tag name: {}", tag);
+        
         quote! {
             {
                 #parent
