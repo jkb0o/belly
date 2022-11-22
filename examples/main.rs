@@ -1,7 +1,7 @@
 use std::sync::Once;
 
 use bevy::{
-    prelude::*, ecs::{schedule::IntoSystemDescriptor, system::{EntityCommands, BoxedSystem}}
+    prelude::*, ecs::{schedule::IntoSystemDescriptor, system::{EntityCommands, BoxedSystem}}, input::keyboard::KeyboardInput
 };
 use bevy_elements::{*, ess::Stylesheet};
 use bevy_inspector_egui::WorldInspectorPlugin;
@@ -16,6 +16,7 @@ fn main() {
         .register_element_builder("hbox", build_hbox)
         .register_element_builder("vbox", build_vbox)
         .register_element_builder("window", build_window)
+        .add_system(print_char_system)
         .add_system(test_system)
         .run();
 }
@@ -184,5 +185,39 @@ fn test_system(
     return;
     for e in q.iter() {
         commands.entity(e).despawn_recursive();
+    }
+}
+
+fn print_char_system(
+    mut chr: EventReader<ReceivedCharacter>,
+    mut kbd: EventReader<KeyboardInput>,
+    mut q_text: Query<&mut Text>,
+    keys: Res<Input<KeyCode>>,
+) {
+    for e in kbd.iter() {
+        println!("kbd: {:?}, {:?}", e.key_code, e.scan_code);
+        
+    }
+    let cmd_key = keys.pressed(KeyCode::LWin) 
+            || keys.pressed(KeyCode::RWin)
+            || keys.pressed(KeyCode::LControl)
+            || keys.pressed(KeyCode::RControl);
+    if cmd_key {
+        return;
+    }
+    for e in chr.iter() {
+        // let cmd_key = keys.pressed(KeyCode::LWin) 
+        //     || keys.pressed(KeyCode::RWin)
+        //     || keys.pressed(KeyCode::LControl)
+        //     || keys.pressed(KeyCode::RControl);
+        //     // || keys.pressed(KeyCode::L)
+        // println!("chr: {}, {:?}", e.char, cmd_key);
+        for mut text in q_text.iter_mut() { 
+            if keys.pressed(KeyCode::Back) {
+                text.sections[0].value.pop();
+                continue;
+            }
+            text.sections[0].value.push(e.char);
+        }
     }
 }
