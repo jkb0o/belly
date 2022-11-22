@@ -32,17 +32,17 @@ widget!( TextInput,
 => {
     let entity = ctx.element;
     let value = bindattr!(ctx, commands, value:String => Self.value);
-    let cursor = commands.spawn().id();
-    let text = commands.spawn().id();
+    let cursor = commands.spawn_empty().id();
+    let text = commands.spawn_empty().id();
     let block_input = FocusPolicy::Block;
     let widget = TextInput {
         cursor, text,
         value: value.unwrap_or("".to_string()),
     };
     commands.entity(entity).with_elements(bsx! {
-        <el with=(widget,block_input,UiColor,Interaction) c:text-input s:background-color="#2f2f2f" s:padding="1px">
+        <el with=(widget,block_input,BackgroundColor,Interaction) c:text-input s:background-color="#2f2f2f" s:padding="1px">
             <el 
-                with=UiColor
+                with=BackgroundColor
                 c:text-input-inner 
                 s:width="100%"
                 s:heigth="100%"
@@ -54,7 +54,7 @@ widget!( TextInput,
                 // <el c:text-input-selection/>
                 <text:text value=bind!(<= entity, Self.value) s:color="#2f2f2f" s:margin-left="2px"/>
                 <el:cursor
-                    with=UiColor
+                    with=BackgroundColor
                     c:text-input-cursor
                     s:position-type="absolute"
                     s:top="1px"
@@ -139,7 +139,7 @@ fn build_text(
     let text = bindattr!(ctx, commands, value:String => Text.sections[0].value);
     commands
         .entity(ctx.element)
-        .insert_bundle(TextBundle::from_section(
+        .insert(TextBundle::from_section(
             // "hahaha".to_string(),
             text.unwrap_or("".to_string()),
             TextStyle {

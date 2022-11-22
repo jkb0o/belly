@@ -48,13 +48,14 @@ pub enum BindingStage {
     Report,
 }
 
+#[derive(Resource)]
 pub struct Changes<T: Component>(PhantomData<T>);
 impl<T: Component> Default for Changes<T> {
     fn default() -> Self {
         Changes::<T>(PhantomData::<T>)
     }
 }
-#[derive(Default)]
+#[derive(Resource,Default)]
 pub struct ChangeCounter(usize);
 
 pub fn process_binds_system(world: &mut World) {
@@ -118,7 +119,7 @@ struct BindingSystemsInternal {
     reporters: HashSet<TypeId>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Default,Clone,Resource)]
 struct BindingSystems(Arc<RwLock<BindingSystemsInternal>>);
 
 impl BindingSystemsInternal {
@@ -508,10 +509,10 @@ mod test {
     #[test]
     fn single_property() {
         let mut app = App::new();
-        app.add_system(process_binds_system.exclusive_system());
+        app.add_system(process_binds_system);
 
-        let player = app.world.spawn().id();
-        let bar = app.world.spawn().id();
+        let player = app.world.spawn_empty().id();
+        let bar = app.world.spawn_empty().id();
 
         app.world.entity_mut(player).insert(Health::default());
         app.world.entity_mut(bar).insert(HealthBar::default());
@@ -574,9 +575,9 @@ mod test {
     #[test]
     fn self_bind() {
         let mut app = App::new();
-        app.add_system(process_binds_system.exclusive_system());
+        app.add_system(process_binds_system);
 
-        let player = app.world.spawn().id();
+        let player = app.world.spawn_empty().id();
 
         app.world.entity_mut(player).insert(Health::default());
 
@@ -603,10 +604,10 @@ mod test {
     #[test]
     fn chain_bind() {
         let mut app = App::new();
-        app.add_system(process_binds_system.exclusive_system());
+        app.add_system(process_binds_system);
 
-        let player = app.world.spawn().id();
-        let bar = app.world.spawn().id();
+        let player = app.world.spawn_empty().id();
+        let bar = app.world.spawn_empty().id();
 
         app.world.entity_mut(player).insert(Health::default());
         app.world.entity_mut(bar).insert(HealthBar::default());

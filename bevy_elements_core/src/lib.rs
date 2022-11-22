@@ -1,16 +1,14 @@
-use std::any::TypeId;
 use std::error::Error;
 use std::fmt::Display;
 use std::sync::Arc;
 
-use bevy::ecs::component::ComponentId;
 use bevy::utils::HashMap;
 use bevy::{
     ecs::system::EntityCommands,
     prelude::*
 };
 use bevy_inspector_egui::egui::mutex::RwLock;
-use ess::{Styles, EssPlugin};
+use ess::EssPlugin;
 use focus::{Focused, update_focus};
 use property::PropertyValues;
 
@@ -49,7 +47,7 @@ impl Plugin for BsxPlugin {
             .add_plugin(EssPlugin::default())
             .init_resource::<Focused>()
             .add_system(update_focus)
-            .add_system(process_binds_system.exclusive_system());
+            .add_system(process_binds_system);
 
         // TODO: may be desabled with feature
         app.add_startup_system(setup_default_font);
@@ -100,7 +98,7 @@ fn register_properties(app: &mut bevy::prelude::App) {
     app.register_property::<HorizontalAlignProperty>();
     app.register_property::<TextContentProperty>();
 
-    app.register_property::<UiColorProperty>();
+    app.register_property::<BackgroundColorProperty>();
 }
 
 #[derive(Debug)]
@@ -227,11 +225,12 @@ impl ElementsBuilder {
 }
 
 pub (crate) type ValidateProperty =  Box<dyn Fn(&PropertyValues) -> Result<(), ElementsError>>;
-#[derive(Default, Clone)]
+#[derive(Default,Clone,Resource)]
 pub (crate) struct PropertyValidator(Arc<RwLock<HashMap<Tag, ValidateProperty>>>);
 unsafe impl Send for PropertyValidator { }
 unsafe impl Sync for PropertyValidator { }
 impl PropertyValidator {
+    #[cfg(test)]
     pub (crate) fn new(rules: HashMap<Tag, ValidateProperty>) -> PropertyValidator {
         PropertyValidator(Arc::new(RwLock::new(rules)))
     }
@@ -243,11 +242,12 @@ impl PropertyValidator {
 }
 
 pub (crate) type ExtractProperty = Box<dyn Fn(PropertyValues) -> Result<HashMap<Tag, PropertyValues>, ElementsError>>;
-#[derive(Default, Clone)]
+#[derive(Default,Clone,Resource)]
 pub (crate) struct PropertyExtractor(Arc<RwLock<HashMap<Tag, ExtractProperty>>>);
 unsafe impl Send for PropertyExtractor { }
 unsafe impl Sync for PropertyExtractor { }
 impl PropertyExtractor {
+    #[cfg(test)]
     pub (crate) fn new(rules: HashMap<Tag, ExtractProperty>) -> PropertyExtractor {
         PropertyExtractor(Arc::new(RwLock::new(rules)))
     }

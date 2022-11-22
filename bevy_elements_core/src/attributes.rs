@@ -5,7 +5,7 @@ use std::{
 };
 
 use super::ElementsBuilder;
-use crate::{property::*, bind::{BindFrom, BindValue, BindFromUntyped}, BuildingContext};
+use crate::{property::*, bind::{BindFrom, BindValue, BindFromUntyped}};
 use crate::tags;
 use tagstr::*;
 use bevy::{
@@ -69,49 +69,6 @@ fn try_take<T: 'static, F: 'static>(v: F) -> Option<T> {
     }
 }
 
-// pub trait AddAttribute<T:'static> {
-//     type Params;
-//     fn add<Params>(&mut self, name: &str, attr: T);
-// } 
-
-// struct Attrs;
-// impl<F: IntoSystem<(), (), Self::Params> + 'static> AddAttribute<F> for Attrs {
-//     fn add(&mut self, name: &str, attr: F) {
-        
-//     }
-//     // type Params = Params;
-
-// }
-
-pub trait IntoAttr<Params> {
-    fn into_attr(value: Self) -> AttributeValue;
-}
-
-pub trait IntoCommands {
-
-}
-
-impl<Params, S: IntoSystem<(), (), Params>> IntoAttr<Params> for S {
-    fn into_attr(value: Self) -> AttributeValue {
-        let s = IntoSystem::into_system(value);
-        AttributeValue::Empty
-    }
-}
-
-pub struct WithoutParams;
-
-impl IntoAttr<WithoutParams> for String {
-    fn into_attr(value: Self) -> AttributeValue {
-        AttributeValue::Empty
-    }
-}
-
-impl IntoAttr<WithoutParams> for i32 {
-    fn into_attr(value: Self) -> AttributeValue {
-        AttributeValue::Empty
-    }
-}
-
 pub struct AttributeCommands(Box<dyn FnOnce(&mut EntityCommands)>);
 impl AttributeCommands {
     pub fn new<F: FnOnce(&mut EntityCommands) + 'static>(commands: F) -> AttributeCommands {
@@ -125,32 +82,6 @@ impl<F: FnOnce(&mut EntityCommands) + 'static> From<F> for AttributeCommands {
     }
 }
 
-pub struct NoFunc;
-impl IntoAttr<WithoutParams> for AttributeCommands {
-    fn into_attr(value: Self) -> AttributeValue {
-        AttributeValue::Empty
-    }
-}
-
-fn x() { }
-fn t2<Params, S: IntoSystem<(), (), Params>>(s: S) {
-    let x = IntoSystem::into_system(s);
-}
-fn test() {
-    IntoAttr::into_attr(|mut commands: Commands| {});
-}
-
-// fn test<T: 'static>(value: T) {
-//     {
-//         let a = (&value as &dyn Any).downcast_ref::<IntoSystem<(), (), i32>>();
-//     }
-// }
-
-// impl<S: IntoSystem<(), (), SystemParam>> IntoAttr for S {
-//     fn into_attr(value: Self) -> AttributeValue {
-//         let s: BoxedSystem<(), ()> = Box::new(IntoSystem::into_system(value));
-//     }
-// }
 
 impl AttributeValue {
     // pub fn new<T:Any + 'static>(value: T) {
@@ -532,16 +463,6 @@ macro_rules! bindattr {
     };
 }
 
-pub(crate) use bindattr;
-
-
-use bevy::prelude::*;
-fn ta(
-    mut ctx: ResMut<BuildingContext>,
-    mut commands: Commands,
-) {
-    let x = bindattr!(ctx, commands, value:String => Text.sections[0].value);
-}
 
 #[cfg(test)]
 mod test {

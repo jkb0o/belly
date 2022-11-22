@@ -1,14 +1,11 @@
 use bevy::{
-    prelude::{default, Changed, Entity, Parent, Query, Deref, Assets, AssetServer, Component, With, App, Transform, Mut, World, IntoSystem, System, Schedule, Stage, CoreStage, SystemStage, Local},
-    utils::{HashSet, HashMap}, reflect::TypeUuid, ecs::{system::{Command, BoxedSystem}, schedule::{IntoSystemDescriptor, ShouldRun}}, sprite::Sprite,
+    prelude::{default, Changed, Entity, Parent, Query}
 };
-use std::{ops::Deref, sync::{RwLock, Arc}, any::TypeId};
 use smallvec::{SmallVec, smallvec};
 use tagstr::Tag;
 
-use crate::{element::Element, property::PropertyValues, PropertyExtractor, PropertyValidator};
+use crate::Element;
 
-use super::{parser::StyleSheetParser, Styles};
 
 #[derive(Default)]
 pub struct SelectorIndex(usize);
@@ -175,7 +172,7 @@ pub struct Selector {
 }
 
 impl Selector {
-    pub fn new(mut elements: SelectorElements) -> Selector {
+    pub fn new(elements: SelectorElements) -> Selector {
         Selector {
             elements,
             ..default()
@@ -407,7 +404,9 @@ impl From<&str> for Selector {
 #[cfg(test)]
 mod test {
     use super::*;
+    use bevy::utils::HashSet;
     use tagstr::*;
+    
 
     struct TestBranch(Vec<TestNodeData>);
 

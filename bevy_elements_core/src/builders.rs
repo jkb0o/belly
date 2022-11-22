@@ -15,15 +15,15 @@ use tagstr::*;
 pub (crate) fn build_element(mut ctx: ResMut<BuildingContext>, mut commands: Commands) {
     commands
         .entity(ctx.element)
-        .insert_bundle(NodeBundle {
-            color: UiColor(Color::NONE),
+        .insert(NodeBundle {
+            background_color: BackgroundColor(Color::NONE),
             focus_policy: FocusPolicy::Pass,
             ..Default::default()
         })
         .push_children(&ctx.content());
 }
 
-#[derive(Default)]
+#[derive(Default,Resource)]
 pub struct DefaultFont(pub Handle<Font>);
 
 pub (crate) fn setup_default_font(mut fonts: ResMut<Assets<Font>>, mut default_font: ResMut<DefaultFont>) {
@@ -41,7 +41,7 @@ pub (crate) fn build_text(
     let ctx = ctx.text();
     commands
         .entity(ctx.element)
-        .insert_bundle(TextBundle::from_section(
+        .insert(TextBundle::from_section(
             ctx.text,
             TextStyle {
                 font: default_font.0.clone(),
@@ -131,7 +131,7 @@ impl ElementBuilder {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone,Resource)]
 pub struct TextElementBuilder(pub (crate) ElementBuilder);
 unsafe impl Send for TextElementBuilder {}
 unsafe impl Sync for TextElementBuilder {}
@@ -142,12 +142,13 @@ impl Deref for TextElementBuilder {
     }
 }
 
-#[derive(Default)]
+#[derive(Default,Resource)]
 pub struct ElementPostProcessors(pub (crate) Rc<RefCell<Vec<ElementBuilder>>>);
 unsafe impl Send for ElementPostProcessors {}
 unsafe impl Sync for ElementPostProcessors {}
 
 
+#[derive(Resource)]
 pub struct ElementBuilderRegistry(HashMap<Tag, ElementBuilder>);
 
 unsafe impl Send for ElementBuilderRegistry {}
@@ -167,6 +168,7 @@ impl ElementBuilderRegistry {
     }
 }
 
+#[derive(Resource)]
 struct WidgetBuilder<T> {
     builder: ElementBuilder,
     marker: PhantomData<T>

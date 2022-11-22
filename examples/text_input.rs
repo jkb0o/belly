@@ -1,10 +1,5 @@
-use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut};
-
-use bevy::ecs::system::BoxedSystem;
 use bevy::prelude::*;
 use bevy::reflect::ReflectRef;
-use bevy_elements::builders::ElementBuilder;
 use bevy_elements::ess::Stylesheet;
 use bevy_elements_core::*;
 use bevy_elements_macro::*;
@@ -25,16 +20,16 @@ fn main() {
 fn setup(
     mut commands: Commands
 ) {
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
     commands.add(Stylesheet::parse(r#"
         TextInput:focus .text-input-inner {
             background-color: #efefef;
         }
     "#));
-    let time = commands.spawn().insert(TimeSinceStartup::default()).id();
-    let left = commands.spawn().id();
+    let time = commands.spawn_empty().insert(TimeSinceStartup::default()).id();
+    let left = commands.spawn_empty().id();
 
-    commands.spawn().with_elements(bsx! {
+    commands.spawn_empty().with_elements(bsx! {
         <el c:ui with=Interaction s:width="100%" s:height="100%">
             <el s:padding="20px" s:align-content="flex-start" s:align-items="flex-start">
                 <TextInput:left value=bind!(<= time, TimeSinceStartup.label) s:margin="8px"/>
@@ -83,6 +78,6 @@ fn process(
     mut query: Query<&mut TimeSinceStartup>
 ) {
     for mut item in query.iter_mut() {
-        item.label = format!("Passed: {:.1}0", time.seconds_since_startup());
+        item.label = format!("Passed: {:.1}0", time.elapsed_seconds());
     }
 }

@@ -6,7 +6,7 @@ use crate::{Element, tags};
 #[derive(Component)]
 pub struct Focus(bool);
 
-#[derive(Default)]
+#[derive(Resource,Default)]
 pub struct Focused(Option<Entity>);
 
 

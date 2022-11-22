@@ -17,7 +17,7 @@ use bevy::prelude::*;
 // }
 
 fn test(mut commands: Commands) {
-    commands.spawn().with_elements(bsx!{
+    commands.spawn_empty().with_elements(bsx!{
         <el>"Hello world!"</el>
     });
 }
@@ -39,10 +39,10 @@ fn test(mut commands: Commands) {
 //                     __ctx
 //                         .child_elements
 //                         .push({
-//                             let __parent = __world.spawn().id();
+//                             let __parent = __world.spawn_empty().id();
 //                             let mut __ctx = ::bevy_elements_core::Context::new(__parent);
 //                             {
-//                                 let __text_entity = __world.spawn().id();
+//                                 let __text_entity = __world.spawn_empty().id();
 //                                 __ctx.child_elements.push(__text_entity.clone());
 //                                 let __text_ctx = ::bevy_elements_core::Context::new(__text_entity);
 //                                 __world

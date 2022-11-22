@@ -1,7 +1,7 @@
 use std::{any::Any, hash::Hash};
 
 use bevy::{
-    ecs::query::{QueryItem, WorldQuery},
+    ecs::query::{QueryItem, WorldQuery, ReadOnlyWorldQuery},
     prelude::*,
     ui::{UiRect, Val},
     utils::HashMap,
@@ -206,13 +206,13 @@ impl PropertyValues {
         })
     }
 
-    /// Tries to parses the current values as a single [`Option<UiRect<Val>>`].
+    /// Tries to parses the current values as a single [`Option<UiRect>`].
     ///
     /// Optional values are handled by this function, so if only one value is present it is used as `top`, `right`, `bottom` and `left`,
     /// otherwise values are applied in the following order: `top`, `right`, `bottom` and `left`.
     ///
     /// Note that it is not possible to create a [`UiRect`] with only `top` value, since it'll be understood to replicated it on all fields.
-    pub fn rect(&self) -> Option<UiRect<Val>> {
+    pub fn rect(&self) -> Option<UiRect> {
         if self.0.len() == 1 {
             self.val().map(UiRect::all)
         } else {
@@ -224,7 +224,7 @@ impl PropertyValues {
                         PropertyToken::Dimension(val) => Val::Px(val.into()),
                         _ => return (rect, idx),
                     };
-                    let mut rect: UiRect<Val> = rect.unwrap_or_default();
+                    let mut rect: UiRect = rect.unwrap_or_default();
 
                     match idx {
                         0 => rect.top = val,
@@ -386,7 +386,7 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
     /// Which components should be queried when applying the modification. Check [`WorldQuery`] for more.
     type Components: WorldQuery;
     /// Filters conditions to be applied when querying entities by this property. Check [`WorldQuery`] for more.
-    type Filters: WorldQuery;
+    type Filters: ReadOnlyWorldQuery;
 
     /// Indicates which property name should matched for. Must match the same property name as on `css` file.
     ///
@@ -519,6 +519,7 @@ pub trait CompoundProperty: Default + Sized + Send + Sync + 'static {
 }
 
 
+#[cfg(test)]
 mod test {
     use super::*;
 

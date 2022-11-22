@@ -1,11 +1,11 @@
 mod parser;
 mod selector;
 
-use bevy::{asset::{AssetLoader, LoadedAsset}, prelude::{Handle, AssetServer, Res, Assets, ResMut, EventReader, AssetEvent, Query, Plugin, AddAsset}, utils::{HashSet, HashMap}, reflect::TypeUuid, ecs::system::Command};
+use bevy::{asset::{AssetLoader, LoadedAsset}, prelude::{Handle, AssetServer, Assets, Plugin, AddAsset, Resource}, utils::{HashSet, HashMap}, reflect::TypeUuid, ecs::system::Command};
 pub use selector::*;
-use tagstr::{AsTag, Tag};
+use tagstr::Tag;
 
-use crate::{PropertyValidator, PropertyExtractor, element::Element, property::PropertyValues};
+use crate::{PropertyValidator, PropertyExtractor, property::PropertyValues};
 
 use self::parser::StyleSheetParser;
 use std::ops::{Deref, DerefMut};
@@ -128,7 +128,7 @@ pub struct StyleRule {
     pub properties: HashMap<Tag, PropertyValues>
 }
 
-#[derive(Default)]
+#[derive(Default,Resource)]
 pub struct Styles(HashSet<Handle<Stylesheet>>);
 
 impl Deref for Styles {
@@ -141,38 +141,5 @@ impl Deref for Styles {
 impl DerefMut for Styles {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
-    }
-}
-
-fn test_iter(
-    asset_server: Res<AssetServer>,
-    styles: Res<Styles>,
-    assets: Assets<Stylesheet>
-) {
-    let prop = "hello".as_tag();
-    let rules: Vec<_> = styles
-        .iter()
-        .filter_map(|h| assets.get(h))
-        .flat_map(|s| s.iter())
-        .filter(|r| r.properties.contains_key(&prop))
-        .collect();
-}
-
-fn test_add(
-    asset_server: Res<AssetServer>,
-    mut styles: ResMut<Styles>
-) {
-    styles.insert(asset_server.load("defaults.css"));
-}
-
-fn test_change(
-    events: EventReader<AssetEvent<Stylesheet>>,
-    mut elements: Query<&mut Element>
-) {
-    if events.len() == 0 {
-        return;
-    }
-    for mut element in elements.iter_mut() {
-        element.invalidate();
     }
 }

@@ -1,4 +1,3 @@
-use bevy::ecs::entity;
 use bevy::ecs::system::BoxedSystem;
 use bevy::prelude::*;
 use std::ops::{Deref, DerefMut};
@@ -8,7 +7,7 @@ use crate::{attributes::*, ElementsBuilder};
 use crate::builders::TextElementBuilder;
 use crate::tags::*;
 
-#[derive(Default)]
+#[derive(Default,Resource)]
 pub struct BuildingContext {
     stack: Vec<ContextData>
 }
@@ -140,7 +139,7 @@ pub trait IntoContent {
 
 impl IntoContent for String {
     fn into_content(self, world: &mut World) -> Vec<Entity> {
-        let text_entity = world.spawn().id();
+        let text_entity = world.spawn_empty().id();
         internal::push_text(world, text_entity, self);
         world
             .resource::<TextElementBuilder>().clone()
@@ -160,7 +159,7 @@ impl<T: Iterator, F: Fn(T::Item) -> ElementsBuilder> IntoContent for ExpandEleme
     fn into_content(self, world: &mut World) -> Vec<Entity> {
         let mut result = vec![];
         for builder in self {
-            let entity = world.spawn().id();
+            let entity = world.spawn_empty().id();
             result.push(entity.clone());
             builder.with_entity(entity)(world);
         }
@@ -172,7 +171,7 @@ impl IntoContent for Vec<ElementsBuilder> {
     fn into_content(self, world: &mut World) -> Vec<Entity> {
         let mut result = vec![];
         for builder in self {
-            let entity = world.spawn().id();
+            let entity = world.spawn_empty().id();
             result.push(entity.clone());
             builder.with_entity(entity)(world);
         }
@@ -217,10 +216,3 @@ pub trait ExpandElementsExt: Iterator {
 }
 
 impl<I: Iterator> ExpandElementsExt for I {}
-
- 
-// impl<I: Iterator> ExpandExt for I {}
-
-fn test() {
-    // ["1", "2"].iter().elements(|e| bsx!{ <el>{e}</el>})
-}

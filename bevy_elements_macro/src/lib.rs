@@ -1,9 +1,8 @@
-use bevy_elements_core::attributes::component;
 use proc_macro2::TokenStream;
 use quote::*;
 extern crate proc_macro;
 use syn::{Expr, spanned::Spanned, Error, ExprPath};
-use syn_rsx::{Node, NodeType, parse, NodeAttribute, NodeName};
+use syn_rsx::{Node, parse, NodeAttribute, NodeName};
 
 fn create_single_command_stmt(expr: &ExprPath) -> TokenStream {
     let component_span = expr.span();
@@ -108,7 +107,7 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                     children = quote! {
                         #children
                         {
-                            let __text_entity = __world.spawn().id();
+                            let __text_entity = __world.spawn_empty().id();
                             __ctx.add_child(__text_entity.clone());
                             ::bevy_elements_core::context::internal::push_text(__world, __text_entity, #text.to_string());
                             __world
@@ -133,7 +132,7 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
         }
 
         let parent = if create_entity {
-            quote! { let __parent = __world.spawn().id(); }
+            quote! { let __parent = __world.spawn_empty().id(); }
         } else {
             quote! { }
         };
