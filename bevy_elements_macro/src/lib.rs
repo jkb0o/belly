@@ -139,10 +139,10 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
         };
         // let tag = element.name.to_string();
         let tag_span = element.name.span();
-        let (tag, parent) = match &element.name {
+        let (tag, parent, tag_span) = match &element.name {
             NodeName::Path(path) => {
                 if path.path.segments.len() == 1 {
-                    (element.name.to_string(), parent)
+                    (element.name.to_string(), parent, tag_span)
                 } else {
                     return Error::new(tag_span, "Invalid tag name, only '<tag>' or '<tag:entity>' supported").into_compile_error()
                 }
@@ -150,13 +150,13 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
             NodeName::Punctuated(name) => {
                 match name.len() {
                     0 => return Error::new(tag_span, "Invalid tag name").into_compile_error(),
-                    1 => (element.name.to_string(), parent),
+                    1 => (element.name.to_string(), parent, tag_span),
                     n if n > 1 => {
                         let pair = name.pairs().next().unwrap();
                         let sep = pair.punct().unwrap();
                         let sep_span = sep.span();
                         if sep.as_char() == '-' {
-                            (element.name.to_string(), parent)
+                            (element.name.to_string(), parent, name.first().unwrap().span())
                         } else if n == 2 && sep.as_char() == ':' {
                             let tag = name.first().unwrap().to_string();
                             let entity = name.last().unwrap();
@@ -164,7 +164,7 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                             let parent = quote_spanned!(entity_span=>
                                 let __parent = #entity;
                             );
-                            (tag, parent)
+                            (tag, parent, tag_span)
                         } else {
                             return Error::new(sep_span, "Invalid tag name separator, only ':' supported").into_compile_error();
                         }
@@ -180,6 +180,19 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
         // }
 
         let invalid_element_msg = format!("Invalid tag name: {}", tag);
+        let builder = if tag.chars().next().unwrap().is_uppercase() {
+            let widget = format_ident!("{}", tag);
+            quote_spanned!(tag_span=>
+                #widget::widget_builder(__world)
+            )
+        } else {
+            quote_spanned!(tag_span=>
+                __world
+                    .resource::<::bevy_elements_core::builders::ElementBuilderRegistry>()
+                    .get_builder(__tag_name)
+                    .expect( #invalid_element_msg )
+            )
+        };
         
         quote! {
             {
@@ -190,11 +203,7 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                 #children
                 
                 ::bevy_elements_core::context::internal::push_element(__world, __ctx);
-                __world
-                    .resource::<::bevy_elements_core::builders::ElementBuilderRegistry>()
-                    .get_builder(__tag_name)
-                    .expect( #invalid_element_msg )
-                    .build(__world);
+                #builder.build(__world);
                 ::bevy_elements_core::context::internal::pop_context(__world);
                 __parent
             }

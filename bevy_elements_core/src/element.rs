@@ -2,6 +2,7 @@ use bevy::utils::HashMap;
 use bevy::utils::HashSet;
 
 use bevy::prelude::*;
+use crate::tags;
 use crate::tags::*;
 use crate::property::*;
 
@@ -27,5 +28,8 @@ pub struct Element {
 
 impl Element {
     pub fn invalidate(&mut self) { }
+    pub fn focused(&self) -> bool {
+        self.state.contains(&tags::focus())
+    }
 }
 

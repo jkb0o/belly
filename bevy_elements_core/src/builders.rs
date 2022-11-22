@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::marker::PhantomData;
 use bevy::ui::FocusPolicy;
 use bevy::utils::HashMap;
 use std::rc::Rc;
@@ -93,7 +94,17 @@ pub struct ElementBuilder {
     postprocess: bool
 }
 
+unsafe impl Send for ElementBuilder { }
+unsafe impl Sync for ElementBuilder { }
+
 impl ElementBuilder {
+    pub fn from_boxed(mut boxed: BoxedSystem<(), ()>, world: &mut World) -> ElementBuilder {
+        boxed.initialize(world);
+        ElementBuilder {
+            postprocess: false,
+            system: Rc::new(RefCell::new(boxed))
+        }
+    }
     pub (crate) fn new<Params, S:IntoSystem<(), (), Params>>(world: &mut World, builder: S) -> ElementBuilder {
         let mut system = IntoSystem::into_system(builder);
         system.initialize(world);
@@ -102,7 +113,7 @@ impl ElementBuilder {
             system: Rc::new(RefCell::new(Box::new(system)))
         }
     }
-    pub(crate) fn with_postprocessing(mut self) -> Self {
+    pub fn with_postprocessing(mut self) -> Self {
         self.postprocess = true;
         self
     }
@@ -156,3 +167,40 @@ impl ElementBuilderRegistry {
     }
 }
 
+struct WidgetBuilder<T> {
+    builder: ElementBuilder,
+    marker: PhantomData<T>
+}
+
+pub trait Widget: Sized + Send + Sync + 'static {
+    // fn build() -> Self;
+    fn widget_builder(world: &mut World) -> ElementBuilder {
+        if let Some(systemres) = world.get_resource::<WidgetBuilder<Self>>() {
+            systemres.builder.clone()
+        } else {
+            let system = Self::get_system();
+            let builder = ElementBuilder::from_boxed(system, world)
+                .with_postprocessing();
+            world.insert_resource(WidgetBuilder{
+                builder: builder.clone(), marker: PhantomData::<Self>
+            });
+            builder
+        }
+    }
+    fn get_system() -> BoxedSystem<(), ()>;
+}
+
+#[macro_export]
+macro_rules! widget {
+    ($typ:ident, $($($a:ident)+: $t:ty),* => $($body:tt)*) => {
+        impl $crate::Widget for $typ {
+            fn get_system() -> ::bevy::ecs::system::BoxedSystem<(), ()> {
+                ::std::boxed::Box::new(
+                    ::bevy::ecs::system::IntoSystem::into_system(
+                        move |$($($a)+: $t),*| $($body)*
+                    )
+                )
+            }
+        } 
+    };
+}

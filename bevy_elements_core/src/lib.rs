@@ -34,6 +34,9 @@ pub use tagstr::*;
 pub use context::IntoContent;
 pub use context::ExpandElements;
 pub use context::ExpandElementsExt;
+pub use crate::builders::{
+    Widget,
+};
 
 use bind::process_binds_system;
 
