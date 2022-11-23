@@ -9,3 +9,7 @@ edition = "2021"
 bevy = "0.9.0"
 bevy_elements_core = { path = "../bevy_elements_core" }
 bevy_elements_macro = { path = "../bevy_elements_macro" }
+tagstr = { path = "../tagstr" }
+tagstr_core = { path = "../tagstr_core" }
+itertools = "0.10.5"
+ab_glyph = "0.2.18"

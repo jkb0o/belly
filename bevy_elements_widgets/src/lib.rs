@@ -1,14 +1,14 @@
 pub mod input;
+pub mod text_line;
+use bevy::prelude::Plugin;
 
-pub use input::InputPlugins;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[derive(Default)]
+pub struct WidgetsPlugin;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+impl Plugin for WidgetsPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.add_plugin(input::InputPlugins);
+        app.add_plugin(text_line::TextLinePlugin);
     }
 }

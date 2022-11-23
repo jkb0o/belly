@@ -3,14 +3,14 @@ use bevy::reflect::ReflectRef;
 use bevy_elements::ess::Stylesheet;
 use bevy_elements_core::*;
 use bevy_elements_macro::*;
-use bevy_elements_widgets::InputPlugins;
+use bevy_elements_widgets::WidgetsPlugin;
 use bevy_elements_widgets::input::TextInput;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(BsxPlugin)
-        .add_plugin(InputPlugins)
+        .add_plugin(WidgetsPlugin)
         .add_startup_system(setup)
         .add_system(process)
         .run();
@@ -32,8 +32,9 @@ fn setup(
     commands.spawn_empty().with_elements(bsx! {
         <el c:ui with=Interaction s:width="100%" s:height="100%">
             <el s:padding="20px" s:align-content="flex-start" s:align-items="flex-start">
-                <TextInput:left value=bind!(<= time, TimeSinceStartup.label) s:margin="8px"/>
-                <TextInput c:dark value=bind!(<= left, TextInput.value) s:margin="8px" s:width="100px"/>
+                // <TextInput:left value=bind!(<= time, TimeSinceStartup.label) s:margin="8px"/>
+                <TextInput:left value="Hello!" s:margin="8px"/>
+                <TextInput c:dark value="Help!" s:margin="8px" s:width="100px"/>
             </el>
         </el>
     });
