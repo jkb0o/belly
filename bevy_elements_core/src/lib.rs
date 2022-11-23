@@ -33,8 +33,9 @@ pub use context::IntoContent;
 pub use context::ExpandElements;
 pub use context::ExpandElementsExt;
 pub use crate::builders::{
-    Widget,
+    Widget, DefaultFont
 };
+pub use attributes::AttributeValue;
 
 use bind::process_binds_system;
 
@@ -101,6 +102,9 @@ fn register_properties(app: &mut bevy::prelude::App) {
     app.register_property::<BackgroundColorProperty>();
 }
 
+
+#[derive(Component,Default)]
+pub struct ManualTextProperties;
 #[derive(Debug)]
 pub enum ElementsError {
     /// An unsupported selector was found on a style sheet rule.

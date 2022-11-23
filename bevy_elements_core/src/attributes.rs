@@ -453,8 +453,8 @@ macro_rules! bindattr {
             let attr = $ctx.attributes.drop_variant(key);
             let mut value = Default::default();
             match attr {
-                Some(AttributeValue::BindFrom(b)) => $cmd.add(b.to($crate::bind!(=> elem, $($target)*))),
-                Some(AttributeValue::$typ(v)) => value = Some(v),
+                Some($crate::AttributeValue::BindFrom(b)) => $cmd.add(b.to($crate::bind!(=> elem, $($target)*))),
+                Some($crate::AttributeValue::$typ(v)) => value = Some(v),
                 Some(attr) => error!("Unsupported value for '{}' attribute: {:?}", key, attr),
                 _ => ()
             };

@@ -249,6 +249,7 @@ mod style {
 /// Impls for `bevy_text` [`Text`] component
 mod text {
     use super::*;
+    use crate::ManualTextProperties;
 
     /// Applies the `color` property on [`TextStyle::color`](`TextStyle`) field of all sections on matched [`Text`] components.
     #[derive(Default)]
@@ -257,7 +258,7 @@ mod text {
     impl Property for FontColorProperty {
         type Cache = Color;
         type Components = &'static mut Text;
-        type Filters = With<Node>;
+        type Filters = (With<Node>, Without<ManualTextProperties>);
 
         fn name() -> Tag {
             tag!("color")
@@ -291,7 +292,7 @@ mod text {
     impl Property for FontProperty {
         type Cache = String;
         type Components = &'static mut Text;
-        type Filters = With<Node>;
+        type Filters = (With<Node>, Without<ManualTextProperties>);
 
         fn name() -> Tag {
             tag!("font")
@@ -325,7 +326,7 @@ mod text {
     impl Property for FontSizeProperty {
         type Cache = f32;
         type Components = &'static mut Text;
-        type Filters = With<Node>;
+        type Filters = (With<Node>, Without<ManualTextProperties>);
 
         fn name() -> Tag {
             tag!("font-size")
