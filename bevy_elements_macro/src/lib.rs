@@ -83,14 +83,47 @@ fn create_attr_stmt(attr: &NodeAttribute) -> TokenStream {
 
 fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
     let mut children = quote! { };
+    let mut parent = if create_entity {
+        quote! { let __parent = __world.spawn_empty().id(); }
+    } else {
+        quote! { }
+    };
     if let Node::Element(element) = element {
+        let mut parent_defined = false;
         for attr in element.attributes.iter() {
-            if let Node::Attribute(attr) = attr {
-                let attr_stmt = create_attr_stmt(attr);
-                children = quote! {
-                    #children
-                    #attr_stmt
+            if let Node::Block(entity) = attr {
+                let entity_span = entity.value.span();
+                let entity = entity.value.as_ref();
+                if parent_defined {
+                    return Error::new(entity_span, "Entity already provided by entity attribute").into_compile_error();
+                }
+                parent_defined = true;
+                parent = quote! {
+                    let __parent = #entity;
                 };
+            } else if let Node::Attribute(attr) = attr {
+                let attr_name = attr.key.to_string();
+                if &attr_name == "entity" {
+                    let attr_span = attr.key.span();
+                    if parent_defined {
+                        return Error::new(attr_span, "Entity already provided by braced block").into_compile_error();
+                    }
+                    parent_defined = true;
+                    let attr_value = attr.value.as_ref();
+                    if attr_value.is_none() {
+                        return Error::new(attr_span, "Attriute entity should has a value").into_compile_error();
+                    }
+                    let entity = attr_value.unwrap().as_ref();
+                    parent = quote_spanned!{ attr_span=>
+                        let __parent = #entity;
+                    };
+                } else {
+                    let attr_stmt = create_attr_stmt(attr);
+                    children = quote! {
+                        #children
+                        #attr_stmt
+                    };
+                }
             }
         }
         for child in element.children.iter() {
@@ -131,53 +164,10 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
             };
         }
 
-        let parent = if create_entity {
-            quote! { let __parent = __world.spawn_empty().id(); }
-        } else {
-            quote! { }
-        };
+        
         // let tag = element.name.to_string();
+        let tag = element.name.to_string();
         let tag_span = element.name.span();
-        let (tag, parent, tag_span) = match &element.name {
-            NodeName::Path(path) => {
-                if path.path.segments.len() == 1 {
-                    (element.name.to_string(), parent, tag_span)
-                } else {
-                    return Error::new(tag_span, "Invalid tag name, only '<tag>' or '<tag:entity>' supported").into_compile_error()
-                }
-            },
-            NodeName::Punctuated(name) => {
-                match name.len() {
-                    0 => return Error::new(tag_span, "Invalid tag name").into_compile_error(),
-                    1 => (element.name.to_string(), parent, tag_span),
-                    n if n > 1 => {
-                        let pair = name.pairs().next().unwrap();
-                        let sep = pair.punct().unwrap();
-                        let sep_span = sep.span();
-                        if sep.as_char() == '-' {
-                            (element.name.to_string(), parent, name.first().unwrap().span())
-                        } else if n == 2 && sep.as_char() == ':' {
-                            let tag = name.first().unwrap().to_string();
-                            let entity = name.last().unwrap();
-                            let entity_span = entity.span();
-                            let parent = quote_spanned!(entity_span=>
-                                let __parent = #entity;
-                            );
-                            (tag, parent, tag_span)
-                        } else {
-                            return Error::new(sep_span, "Invalid tag name separator, only ':' supported").into_compile_error();
-                        }
-                    },
-                    _ => return Error::new(tag_span, "Invalid tag name separator, only ':' supported").into_compile_error()
-                }
-            },
-            _ => return Error::new(tag_span, "Invalid tag name, only '<tag>' or '<tag:entity>' supported").into_compile_error()
-        };
-        // let parts: Vec<_> = element.name.to_string().split(":").collect();
-        // if parts.len() < 1 {
-        //     return Error::new(tag_span, "Invalid tag name").into_compile_error()
-        // }
-
         let invalid_element_msg = format!("Invalid tag name: {}", tag);
         let builder = if tag.chars().next().unwrap().is_uppercase() {
             let widget = format_ident!("{}", tag);
