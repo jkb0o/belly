@@ -2,6 +2,8 @@ use std::error::Error;
 use std::fmt::Display;
 use std::sync::Arc;
 
+use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
+use bevy::input::InputSystem;
 use bevy::utils::HashMap;
 use bevy::{
     ecs::system::EntityCommands,
@@ -21,6 +23,7 @@ pub mod property;
 pub mod ess;
 pub mod bind;
 pub mod focus;
+pub mod signals;
 
 pub struct BsxPlugin;
 
@@ -39,16 +42,38 @@ pub use attributes::AttributeValue;
 
 use bind::process_binds_system;
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+pub enum ElementsStage {
+    Input
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
+pub enum ElementsLabel {
+    Focus,
+    Signals
+}
+
 impl Plugin for BsxPlugin {
     fn build(&self, app: &mut App) {
         app.register_text_element_builder(build_text)
+            .add_plugin(FrameTimeDiagnosticsPlugin)
+            // .add_stage_after(CoreStage::PreUpdate, ElementsStage::Input, SystemStage::parallel())
+            .add_event::<signals::Signal>()
+            .add_system_to_stage(CoreStage::PreUpdate, signals::signals_system
+                .label(ElementsLabel::Signals)
+                .after(InputSystem)
+            )
+            .add_system_to_stage(CoreStage::PreUpdate, update_focus
+                .label(ElementsLabel::Focus)
+                .after(ElementsLabel::Signals)
+            )
             .register_element_builder("el", build_element)
             .register_elements_postprocessor(default_postprocessor)
             .insert_resource(DefaultFont::default())
             .add_plugin(EssPlugin::default())
             .init_resource::<Focused>()
-            .add_system(update_focus)
-            .add_system(process_binds_system);
+            .add_system(process_binds_system)
+            ;
 
         // TODO: may be desabled with feature
         app.add_startup_system(setup_default_font);

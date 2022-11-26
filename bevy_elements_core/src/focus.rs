@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{Element, tags};
+use crate::{Element, tags, signals::Signal};
 
 
 #[derive(Component)]
@@ -12,22 +12,24 @@ pub struct Focused(Option<Entity>);
 
 pub fn update_focus(
     mut focused: ResMut<Focused>,
-    interacted: Query<(Entity, &Interaction), Changed<Interaction>>,
-    focusable: Query<(), With<Element>>,
+    interactable: Query<Entity, (With<Interaction>, With<Element>)>,
     mut elements: Query<&mut Element>,
-    children: Query<&Children>
+    mut signals: EventReader<Signal>,
+    children: Query<&Children>,
+
 ) {
     let mut target_focus = None;
     let mut update_required = false;
-    for (entity, interaction) in interacted.iter() {
-        if *interaction == Interaction::Clicked {
+    for signal in signals.iter().filter(|s| s.pressed()) {
+        for entity in interactable.iter_many(&signal.entities) {
             info!("Cliccked: {:?}", entity);
             update_required = true;
-            if target_focus.is_none() && focusable.contains(entity) {
+            if target_focus.is_none() {
                 target_focus = Some(entity);
             }
         }
     }
+
     if update_required && target_focus != focused.0 {
         info!("New focused node: {:?}", target_focus);
         if let Some(was_focused) = focused.0 {
