@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::reflect::ReflectRef;
 use bevy_elements::ess::Stylesheet;
+use bevy_elements::signals::Signal;
 use bevy_elements_core::*;
 use bevy_elements_macro::*;
 use bevy_elements_widgets::WidgetsPlugin;
@@ -13,6 +14,7 @@ fn main() {
         .add_plugin(WidgetsPlugin)
         .add_startup_system(setup)
         .add_system(process)
+        .add_system(log_events)
         .run();
     
 }
@@ -22,7 +24,7 @@ fn setup(
 ) {
     commands.spawn(Camera2dBundle::default());
     commands.add(Stylesheet::parse(r#"
-        TextInput:focus .text-input-inner {
+        TextInput:focus .text-input-container {
             background-color: #efefef;
         }
     "#));
@@ -32,8 +34,8 @@ fn setup(
     commands.spawn_empty().with_elements(bsx! {
         <el c:ui with=Interaction s:width="100%" s:height="100%">
             <el s:padding="20px" s:align-content="flex-start" s:align-items="flex-start">
-                // <TextInput:left value=bind!(<= time, TimeSinceStartup.label) s:margin="8px"/>
-                <TextInput:left value="Hello!" s:margin="8px"/>
+                // <TextInput element=left value=bind!(<= time, TimeSinceStartup.label) s:margin="8px"/>
+                <TextInput element=left value="Hello!" s:margin="8px"/>
                 <TextInput c:dark value="Help!" s:margin="8px" s:width="100px"/>
             </el>
         </el>
@@ -80,5 +82,13 @@ fn process(
 ) {
     for mut item in query.iter_mut() {
         item.label = format!("Passed: {:.1}0", time.elapsed_seconds());
+    }
+}
+
+fn log_events(
+    mut events: EventReader<Signal>
+) {
+    for e in events.iter().filter(|s| s.pressed() ) {
+        info!("signal: {:?}", e);
     }
 }
