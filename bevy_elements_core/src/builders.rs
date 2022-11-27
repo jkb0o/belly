@@ -17,7 +17,6 @@ pub (crate) fn build_element(mut ctx: ResMut<BuildingContext>, mut commands: Com
         .entity(ctx.element)
         .insert(NodeBundle {
             background_color: BackgroundColor(Color::NONE),
-            focus_policy: FocusPolicy::Pass,
             ..Default::default()
         })
         .push_children(&ctx.content());

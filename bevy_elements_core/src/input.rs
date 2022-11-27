@@ -13,10 +13,9 @@ pub enum Label {
 
 #[derive(Debug,Clone,PartialEq,Eq)]
 pub enum PointerInputData {
-    Down,
-    Up,
-    Pressed,
-    Double,
+    Down { presses: u8 },
+    Up { presses: u8 },
+    Pressed { presses: u8 },
     DragStart,
     Drag { from: Vec<Entity> },
     DragStop,
@@ -40,13 +39,32 @@ impl PointerInput {
         }
         return false;
     }
-
-    pub fn down(&self) -> bool {
-        self.data == PointerInputData::Down
+    
+    pub fn presses(&self) -> u8 {
+        use PointerInputData::*;
+        match self.data {
+            Down { presses } => presses,
+            Up { presses } => presses,
+            Pressed { presses } => presses,
+            _ => 0
+        }
     }
 
+    pub fn down(&self) -> bool {
+        if let PointerInputData::Down { presses: _ } = self.data {
+            true
+        } else {
+            false
+        }
+    }
+
+
     pub fn pressed(&self) -> bool {
-        self.data == PointerInputData::Pressed
+        if let PointerInputData::Pressed { presses: _ } = self.data {
+            true
+        } else {
+            false
+        }
     }
 
     pub fn dragging(&self) -> bool {
@@ -55,10 +73,6 @@ impl PointerInput {
         } else {
             false
         }
-    }
-
-    pub fn double(&self) -> bool {
-        self.data == PointerInputData::Double
     }
 
     pub fn drag_start(&self) -> bool {
@@ -88,8 +102,9 @@ impl PointerInput {
 #[derive(Default)]
 pub struct State {
     pressed_entities: Vec<Entity>,
-    previously_pressed_at: f32,
-    previously_pressed: Vec<Entity>,
+    was_down_at: f32,
+    was_down: Vec<Entity>,
+    presses: u8,
     dragging_from: Vec<Entity>,
     press_position: Option<Vec2>,
     last_cursor_position: Option<Vec2>,
@@ -124,17 +139,9 @@ pub fn pointer_input_system(
     mut node_query: Query<NodeQuery>,
     mut events: EventWriter<PointerInput>,
 ) {
-    // reset entities that were both clicked and released in the last frame
-    // for entity in state.entities_to_reset.drain(..) {
-    //     if let Ok(mut interaction) = node_query.get_component_mut::<Interaction>(entity) {
-    //         *interaction = Interaction::None;
-    //     }
-    // }
-
-    let mouse_released =
+    let up =
         mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
-
-    let mouse_clicked =
+    let down =
         mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
 
     let is_ui_disabled =
@@ -161,8 +168,8 @@ pub fn pointer_input_system(
         .or_else(|| touches_input.first_pressed_position());
     
     let mut send_drag_start = false;
-    let send_drag_stop = state.dragging && mouse_released;
-    if mouse_clicked {
+    let send_drag_stop = state.dragging && up;
+    if down {
         state.press_position = cursor_position;
         state.drag_accumulator = Vec2::ZERO;
     }
@@ -247,15 +254,19 @@ pub fn pointer_input_system(
     // the iteration will stop on it because it "captures" the interaction.
     let mut iter = node_query.iter_many_mut(moused_over_nodes.by_ref());
     while let Some(node) = iter.fetch_next() {
+        if node.interaction.is_none() {
+            continue;
+        }
+        if node.focus_policy.is_none() {
+            continue;
+        }
         let entity = node.entity;
-        let pos = cursor_position.unwrap();
-        let rel = pos - node.global_transform.translation().truncate() + node.node.size() * 0.5;
         
-        if mouse_clicked {
+        if down {
             state.pressed_entities.push(entity);
             down_entities.push(entity);
         }
-        if mouse_released {
+        if up {
             up_entities.push(entity);
             let pressed_entity_idx = state.pressed_entities.iter().position(|e| *e == entity);
             if let Some(pressed_entity_idx) = pressed_entity_idx {
@@ -278,7 +289,7 @@ pub fn pointer_input_system(
             drag_stop_entities.push(entity);
         }
         
-        match node.focus_policy.unwrap_or(&FocusPolicy::Block) {
+        match node.focus_policy.unwrap() {
             FocusPolicy::Block => {
                 break;
             }
@@ -288,28 +299,24 @@ pub fn pointer_input_system(
 
     let Some(pos) = cursor_position else { return };
     if down_entities.len() > 0 {
-        events.send(PointerInput { pos, delta, entities: down_entities, data: PointerInputData::Down});
+        if time.elapsed_seconds() - state.was_down_at < 0.3 && down_entities == state.was_down {
+            state.presses += 1;
+        } else {
+
+            state.presses = 0;
+        }
+        let presses = state.presses + 1;
+        state.was_down = down_entities.clone();
+        state.was_down_at = time.elapsed_seconds();
+        events.send(PointerInput { pos, delta, entities: down_entities, data: PointerInputData::Down { presses }});
     }
     if up_entities.len() > 0 {
-        events.send(PointerInput { pos, delta, entities: up_entities, data: PointerInputData::Up});
+        let presses = state.presses;
+        events.send(PointerInput { pos, delta, entities: up_entities, data: PointerInputData::Up { presses }});
     }
     if pressed_entities.len() > 0 {
-        events.send(PointerInput { pos, delta, entities: pressed_entities.clone(), data: PointerInputData::Pressed});
-        if time.elapsed_seconds() - state.previously_pressed_at < 0.25 {
-            let mut dobule_pressed = vec![];
-            for a in state.previously_pressed.iter() {
-                for b in pressed_entities.iter() {
-                    if a == b {
-                        dobule_pressed.push(*a);
-                    }
-                }
-            }
-            if dobule_pressed.len() > 0 { 
-                events.send(PointerInput { pos, delta, entities: dobule_pressed, data: PointerInputData::Double });
-            }
-        }
-        state.previously_pressed_at = time.elapsed_seconds();
-        state.previously_pressed = pressed_entities.clone();
+        let presses = state.presses;
+        events.send(PointerInput { pos, delta, entities: pressed_entities.clone(), data: PointerInputData::Pressed { presses }});
     }
     if motion_entities.len() > 0 {
         events.send(PointerInput { pos, delta, entities: motion_entities, data: PointerInputData::Motion });
@@ -325,24 +332,12 @@ pub fn pointer_input_system(
         events.send(PointerInput { pos, delta, entities: drag_stop_entities, data: PointerInputData::DragStop});
     }
 
-    if mouse_released {
+    if up {
         state.pressed_entities.clear();
         state.dragging_from.clear();
         state.press_position = None;
         state.dragging = false;
     }
-
-    // reset `Interaction` for the remaining lower nodes to `None`. those are the nodes that remain in
-    // `moused_over_nodes` after the previous loop is exited.
-    // let mut iter = node_query.iter_many_mut(moused_over_nodes);
-    // while let Some(node) = iter.fetch_next() {
-    //     if let Some(mut interaction) = node.interaction {
-    //         // don't reset clicked nodes because they're handled separately
-    //         if *interaction != Interaction::Clicked && *interaction != Interaction::None {
-    //             *interaction = Interaction::None;
-    //         }
-    //     }
-    // }
 }
 
 #[derive(Component)]
