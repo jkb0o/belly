@@ -410,29 +410,50 @@ fn process_mouse(
             let Some(font) = fonts.get(&text.style.font) else { continue };
             let font_size = text.style.font_size;
             let pos = (evt.pos - tr.translation().truncate() + node.size() * 0.5).x;
-            let mut idx = 0;
-            for ch in text.value.chars() {
+            let mut index = 0;
+            let mut idx_found = false;
+            let mut word_start = 0;
+            let mut word_end = 0;
+            let mut whitespace = false;
+            for (idx, ch) in text.value.chars().enumerate() {
                 let advance = get_char_advance(ch, font, font_size);
-                if offset + advance * 0.5 > pos {
-                    break;
+                if offset < pos && !idx_found {
+                    index = idx;
+                    if offset + advance * 0.5 < pos {
+                        index += 1;
+                    }
+                } else {
+                    idx_found = true;
                 }
                 offset += advance;
-                idx += 1;
+                if !whitespace && !ch.is_whitespace() {
+                    word_end = idx + 1;
+                }  else if whitespace && ch.is_whitespace() {
+                    word_end = idx + 1;
+                } else if idx_found {
+                    break;
+                } else {
+                    whitespace = !whitespace;
+                    word_start = idx;
+                    word_end = idx + 1;
+                }
             }
 
             let mut selected = input.selected.clone();
             let shift = keyboard.any_pressed([KeyCode::LShift, KeyCode::RShift]);
             if evt.double() {
-                selected.start(0);
-                selected.extend(text.value.chars().count());
-                idx = selected.max;
+                // selected.start(0);
+                // selected.extend(text.value.chars().count());
+                selected.start(word_start);
+                selected.extend(word_end);
+                index = selected.max;
             } else if evt.dragging() || evt.down() && shift {
-                selected.extend(idx);
+                selected.extend(index);
             } else if evt.down() {
                 selected.stop();
             }
-            if input.index != idx {
-                input.index = idx;
+            if input.index != index {
+                input.index = index;
                 element.invalidate();
             }
             if input.selected != selected {
@@ -440,7 +461,7 @@ fn process_mouse(
                 element.invalidate();
             }
             let frame = diag.get(FrameTimeDiagnosticsPlugin::FRAME_COUNT).unwrap().average().unwrap_or_default();
-            info!("{}:process_mouse: Clicked relative: {:.2}, idx={}, offset={}, focused: {}, range: {:?}", frame, pos, idx, offset, element.focused(), selected);
+            info!("{}:process_mouse: Clicked relative: {:.2}, idx={}, offset={}, focused: {}, range: {:?}", frame, pos, index, offset, element.focused(), selected);
 
         }
     }
