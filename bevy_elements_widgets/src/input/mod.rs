@@ -387,7 +387,7 @@ fn process_mouse(
     keyboard: Res<Input<KeyCode>>,
     diag: Res<Diagnostics>,
 ) {
-    for evt in events.iter().filter(|s| s.down() || s.dragging() || s.drag_stop() || s.double()) {
+    for evt in events.iter().filter(|s| s.down() || s.dragging() || s.drag_stop()) {
         for (entity, mut input, mut element) in inputs.iter_mut() {
             if evt.drag_start() && evt.contains(entity) {
                 let start = input.index;
@@ -441,11 +441,14 @@ fn process_mouse(
 
             let mut selected = input.selected.clone();
             let shift = keyboard.any_pressed([KeyCode::LShift, KeyCode::RShift]);
-            if evt.double() {
-                // selected.start(0);
-                // selected.extend(text.value.chars().count());
+            info!("presses: {}", evt.presses());
+            if evt.down() && evt.presses() == 2 {
                 selected.start(word_start);
                 selected.extend(word_end);
+                index = selected.max;
+            } else if evt.down() && evt.presses() > 2 {
+                selected.start(0);
+                selected.extend(text.value.chars().count());
                 index = selected.max;
             } else if evt.dragging() || evt.down() && shift {
                 selected.extend(index);
