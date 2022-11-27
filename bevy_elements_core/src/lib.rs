@@ -11,7 +11,7 @@ use bevy::{
 };
 use bevy_inspector_egui::egui::mutex::RwLock;
 use ess::EssPlugin;
-use focus::{Focused, update_focus};
+// use focus::{Focused, update_focus};
 use property::PropertyValues;
 
 pub mod attributes;
@@ -22,8 +22,7 @@ pub mod element;
 pub mod property;
 pub mod ess;
 pub mod bind;
-pub mod focus;
-pub mod signals;
+pub mod input;
 
 pub struct BsxPlugin;
 
@@ -42,36 +41,24 @@ pub use attributes::AttributeValue;
 
 use bind::process_binds_system;
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-pub enum ElementsStage {
-    Input
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
-pub enum ElementsLabel {
-    Focus,
-    Signals
-}
-
 impl Plugin for BsxPlugin {
     fn build(&self, app: &mut App) {
         app.register_text_element_builder(build_text)
             .add_plugin(FrameTimeDiagnosticsPlugin)
-            // .add_stage_after(CoreStage::PreUpdate, ElementsStage::Input, SystemStage::parallel())
-            .add_event::<signals::Signal>()
-            .add_system_to_stage(CoreStage::PreUpdate, signals::signals_system
-                .label(ElementsLabel::Signals)
+            .add_event::<input::PointerInput>()
+            .add_system_to_stage(CoreStage::PreUpdate, input::pointer_input_system
+                .label(input::Label::Signals)
                 .after(InputSystem)
             )
-            .add_system_to_stage(CoreStage::PreUpdate, update_focus
-                .label(ElementsLabel::Focus)
-                .after(ElementsLabel::Signals)
+            .add_system_to_stage(CoreStage::PreUpdate, input::focus_system
+                .label(input::Label::Focus)
+                .after(input::Label::Signals)
             )
             .register_element_builder("el", build_element)
             .register_elements_postprocessor(default_postprocessor)
             .insert_resource(DefaultFont::default())
             .add_plugin(EssPlugin::default())
-            .init_resource::<Focused>()
+            .init_resource::<input::Focused>()
             .add_system(process_binds_system)
             ;
 

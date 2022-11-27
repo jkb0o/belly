@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::reflect::ReflectRef;
 use bevy_elements::ess::Stylesheet;
-use bevy_elements::signals::Signal;
+use bevy_elements::input::PointerInput;
 use bevy_elements_core::*;
 use bevy_elements_macro::*;
 use bevy_elements_widgets::WidgetsPlugin;
@@ -86,7 +86,7 @@ fn process(
 }
 
 fn log_events(
-    mut events: EventReader<Signal>
+    mut events: EventReader<PointerInput>
 ) {
     for e in events.iter().filter(|s| s.pressed() ) {
         info!("signal: {:?}", e);

@@ -1,11 +1,18 @@
-use std::{ops::Index, iter::Filter};
-
 use bevy::{prelude::*, ecs::query::WorldQuery, ui::{FocusPolicy, UiStack}, render::camera::RenderTarget};
+
+use crate::{Element, tags};
 
 const DRAG_THRESHOLD: f32 = 5.;
 
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
+pub enum Label {
+    Signals,
+    Focus,
+}
+
 #[derive(Debug,Clone,PartialEq,Eq)]
-pub enum SignalData {
+pub enum PointerInputData {
     Down,
     Up,
     Pressed,
@@ -17,14 +24,14 @@ pub enum SignalData {
 }
 
 #[derive(Debug)]
-pub struct Signal {
+pub struct PointerInput {
     pub entities: Vec<Entity>,
     pub pos: Vec2,
     pub delta: Vec2,
-    pub data: SignalData
+    pub data: PointerInputData
 }
 
-impl Signal {
+impl PointerInput {
     pub fn contains(&self, entity: Entity) -> bool {
         for e in self.entities.iter() {
             if *e == entity {
@@ -35,15 +42,15 @@ impl Signal {
     }
 
     pub fn down(&self) -> bool {
-        self.data == SignalData::Down
+        self.data == PointerInputData::Down
     }
 
     pub fn pressed(&self) -> bool {
-        self.data == SignalData::Pressed
+        self.data == PointerInputData::Pressed
     }
 
     pub fn dragging(&self) -> bool {
-        if let SignalData::Drag { from: _ } = self.data {
+        if let PointerInputData::Drag { from: _ } = self.data {
             true
         } else {
             false
@@ -51,19 +58,19 @@ impl Signal {
     }
 
     pub fn double(&self) -> bool {
-        self.data == SignalData::Double
+        self.data == PointerInputData::Double
     }
 
     pub fn drag_start(&self) -> bool {
-        self.data == SignalData::DragStart
+        self.data == PointerInputData::DragStart
     }
 
     pub fn drag_stop(&self) -> bool {
-        self.data == SignalData::DragStart
+        self.data == PointerInputData::DragStart
     }
 
     pub fn dragging_from(&self, entity: Entity) -> bool {
-        if let SignalData::Drag { from } = &self.data {
+        if let PointerInputData::Drag { from } = &self.data {
             for e in from.iter() {
                 if *e == entity {
                     return true
@@ -106,7 +113,7 @@ pub struct NodeQuery {
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 ///
 /// Entities with a hidden [`ComputedVisibility`] are always treated as released.
-pub fn signals_system(
+pub fn pointer_input_system(
     mut state: Local<State>,
     camera: Query<(&Camera, Option<&UiCameraConfig>)>,
     windows: Res<Windows>,
@@ -115,7 +122,7 @@ pub fn signals_system(
     ui_stack: Res<UiStack>,
     time: Res<Time>,
     mut node_query: Query<NodeQuery>,
-    mut events: EventWriter<Signal>,
+    mut events: EventWriter<PointerInput>,
 ) {
     // reset entities that were both clicked and released in the last frame
     // for entity in state.entities_to_reset.drain(..) {
@@ -242,7 +249,7 @@ pub fn signals_system(
     while let Some(node) = iter.fetch_next() {
         let entity = node.entity;
         let pos = cursor_position.unwrap();
-        let rel = pos - node.global_transform.translation().truncate() + node.node.size() * 0.5;;
+        let rel = pos - node.global_transform.translation().truncate() + node.node.size() * 0.5;
         
         if mouse_clicked {
             state.pressed_entities.push(entity);
@@ -281,13 +288,13 @@ pub fn signals_system(
 
     let Some(pos) = cursor_position else { return };
     if down_entities.len() > 0 {
-        events.send(Signal { pos, delta, entities: down_entities, data: SignalData::Down});
+        events.send(PointerInput { pos, delta, entities: down_entities, data: PointerInputData::Down});
     }
     if up_entities.len() > 0 {
-        events.send(Signal { pos, delta, entities: up_entities, data: SignalData::Up});
+        events.send(PointerInput { pos, delta, entities: up_entities, data: PointerInputData::Up});
     }
     if pressed_entities.len() > 0 {
-        events.send(Signal { pos, delta, entities: pressed_entities.clone(), data: SignalData::Pressed});
+        events.send(PointerInput { pos, delta, entities: pressed_entities.clone(), data: PointerInputData::Pressed});
         if time.elapsed_seconds() - state.previously_pressed_at < 0.25 {
             let mut dobule_pressed = vec![];
             for a in state.previously_pressed.iter() {
@@ -298,24 +305,24 @@ pub fn signals_system(
                 }
             }
             if dobule_pressed.len() > 0 { 
-                events.send(Signal { pos, delta, entities: dobule_pressed, data: SignalData::Double });
+                events.send(PointerInput { pos, delta, entities: dobule_pressed, data: PointerInputData::Double });
             }
         }
         state.previously_pressed_at = time.elapsed_seconds();
         state.previously_pressed = pressed_entities.clone();
     }
     if motion_entities.len() > 0 {
-        events.send(Signal { pos, delta, entities: motion_entities, data: SignalData::Motion });
+        events.send(PointerInput { pos, delta, entities: motion_entities, data: PointerInputData::Motion });
     }
     if drag_start_entities.len() > 0 {
         state.dragging_from = drag_start_entities.clone();
-        events.send(Signal { pos, delta, entities: drag_start_entities, data: SignalData::DragStart});
+        events.send(PointerInput { pos, delta, entities: drag_start_entities, data: PointerInputData::DragStart});
     }
     if drag_entities.len() > 0 {
-        events.send(Signal { pos, delta, entities: drag_entities, data: SignalData::Drag { from: state.dragging_from.clone() }});
+        events.send(PointerInput { pos, delta, entities: drag_entities, data: PointerInputData::Drag { from: state.dragging_from.clone() }});
     }
     if drag_stop_entities.len() > 0 {
-        events.send(Signal { pos, delta, entities: drag_stop_entities, data: SignalData::DragStop});
+        events.send(PointerInput { pos, delta, entities: drag_stop_entities, data: PointerInputData::DragStop});
     }
 
     if mouse_released {
@@ -336,4 +343,64 @@ pub fn signals_system(
     //         }
     //     }
     // }
+}
+
+#[derive(Component)]
+pub struct Focus(bool);
+
+#[derive(Resource,Default)]
+pub struct Focused(Option<Entity>);
+
+
+pub fn focus_system(
+    mut focused: ResMut<Focused>,
+    interactable: Query<Entity, (With<Interaction>, With<Element>)>,
+    mut elements: Query<&mut Element>,
+    mut signals: EventReader<PointerInput>,
+    children: Query<&Children>,
+
+) {
+    let mut target_focus = None;
+    let mut update_required = false;
+    for signal in signals.iter().filter(|s| s.down()) {
+        for entity in interactable.iter_many(&signal.entities) {
+            info!("Cliccked: {:?}", entity);
+            update_required = true;
+            if target_focus.is_none() {
+                target_focus = Some(entity);
+            }
+        }
+    }
+
+    if update_required && target_focus != focused.0 {
+        info!("New focused node: {:?}", target_focus);
+        if let Some(was_focused) = focused.0 {
+            if let Ok(mut element) = elements.get_mut(was_focused) {
+                element.state.remove(&tags::focus());
+                invalidate_tree(was_focused, &mut elements, &children);
+            }
+        }
+        if let Some(target_focus) = target_focus {
+            if let Ok(mut element) = elements.get_mut(target_focus) {
+                element.state.insert(tags::focus());
+                invalidate_tree(target_focus, &mut elements, &children);
+            }
+        }
+        focused.0 = target_focus;
+    }
+}
+
+fn invalidate_tree(
+    node: Entity,
+    q_elements: &mut Query<&mut Element>,
+    q_children: &Query<&Children>
+) {
+    if let Ok(mut element) = q_elements.get_mut(node) {
+        element.invalidate();
+    }
+    if let Ok(children) = q_children.get(node) {
+        for child in children.iter() {
+            invalidate_tree(*child, q_elements, q_children);
+        }
+    }
 }

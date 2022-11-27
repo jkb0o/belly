@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use ab_glyph::ScaleFont;
 use bevy::{prelude::*, ui::FocusPolicy, input::keyboard::KeyboardInput, diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin}};
-use bevy_elements_core::{*, element::{Element, DisplayElement}, builders::DefaultFont, signals::Signal};
+use bevy_elements_core::{*, element::{Element, DisplayElement}, builders::DefaultFont, input::PointerInput};
 use bevy_elements_macro::*;
 pub struct InputPlugins;
 use crate::text_line::TextLine;
@@ -24,7 +24,7 @@ impl Plugin for InputPlugins {
             .add_system(blink_cursor)
             .add_system_to_stage(CoreStage::PreUpdate, process_cursor_focus
                 .label(TextInputLabel::Focus)
-                .after(ElementsLabel::Focus)
+                .after(bevy_elements_core::input::Label::Focus)
             )
             .add_system_to_stage(CoreStage::PreUpdate, process_mouse
                 .label(TextInputLabel::Mouse)
@@ -379,7 +379,7 @@ fn process_cursor_focus(
 }
 
 fn process_mouse(
-    mut events: EventReader<Signal>,
+    mut events: EventReader<PointerInput>,
     mut inputs: Query<(Entity, &mut TextInput, &mut Element)>,
     texts: Query<&TextLine>,
     styles: Query<(&Style, &GlobalTransform, &Node)>,
