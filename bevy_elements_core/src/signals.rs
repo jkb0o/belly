@@ -4,13 +4,14 @@ use bevy::{prelude::*, ecs::query::WorldQuery, ui::{FocusPolicy, UiStack}, rende
 
 const DRAG_THRESHOLD: f32 = 5.;
 
-#[derive(Debug,Clone,Copy,PartialEq,Eq)]
+#[derive(Debug,Clone,PartialEq,Eq)]
 pub enum SignalData {
     Down,
     Up,
     Pressed,
+    Double,
     DragStart,
-    Drag,
+    Drag { from: Vec<Entity> },
     DragStop,
     Motion,
 }
@@ -33,8 +34,45 @@ impl Signal {
         return false;
     }
 
+    pub fn down(&self) -> bool {
+        self.data == SignalData::Down
+    }
+
     pub fn pressed(&self) -> bool {
         self.data == SignalData::Pressed
+    }
+
+    pub fn dragging(&self) -> bool {
+        if let SignalData::Drag { from: _ } = self.data {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn double(&self) -> bool {
+        self.data == SignalData::Double
+    }
+
+    pub fn drag_start(&self) -> bool {
+        self.data == SignalData::DragStart
+    }
+
+    pub fn drag_stop(&self) -> bool {
+        self.data == SignalData::DragStart
+    }
+
+    pub fn dragging_from(&self, entity: Entity) -> bool {
+        if let SignalData::Drag { from } = &self.data {
+            for e in from.iter() {
+                if *e == entity {
+                    return true
+                }
+            }
+            false
+        } else {
+            false
+        }
     }
 }
 
@@ -43,6 +81,9 @@ impl Signal {
 #[derive(Default)]
 pub struct State {
     pressed_entities: Vec<Entity>,
+    previously_pressed_at: f32,
+    previously_pressed: Vec<Entity>,
+    dragging_from: Vec<Entity>,
     press_position: Option<Vec2>,
     last_cursor_position: Option<Vec2>,
     drag_accumulator: Vec2,
@@ -72,6 +113,7 @@ pub fn signals_system(
     mouse_button_input: Res<Input<MouseButton>>,
     touches_input: Res<Touches>,
     ui_stack: Res<UiStack>,
+    time: Res<Time>,
     mut node_query: Query<NodeQuery>,
     mut events: EventWriter<Signal>,
 ) {
@@ -237,11 +279,6 @@ pub fn signals_system(
         }
     }
 
-    if mouse_released {
-        state.pressed_entities.clear();
-        state.press_position = None;
-        state.dragging = false;
-    }
     let Some(pos) = cursor_position else { return };
     if down_entities.len() > 0 {
         events.send(Signal { pos, delta, entities: down_entities, data: SignalData::Down});
@@ -250,20 +287,42 @@ pub fn signals_system(
         events.send(Signal { pos, delta, entities: up_entities, data: SignalData::Up});
     }
     if pressed_entities.len() > 0 {
-        info!("Emitting pressed");
-        events.send(Signal { pos, delta, entities: pressed_entities, data: SignalData::Pressed});
+        events.send(Signal { pos, delta, entities: pressed_entities.clone(), data: SignalData::Pressed});
+        if time.elapsed_seconds() - state.previously_pressed_at < 0.25 {
+            let mut dobule_pressed = vec![];
+            for a in state.previously_pressed.iter() {
+                for b in pressed_entities.iter() {
+                    if a == b {
+                        dobule_pressed.push(*a);
+                    }
+                }
+            }
+            if dobule_pressed.len() > 0 { 
+                events.send(Signal { pos, delta, entities: dobule_pressed, data: SignalData::Double });
+            }
+        }
+        state.previously_pressed_at = time.elapsed_seconds();
+        state.previously_pressed = pressed_entities.clone();
     }
     if motion_entities.len() > 0 {
         events.send(Signal { pos, delta, entities: motion_entities, data: SignalData::Motion });
     }
     if drag_start_entities.len() > 0 {
+        state.dragging_from = drag_start_entities.clone();
         events.send(Signal { pos, delta, entities: drag_start_entities, data: SignalData::DragStart});
     }
     if drag_entities.len() > 0 {
-        events.send(Signal { pos, delta, entities: drag_entities, data: SignalData::Drag });
+        events.send(Signal { pos, delta, entities: drag_entities, data: SignalData::Drag { from: state.dragging_from.clone() }});
     }
     if drag_stop_entities.len() > 0 {
         events.send(Signal { pos, delta, entities: drag_stop_entities, data: SignalData::DragStop});
+    }
+
+    if mouse_released {
+        state.pressed_entities.clear();
+        state.dragging_from.clear();
+        state.press_position = None;
+        state.dragging = false;
     }
 
     // reset `Interaction` for the remaining lower nodes to `None`. those are the nodes that remain in

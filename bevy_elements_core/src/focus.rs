@@ -20,7 +20,7 @@ pub fn update_focus(
 ) {
     let mut target_focus = None;
     let mut update_required = false;
-    for signal in signals.iter().filter(|s| s.pressed()) {
+    for signal in signals.iter().filter(|s| s.down()) {
         for entity in interactable.iter_many(&signal.entities) {
             info!("Cliccked: {:?}", entity);
             update_required = true;
