@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use ab_glyph::ScaleFont;
 use bevy::{prelude::*, ui::FocusPolicy, input::keyboard::KeyboardInput, diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin}};
 use bevy_elements_core::{*, element::{Element, DisplayElement}, builders::DefaultFont, signals::Signal};
@@ -41,10 +43,80 @@ impl Plugin for InputPlugins {
 pub struct TextInput {
     pub value: String,
     index: usize,
+    selected: Selection,
     cursor: Entity,
     text: Entity,
     container: Entity,
+    selection: Entity,
 }
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct Selection {
+    min: usize,
+    max: usize,
+    started: Option<usize>
+}
+
+impl Selection {
+    pub fn new() -> Selection {
+        Selection {
+            min: 0,
+            max: 0,
+            started: None
+        }
+    }
+    pub fn is_empty(&self) -> bool {
+        self.max == self.min
+    }
+
+    pub fn size(&self) -> usize {
+        self.max - self.min
+    }
+
+    pub fn start(&mut self, value: usize) {
+        self.started = Some(value);
+        self.min = value;
+        self.max = value;
+    }
+
+    pub fn stop(&mut self) {
+        self.started = None;
+        self.min = 0;
+        self.max = 0;
+    }
+
+    pub fn extend(&mut self, value: usize) {
+        if self.started.is_none() {
+            self.start(value);
+            return;
+        }
+        let started = self.started.unwrap();
+        if value > self.max {
+            self.max = value;
+            self.min = started;
+        } else if  value < self.min {
+            self.min = value;
+            self.max = started;
+        } else if value > started {
+            self.max = value;
+        } else if value < started {
+            self.min = value;
+        } else {
+            self.min = started;
+            self.max = started;
+        }
+    }
+
+    pub fn range(&self) -> Range<usize> {
+        self.min..self.max
+    }
+}
+
+// impl From<usize> for Selection {
+//     fn from(idx: usize) -> Self {
+//         Self::new(idx)
+//     }
+// }
 
 #[derive(Component, Default)]
 pub struct TextInputCursor {
@@ -61,10 +133,11 @@ widget!( TextInput,
     let cursor = commands.spawn_empty().id();
     let text = commands.spawn_empty().id();
     let container = commands.spawn_empty().id();
+    let selection = commands.spawn_empty().id();
     let block_input = FocusPolicy::Block;
     let widget = TextInput {
-        cursor, text, container,
-        index: 0,
+        cursor, text, container, selection,
+        index: 0, selected: Selection::new(),
         value: value.unwrap_or("".to_string()),
     };
     commands.entity(entity).with_elements(bsx! {
@@ -88,6 +161,16 @@ widget!( TextInput,
                     s:width="100%"
                     s:overflow="hidden"
                 >
+                    <el {selection} with=BackgroundColor
+                        c:text-input-selection
+                        s:position-type="absolute"
+                        s:height="100%"
+                        s:display="none"
+                        // s:left="0px"
+                        // s:width="50px"
+                        s:background-color="#9f9f9f"
+                    />
+
                     <TextLine {text} value=bind!(<= entity, Self.value) s:color="#2f2f2f"/>
                     <el entity=cursor
                         with=BackgroundColor
@@ -148,28 +231,52 @@ fn process_keyboard_input(
     let Ok(text) = texts.get_mut(input.text)
         else { return };
     
+    let shift = keyboard.any_pressed([KeyCode::LShift, KeyCode::RShift]);
     let mut index = input.index;
+    let mut selected = input.selected.clone();
 
     let mut chars: Vec<_> = input.value.chars().collect();
     if keyboard.just_pressed(KeyCode::Left) {
+        if !shift {
+            selected.stop();
+        }
         if index > 0 {
             index -= 1;
+            if shift { 
+                selected.extend(index + 1);
+                selected.extend(index);
+            }
         }
     } else if keyboard.just_pressed(KeyCode::Right) {
+        if !shift {
+            selected.stop();
+        }
         if index < chars.len() {
             index += 1;
+            if shift { 
+                selected.extend(index - 1);
+                selected.extend(index); 
+            }
         }
     } else { for ch in characters.iter() {
         if ch.char == CHAR_DELETE {
-            if index > 0 {
-                let idx = index - 1;
-                chars.remove(idx);
+            if !selected.is_empty() {
+                chars.drain(selected.range());
+                index = selected.min;
+                selected.stop();
                 input.value = chars.iter().collect();
-                index = idx;
+            } else if index > 0 {
+                index -= 1;
+                chars.remove(index);
+                input.value = chars.iter().collect();
             }
         } else {
-            let idx = index;
-            chars.insert(idx, ch.char);
+            if !selected.is_empty() {
+                chars.drain(selected.range());
+                index = selected.min;
+                selected.stop();
+            }
+            chars.insert(index, ch.char);
             input.value = chars.iter().collect();
             index += 1;
         }
@@ -181,6 +288,8 @@ fn process_keyboard_input(
     let Ok(node) = nodes.get(input.container) else { return };
     let container_width = node.size().x;
     let mut position_from_start = 0.;
+    let mut selection_from = 0.;
+    let mut selection_to = 0.;
     let mut text_width = 0.;
     let Some(font) = fonts.get(&text.style.font) else { return };
     let font_size = text.style.font_size;
@@ -189,6 +298,12 @@ fn process_keyboard_input(
         text_width += advance;
         if idx < index {
             position_from_start += advance;
+        }
+        if idx < selected.min {
+            selection_from += advance;
+        }
+        if idx < selected.max {
+            selection_to += advance;
         }
     }
     let mut offset = if let Ok(contaienr_style) = styles.get_mut(input.container) {
@@ -209,6 +324,9 @@ fn process_keyboard_input(
     if unused_space > 0. {
         offset = (offset + unused_space).min(0.);
     }
+    selection_from += offset;
+    selection_to += offset;
+    selection_to = selection_to.min(container_width);
     let cursor_position = position_from_start + offset;
     // let offset = (position_from_start - container_width).max(0.);
     if let Ok(mut cursor_style) = styles.get_mut(input.cursor) {
@@ -217,11 +335,23 @@ fn process_keyboard_input(
     if let Ok(mut contaienr_style) = styles.get_mut(input.container) {
         contaienr_style.padding.left = Val::Px(offset);
     }
+    if let Ok(mut selection_style) = styles.get_mut(input.selection) {
+        if !selected.is_empty() {
+            selection_style.display = Display::Flex;
+            selection_style.position.left = Val::Px(selection_from);
+            selection_style.size.width = Val::Px(selection_to - selection_from);
+        } else {
+            selection_style.display = Display::None;
+        }
+    }
     if input.index != index {
         input.index = index;
     }
+    if input.selected != selected {
+        input.selected = selected;
+    }
     
-    info!("{}:process_keyboard_input: Resulting index: {}, cursor: {}",  frame, input.index, cursor_position);
+    info!("{}:process_keyboard_input: Resulting index: {}, cursor: {}, selection: {:?}",  frame, input.index, cursor_position, selected);
     
 }
 
@@ -254,11 +384,20 @@ fn process_mouse(
     texts: Query<&TextLine>,
     styles: Query<(&Style, &GlobalTransform, &Node)>,
     fonts: Res<Assets<Font>>,
+    keyboard: Res<Input<KeyCode>>,
     diag: Res<Diagnostics>,
 ) {
-    for evt in events.iter().filter(|s| s.pressed()) {
+    for evt in events.iter().filter(|s| s.down() || s.dragging() || s.drag_stop() || s.double()) {
         for (entity, mut input, mut element) in inputs.iter_mut() {
-            if !evt.contains(entity) {
+            if evt.drag_start() && evt.contains(entity) {
+                let start = input.index;
+                input.selected.start(start);
+                continue;
+            }
+            if evt.down() && !evt.contains(entity) {
+                continue;
+            }
+            if evt.dragging() && !evt.dragging_from(entity) {
                 continue;
             }
             let Ok((container, tr, node)) = styles.get(input.container) else { continue };
@@ -270,22 +409,38 @@ fn process_mouse(
             let Ok(text) = texts.get(input.text) else { continue };
             let Some(font) = fonts.get(&text.style.font) else { continue };
             let font_size = text.style.font_size;
-            let pressed = (evt.pos - tr.translation().truncate() + node.size() * 0.5).x;
+            let pos = (evt.pos - tr.translation().truncate() + node.size() * 0.5).x;
             let mut idx = 0;
             for ch in text.value.chars() {
                 let advance = get_char_advance(ch, font, font_size);
-                if offset + advance * 0.5 > pressed {
+                if offset + advance * 0.5 > pos {
                     break;
                 }
                 offset += advance;
                 idx += 1;
             }
+
+            let mut selected = input.selected.clone();
+            let shift = keyboard.any_pressed([KeyCode::LShift, KeyCode::RShift]);
+            if evt.double() {
+                selected.start(0);
+                selected.extend(text.value.chars().count());
+                idx = selected.max;
+            } else if evt.dragging() || evt.down() && shift {
+                selected.extend(idx);
+            } else if evt.down() {
+                selected.stop();
+            }
             if input.index != idx {
                 input.index = idx;
                 element.invalidate();
             }
+            if input.selected != selected {
+                input.selected = selected;
+                element.invalidate();
+            }
             let frame = diag.get(FrameTimeDiagnosticsPlugin::FRAME_COUNT).unwrap().average().unwrap_or_default();
-            info!("{}:process_mouse: Clicked relative: {:.2}, idx={}, offset={}, focused: {}", frame, pressed, idx, offset, element.focused());
+            info!("{}:process_mouse: Clicked relative: {:.2}, idx={}, offset={}, focused: {}, range: {:?}", frame, pos, idx, offset, element.focused(), selected);
 
         }
     }
