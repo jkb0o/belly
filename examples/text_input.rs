@@ -11,7 +11,7 @@ use bevy_elements_widgets::text_line::TextLine;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BsxPlugin)
+        .add_plugin(ElementsPlugin)
         .add_plugin(WidgetsPlugin)
         .add_startup_system(setup)
         .add_system(process)
@@ -38,7 +38,7 @@ fn setup(
         }
     "#));
     let input = commands.spawn_empty().id();
-    commands.add(bsx! {
+    commands.add(eml! {
         <el c:ui interactable s:width="100%" s:height="100%" s:padding="20px" s:align-content="flex-start" s:align-items="flex-start">
             <el s:align-content="space-around" s:align-items="center">
                 <TextInput {input} value="world" s:margin-right="10px" s:width="100px"/>

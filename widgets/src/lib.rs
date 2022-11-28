@@ -17,7 +17,7 @@ use bevy::prelude::*;
 // }
 
 fn test(mut commands: Commands) {
-    commands.spawn_empty().with_elements(bsx!{
+    commands.spawn_empty().with_elements(eml!{
         <el>"Hello world!"</el>
     });
 }
@@ -25,7 +25,6 @@ fn test(mut commands: Commands) {
 // #[macro_use]
 // extern crate std;
 // use bevy_elements_core::*;
-// use bsx::*;
 // use bevy::prelude::*;
 // fn build_window(In(ctx): In<Context>, mut commands: Commands) {
 //     commands

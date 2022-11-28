@@ -7,7 +7,7 @@ use bevy_elements::{*, ess::Stylesheet};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BsxPlugin)
+        .add_plugin(ElementsPlugin)
         .add_startup_system(setup)
         .register_element_builder("ui", build_ui)
         .register_element_builder("hbox", build_hbox)
@@ -56,7 +56,7 @@ fn build_vbox(
     mut commands: Commands
 ) {
     let content = ctx.content();
-    commands.entity(ctx.element).with_elements(bsx! {
+    commands.entity(ctx.element).with_elements(eml! {
         <el s:justify-content="center" s:flex-direction="column-reverse">
             {content}
         </el>
@@ -86,7 +86,7 @@ fn build_window(
 ) {
     let content = ctx.content();
     let header = ctx.param("title", "Title".to_string());
-    commands.entity(ctx.element).with_elements(bsx! {
+    commands.entity(ctx.element).with_elements(eml! {
         <vbox class="window" c:cool-window s:background-color="palevioletred">
             <el class="window-header">
                 <el class="window-header-text">
@@ -105,7 +105,7 @@ fn build_window(
 struct Test;
 
 fn custom_builder() -> ElementsBuilder {
-    bsx! { <el/> }
+    eml! { <el/> }
 }
 
 fn setup(
@@ -118,17 +118,16 @@ fn setup(
             margin-left: 20px;
         }
     "#));
-    // let x = bsx! { };
 
     let transform = Transform::default();
     let elements = &["a", "b"];
 
-    commands.spawn_empty().with_elements(bsx! {
+    commands.spawn_empty().with_elements(eml! {
         <ui>
             <window title="I'm a window!" c:win s:height="400px" s:width="300px" with=(transform,Test)>
                 <vbox>
                     "hello world!"
-                    {elements.iter().elements(|e| { bsx! {
+                    {elements.iter().elements(|e| { eml! {
                         <el>{e.to_string()}</el> 
                     }})}
                 </vbox>

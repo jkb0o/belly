@@ -25,7 +25,7 @@ pub mod ess;
 pub mod bind;
 pub mod input;
 
-pub struct BsxPlugin;
+pub struct ElementsPlugin;
 
 use crate::builders::*;
 pub use context::BuildingContext;
@@ -42,7 +42,7 @@ pub use attributes::AttributeValue;
 
 use bind::process_binds_system;
 
-impl Plugin for BsxPlugin {
+impl Plugin for ElementsPlugin {
     fn build(&self, app: &mut App) {
         app.register_text_element_builder(build_text)
             .add_plugin(FrameTimeDiagnosticsPlugin)

@@ -140,7 +140,7 @@ widget!( TextInput,
         index: 0, selected: Selection::new(),
         value: value.unwrap_or("".to_string()),
     };
-    commands.entity(entity).with_elements(bsx! {
+    commands.entity(entity).with_elements(eml! {
         <el with=widget 
             interactable="block"
             c:text-input 
