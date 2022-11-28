@@ -18,6 +18,7 @@ impl SelectorIndex {
 
 pub enum SelectorElement {
     AnyChild,
+    Any,
     Id(Tag),
     Class(Tag),
     Tag(Tag),
@@ -38,6 +39,7 @@ impl SelectorElement {
 
     pub fn describes_node(&self, node: &impl EmlNode) -> bool {
         match self {
+            SelectorElement::Any => true,
             SelectorElement::Id(id) => node.id() == Some(*id),
             SelectorElement::State(attr) => node.has_state(attr),
             SelectorElement::Tag(tag) => node.tag() == *tag,
@@ -49,10 +51,22 @@ impl SelectorElement {
     pub fn to_string(&self) -> String {
         match self {
             SelectorElement::AnyChild => " ".to_string(),
+            SelectorElement::Any => "*".to_string(),
             SelectorElement::State(s) => format!(":{}", s),
             SelectorElement::Tag(t) => format!("{}", t),
             SelectorElement::Class(c) => format!(".{}", c),
             SelectorElement::Id(i) => format!("#{}", i),
+        }
+    }
+
+    pub fn weight(&self) -> u32 {
+        match self {
+            SelectorElement::AnyChild => 0,
+            SelectorElement::Any => 0,
+            SelectorElement::Tag(_) => 1,
+            SelectorElement::State(_) => 10,
+            SelectorElement::Class(_) => 10,
+            SelectorElement::Id(_) => 100, 
         }
     }
 }
@@ -173,8 +187,10 @@ pub struct Selector {
 
 impl Selector {
     pub fn new(elements: SelectorElements) -> Selector {
+        let weight: u32 = elements.iter().map(|e| e.weight()).sum();
         Selector {
             elements,
+            weight,
             ..default()
         }
     }
@@ -468,6 +484,9 @@ mod test {
             let void = |_| ();
             for element in selector.elements {
                 match element {
+                    SelectorElement::Any => {
+                        continue;
+                    },
                     SelectorElement::AnyChild => {
                         if has_values {
                             branch.0.push(node);

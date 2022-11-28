@@ -1,5 +1,5 @@
 use smallvec::{SmallVec, smallvec};
-use bevy::prelude::{error};
+use bevy::prelude::{error, warn};
 
 use cssparser::*;
 use tagstr::{Tag, AsTag};
@@ -103,8 +103,10 @@ impl<'i> QualifiedRuleParser<'i> for StyleSheetParser {
                 }
                 WhiteSpace(_) => elements.insert(0, SelectorElement::AnyChild),
                 Delim(c) if *c == '.' => next = NextElement::Class,
+                Delim(c) if *c == '*' => elements.insert(0, SelectorElement::Any),
                 Colon => next = NextElement::Attribute,
                 _ => {
+                    warn!("Unexpected token: {:?}", token);
                     let token = token.to_css_string();
                     return Err(input.new_custom_error(ElementsError::UnexpectedToken(token)));
                 }

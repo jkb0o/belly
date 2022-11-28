@@ -412,6 +412,7 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
         components: QueryItem<Self::Components>,
         asset_server: &AssetServer,
         commands: &mut Commands,
+        entity: Entity,
     );
 
     /// The [`system`](https://docs.rs/bevy_ecs/0.8.1/bevy_ecs/system/index.html) which interacts with
@@ -467,7 +468,7 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
             .flat_map(|s| s.iter())
             .filter(|r| r.properties.contains_key(&Self::name()))
             .collect();
-        rules.sort_by_key(|r| r.selector.weight);
+        rules.sort_by_key(|r| -(r.selector.weight as i32));
 
         for (entity, components) in components.iter_mut() {
             let element = elements.get(entity);
@@ -506,7 +507,7 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
 
             if let Some(property) = property {
                 if let CacheState::Ok(property) = cached_properties.get_or_parse(property) {
-                    Self::apply(property, components, &asset_server, &mut commands);
+                    Self::apply(property, components, &asset_server, &mut commands, entity);
                 }
             }
         }

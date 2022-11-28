@@ -45,6 +45,7 @@ mod style {
                     mut components: QueryItem<Self::Components>,
                     _asset_server: &AssetServer,
                     _commands: &mut Commands,
+                    _entity: Entity,
                 ) {
                     components.$style_prop$(.$style_field)? = *cache;
                 }
@@ -90,6 +91,7 @@ mod style {
                     mut components: QueryItem<Self::Components>,
                     _asset_server: &AssetServer,
                     _commands: &mut Commands,
+                    _entity: Entity,
                 ) {
                     components.$style_prop$(.$style_field)? = *cache;
                 }
@@ -169,6 +171,7 @@ mod style {
                     mut components: QueryItem<Self::Components>,
                     _asset_server: &AssetServer,
                     _commands: &mut Commands,
+                    _entity: Entity,
                 ) {
                     components.$style_prop = *cache;
                 }
@@ -249,7 +252,16 @@ mod style {
 /// Impls for `bevy_text` [`Text`] component
 mod text {
     use super::*;
-    use crate::ManualTextProperties;
+    use crate::{ManualTextProperties, DefaultFont};
+
+    #[derive(Default,Clone)]
+    pub enum FontPath {
+        #[default]
+        Regular,
+        Bold,
+        Italic,
+        Custom(String)
+    }
 
     /// Applies the `color` property on [`TextStyle::color`](`TextStyle`) field of all sections on matched [`Text`] components.
     #[derive(Default)]
@@ -277,6 +289,7 @@ mod text {
             mut components: QueryItem<Self::Components>,
             _asset_server: &AssetServer,
             _commands: &mut Commands,
+            _entity: Entity,
         ) {
             components
                 .sections
@@ -290,7 +303,7 @@ mod text {
     pub(crate) struct FontProperty;
 
     impl Property for FontProperty {
-        type Cache = String;
+        type Cache = FontPath;
         type Components = &'static mut Text;
         type Filters = (With<Node>, Without<ManualTextProperties>);
 
@@ -300,7 +313,14 @@ mod text {
 
         fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
             if let Some(path) = values.string() {
-                Ok(path)
+                Ok(FontPath::Custom(path))
+            } else if let Some(ident) = values.identifier() {
+                match ident {
+                    "default-regular" => Ok(FontPath::Regular),
+                    "default-bold" => Ok(FontPath::Bold),
+                    "default-italic" => Ok(FontPath::Italic),
+                    _ => Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
+                }
             } else {
                 Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
             }
@@ -310,12 +330,33 @@ mod text {
             cache: &Self::Cache,
             mut components: QueryItem<Self::Components>,
             asset_server: &AssetServer,
-            _commands: &mut Commands,
+            commands: &mut Commands,
+            entity: Entity,
         ) {
-            components
-                .sections
-                .iter_mut()
-                .for_each(|section| section.style.font = asset_server.load(cache));
+            if let FontPath::Custom(path) = cache {
+                components
+                    .sections
+                    .iter_mut()
+                    .for_each(|section| section.style.font = asset_server.load(path));
+            } else {
+                let path = cache.clone();
+                commands.add(move |world: &mut World| {
+                    let defaults = world.resource::<DefaultFont>();
+                    let font = match path {
+                        FontPath::Regular => defaults.0.clone(),
+                        FontPath::Italic => defaults.0.clone(),
+                        FontPath::Bold => defaults.0.clone(),
+                        _ => defaults.0.clone()
+                    };
+                    let text = world
+                        .entity_mut(entity)
+                        .get_mut::<Text>()
+                        .unwrap()
+                        .sections
+                        .iter_mut()
+                        .for_each(|section| section.style.font = font.clone());
+                });
+            }
         }
     }
 
@@ -345,6 +386,7 @@ mod text {
             mut components: QueryItem<Self::Components>,
             _asset_server: &AssetServer,
             _commands: &mut Commands,
+            _entity: Entity,
         ) {
             components
                 .sections
@@ -384,6 +426,7 @@ mod text {
             mut components: QueryItem<Self::Components>,
             _asset_server: &AssetServer,
             _commands: &mut Commands,
+            _entity: Entity,
         ) {
             components.alignment.vertical = cache.expect("Should always have a inner value");
         }
@@ -420,6 +463,7 @@ mod text {
             mut components: QueryItem<Self::Components>,
             _asset_server: &AssetServer,
             _commands: &mut Commands,
+            _entity: Entity,
         ) {
             components.alignment.horizontal = cache.expect("Should always have a inner value");
         }
@@ -451,6 +495,7 @@ mod text {
             mut components: QueryItem<Self::Components>,
             _asset_server: &AssetServer,
             _commands: &mut Commands,
+            _entity: Entity,
         ) {
             components
                 .sections
@@ -487,6 +532,7 @@ impl Property for BackgroundColorProperty {
         components: QueryItem<Self::Components>,
         _asset_server: &AssetServer,
         commands: &mut Commands,
+        _entity: Entity,
     ) {
         commands.entity(components).insert(BackgroundColor(*cache));
     }
