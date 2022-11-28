@@ -3,6 +3,7 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
+use bevy::ecs::system::Command;
 use bevy::input::InputSystem;
 use bevy::utils::HashMap;
 use bevy::{
@@ -242,6 +243,13 @@ impl ElementsBuilder {
         move |world: &mut World| {
             (self.builder)(world, entity);
         }
+    }
+}
+
+impl Command for ElementsBuilder {
+    fn write(self, world: &mut World) {
+        let entity = world.spawn_empty().id();
+        self.with_entity(entity)(world);
     }
 }
 
