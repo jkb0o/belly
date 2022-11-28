@@ -92,6 +92,7 @@ fn register_properties(app: &mut bevy::prelude::App) {
     app.register_property::<TopProperty>();
     app.register_property::<BottomProperty>();
     app.register_property::<MarginLeftProperty>();
+    app.register_property::<MarginRightProperty>();
     app.register_property::<PaddingLeftProperty>();
     app.register_property::<WidthProperty>();
     app.register_property::<HeightProperty>();
