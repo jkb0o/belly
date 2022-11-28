@@ -134,17 +134,19 @@ widget!( TextInput,
     let text = commands.spawn_empty().id();
     let container = commands.spawn_empty().id();
     let selection = commands.spawn_empty().id();
-    let block_input = FocusPolicy::Block;
+    // let block_input = FocusPolicy::Block;
     let widget = TextInput {
         cursor, text, container, selection,
         index: 0, selected: Selection::new(),
         value: value.unwrap_or("".to_string()),
     };
     commands.entity(entity).with_elements(bsx! {
-        <el with=(widget,block_input,BackgroundColor,Interaction) 
+        <el with=widget 
+            interactable="block"
             c:text-input 
-            s:background-color="#2f2f2f" 
-            s:padding="1px"
+            c:text-input-border
+            s:background-color="#2f2f2f00" 
+            s:padding="2px"
             s:width="200px"
         >
             <el with=BackgroundColor
@@ -171,7 +173,7 @@ widget!( TextInput,
                         s:background-color="#9f9f9f"
                     />
 
-                    <TextLine {text} value=bind!(<= entity, Self.value) s:color="#2f2f2f"/>
+                    <TextLine {text} value=bind!(<= entity, Self.value) s:color="#2f2f2f" c:text-input-value/>
                     <el entity=cursor
                         with=BackgroundColor
                         c:text-input-cursor
@@ -213,7 +215,7 @@ fn process_keyboard_input(
     mut inputs: Query<(Entity, &mut TextInput, &Element)>,
     mut cursors: Query<&mut TextInputCursor>,
     mut styles: Query<&mut Style>,
-    mut texts: Query<&TextLine>,
+    mut texts: Query<(&TextLine, &Text)>,
     diag: Res<Diagnostics>,
 ) {
     let frame = diag.get(FrameTimeDiagnosticsPlugin::FRAME_COUNT).unwrap().average().unwrap_or_default();
@@ -228,7 +230,7 @@ fn process_keyboard_input(
         return;
     }
     
-    let Ok(text) = texts.get_mut(input.text)
+    let Ok((text_line, text)) = texts.get_mut(input.text)
         else { return };
     
     let shift = keyboard.any_pressed([KeyCode::LShift, KeyCode::RShift]);
@@ -258,7 +260,13 @@ fn process_keyboard_input(
                 selected.extend(index); 
             }
         }
+    // } else if keyboard.just_pressed(KeyCode::Tab) {
+        // continue
     } else { for ch in characters.iter() {
+        if ch.char == '\t' {
+            continue
+        }
+        info!("Pressed: '{}'", ch.char);
         if ch.char == CHAR_DELETE {
             if !selected.is_empty() {
                 chars.drain(selected.range());
@@ -291,8 +299,8 @@ fn process_keyboard_input(
     let mut selection_from = 0.;
     let mut selection_to = 0.;
     let mut text_width = 0.;
-    let Some(font) = fonts.get(&text.style.font) else { return };
-    let font_size = text.style.font_size;
+    let Some(font) = fonts.get(&text.sections[0].style.font) else { return };
+    let font_size = text.sections[0].style.font_size;
     for (idx, ch) in chars.iter().enumerate() {
         let advance = get_char_advance(*ch, font, font_size);
         text_width += advance;
@@ -381,7 +389,7 @@ fn process_cursor_focus(
 fn process_mouse(
     mut events: EventReader<PointerInput>,
     mut inputs: Query<(Entity, &mut TextInput, &mut Element)>,
-    texts: Query<&TextLine>,
+    texts: Query<&Text>,
     styles: Query<(&Style, &GlobalTransform, &Node)>,
     fonts: Res<Assets<Font>>,
     keyboard: Res<Input<KeyCode>>,
@@ -407,15 +415,15 @@ fn process_mouse(
                 0.
             };
             let Ok(text) = texts.get(input.text) else { continue };
-            let Some(font) = fonts.get(&text.style.font) else { continue };
-            let font_size = text.style.font_size;
+            let Some(font) = fonts.get(&text.sections[0].style.font) else { continue };
+            let font_size = text.sections[0].style.font_size;
             let pos = (evt.pos - tr.translation().truncate() + node.size() * 0.5).x;
             let mut index = 0;
             let mut idx_found = false;
             let mut word_start = 0;
             let mut word_end = 0;
             let mut whitespace = false;
-            for (idx, ch) in text.value.chars().enumerate() {
+            for (idx, ch) in input.value.chars().enumerate() {
                 let advance = get_char_advance(ch, font, font_size);
                 if offset < pos && !idx_found {
                     index = idx;
@@ -448,7 +456,7 @@ fn process_mouse(
                 index = selected.max;
             } else if evt.down() && evt.presses() > 2 {
                 selected.start(0);
-                selected.extend(text.value.chars().count());
+                selected.extend(input.value.chars().count());
                 index = selected.max;
             } else if evt.dragging() || evt.down() && shift {
                 selected.extend(index);
