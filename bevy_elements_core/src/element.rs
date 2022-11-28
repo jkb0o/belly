@@ -27,9 +27,18 @@ pub struct Element {
 }
 
 impl Element {
+    pub fn inline() -> Element {
+        Element {
+            display: DisplayElement::Inline,
+            ..default()
+        }
+    }
     pub fn invalidate(&mut self) { }
     pub fn focused(&self) -> bool {
         self.state.contains(&tags::focus())
+    }
+    pub fn focus(&mut self) {
+        self.state.insert(tags::focus_request());
     }
 }
 

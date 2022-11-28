@@ -1,4 +1,5 @@
-use bevy::{prelude::*, ecs::query::WorldQuery, ui::{FocusPolicy, UiStack}, render::camera::RenderTarget};
+use bevy::{prelude::*, ecs::query::WorldQuery, ui::{FocusPolicy, UiStack}, render::camera::RenderTarget, input::keyboard};
+use tagstr::tag;
 
 use crate::{Element, tags};
 
@@ -8,6 +9,7 @@ const DRAG_THRESHOLD: f32 = 5.;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
 pub enum Label {
     Signals,
+    TabFocus,
     Focus,
 }
 
@@ -350,7 +352,7 @@ pub struct Focused(Option<Entity>);
 pub fn focus_system(
     mut focused: ResMut<Focused>,
     interactable: Query<Entity, (With<Interaction>, With<Element>)>,
-    mut elements: Query<&mut Element>,
+    mut elements: Query<(Entity, &mut Element)>,
     mut signals: EventReader<PointerInput>,
     children: Query<&Children>,
 
@@ -366,17 +368,24 @@ pub fn focus_system(
             }
         }
     }
+    for (entity, mut element) in elements.iter_mut() {
+        if element.state.contains(&tags::focus_request()) {
+            element.state.remove(&tags::focus_request());
+            update_required = true;
+            target_focus = Some(entity);
+        }
+    }
 
     if update_required && target_focus != focused.0 {
         info!("New focused node: {:?}", target_focus);
         if let Some(was_focused) = focused.0 {
-            if let Ok(mut element) = elements.get_mut(was_focused) {
+            if let Ok((_, mut element)) = elements.get_mut(was_focused) {
                 element.state.remove(&tags::focus());
                 invalidate_tree(was_focused, &mut elements, &children);
             }
         }
         if let Some(target_focus) = target_focus {
-            if let Ok(mut element) = elements.get_mut(target_focus) {
+            if let Ok((_, mut element)) = elements.get_mut(target_focus) {
                 element.state.insert(tags::focus());
                 invalidate_tree(target_focus, &mut elements, &children);
             }
@@ -385,12 +394,25 @@ pub fn focus_system(
     }
 }
 
+pub fn tab_focus_system(
+    keyboard: Res<Input<KeyCode>>,
+    mut elements: Query<&mut Element, With<Interaction>>
+) {
+    if !keyboard.just_pressed(KeyCode::Tab) {
+        return;
+    }
+    for mut element in elements.iter_mut() {
+        element.focus();
+        break;
+    }
+}
+
 fn invalidate_tree(
     node: Entity,
-    q_elements: &mut Query<&mut Element>,
+    q_elements: &mut Query<(Entity, &mut Element)>,
     q_children: &Query<&Children>
 ) {
-    if let Ok(mut element) = q_elements.get_mut(node) {
+    if let Ok((_, mut element)) = q_elements.get_mut(node) {
         element.invalidate();
     }
     if let Ok(children) = q_children.get(node) {

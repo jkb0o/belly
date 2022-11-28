@@ -393,6 +393,10 @@ impl Attributes {
             attribute_commands(commands)
         }
     }
+
+    pub fn contains(&self, tag: Tag) -> bool {
+        self.0.contains_key(&tag)
+    }
 }
 
 pub struct InsertComponent<T: Component>(T);

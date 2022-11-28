@@ -50,9 +50,13 @@ impl Plugin for BsxPlugin {
                 .label(input::Label::Signals)
                 .after(InputSystem)
             )
+            .add_system_to_stage(CoreStage::PreUpdate, input::tab_focus_system
+                .label(input::Label::TabFocus)
+                .after(input::Label::Signals)
+            )
             .add_system_to_stage(CoreStage::PreUpdate, input::focus_system
                 .label(input::Label::Focus)
-                .after(input::Label::Signals)
+                .after(input::Label::TabFocus)
             )
             .register_element_builder("el", build_element)
             .register_elements_postprocessor(default_postprocessor)

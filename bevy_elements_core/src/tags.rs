@@ -23,3 +23,7 @@ pub fn with() -> Tag {
 pub fn focus() -> Tag {
     tag!("focus")
 }
+
+pub fn focus_request() -> Tag {
+    tag!("focus-request")
+}

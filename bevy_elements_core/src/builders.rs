@@ -7,6 +7,8 @@ use std::ops::Deref;
 
 use bevy::ecs::system::BoxedSystem;
 use bevy::prelude::*;
+use crate::AttributeValue;
+use crate::WithElements;
 use crate::context::*;
 use crate::element::*;
 use crate::tags;
@@ -84,6 +86,16 @@ pub (crate) fn default_postprocessor(
         };
         println!("element {} classes:{:?}", element.name, element.classes);
         commands.insert(element);
+    }
+    let focus_policy = match params.drop_variant(tag!("interactable")) {
+        Some(AttributeValue::Empty) => Some(FocusPolicy::Pass),
+        Some(AttributeValue::String(s)) if &s == "block" => Some(FocusPolicy::Block),
+        Some(AttributeValue::String(s)) if &s == "pass" => Some(FocusPolicy::Pass),
+        _ => None
+    };
+    if let Some(policy) = focus_policy {
+        commands.insert(policy);
+        commands.insert(Interaction::default());
     }
 }
 
