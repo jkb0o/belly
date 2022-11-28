@@ -6,6 +6,7 @@ use bevy_elements_core::*;
 use bevy_elements_macro::*;
 use bevy_elements_widgets::WidgetsPlugin;
 use bevy_elements_widgets::input::TextInput;
+use bevy_elements_widgets::text_line::TextLine;
 
 fn main() {
     App::new()
@@ -24,51 +25,28 @@ fn setup(
 ) {
     commands.spawn(Camera2dBundle::default());
     commands.add(Stylesheet::parse(r#"
-        TextInput:focus .text-input-container {
-            background-color: #efefef;
+        * {
+            font: default-regular;
+            color: #cfcfcf;
+            font-size: 22px;
+        }
+        .text-input-value {
+            color: #2f2f2f;
+        }
+        .text-input-border:focus {
+            background-color: #2f2f2f;
         }
     "#));
-    let time = commands.spawn_empty().insert(TimeSinceStartup::default()).id();
-    let left = commands.spawn_empty().id();
-
-    commands.spawn_empty().with_elements(bsx! {
-        <el c:ui with=Interaction s:width="100%" s:height="100%">
-            <el s:padding="20px" s:align-content="flex-start" s:align-items="flex-start">
-                // <TextInput element=left value=bind!(<= time, TimeSinceStartup.label) s:margin="8px"/>
-                <TextInput element=left value="Hello!" s:margin="8px"/>
-                <TextInput c:dark value="Help!" s:margin="8px" s:width="100px"/>
+    let input = commands.spawn_empty().id();
+    commands.add(bsx! {
+        <el c:ui interactable s:width="100%" s:height="100%" s:padding="20px" s:align-content="flex-start" s:align-items="flex-start">
+            <el s:align-content="space-around" s:align-items="center">
+                <TextInput {input} value="world" s:margin-right="10px" s:width="100px"/>
+                "Hello, "{bind!(<=input, TextInput.value)}"!"
             </el>
         </el>
     });
 }
-
-
-#[derive(Reflect, Hash, PartialEq, Eq)]
-#[reflect(Hash, PartialEq)]
-pub struct E {
-    x: i32,
-}
-
-fn t() {
-    let value: Box<dyn Reflect> = Box::new(E {
-        x: 1
-    });
-
-    match value.reflect_ref() {
-        // `Struct` is a trait automatically implemented for structs that derive Reflect. This trait
-        // allows you to interact with fields via their string names or indices
-        ReflectRef::Struct(value) => {
-            // value
-            info!(
-                "This is a 'struct' type with an 'x' value of {}",
-                value.get_field::<usize>("x").unwrap()
-            );
-        },
-        _ => ()
-    }
-
-}
-
 
 #[derive(Component, Default)]
 struct TimeSinceStartup {
