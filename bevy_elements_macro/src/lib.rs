@@ -155,7 +155,8 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                     let block_span = block.span();
                     children = quote_spanned! { block_span=>
                         #children
-                        for __child in #block.into_content(__world).iter() {
+                        let __node = __world.spawn_empty().id();
+                        for __child in #block.into_content(__node, __world).iter() {
                             __ctx.add_child( __child.clone() );
                         }
                     }

@@ -45,6 +45,7 @@ impl<W: Component, T: BindValue> BindingTarget<W, T> {
 pub enum BindingStage {
     Collect,
     Apply,
+    Custom,
     Report,
 }
 
@@ -111,16 +112,17 @@ pub fn report_changes_system<R: Component>(
     }
 }
 
-struct BindingSystemsInternal {
+pub (crate) struct BindingSystemsInternal {
     last_writer: usize,
     schedule: Schedule,
     collectors: HashSet<(TypeId, TypeId)>,
     appliers: HashSet<(TypeId, TypeId)>,
     reporters: HashSet<TypeId>,
+    custom: HashSet<TypeId>,
 }
 
 #[derive(Default,Clone,Resource)]
-struct BindingSystems(Arc<RwLock<BindingSystemsInternal>>);
+pub struct BindingSystems(pub (crate) Arc<RwLock<BindingSystemsInternal>>);
 
 impl BindingSystemsInternal {
     fn reserve_writer(&mut self) -> usize {
@@ -156,6 +158,15 @@ impl BindingSystemsInternal {
         self.schedule
             .add_system_to_stage(BindingStage::Apply, apply_changes_system::<W, T>);
     }
+
+    pub fn add_custom_system<Params, S: IntoSystemDescriptor<Params>>(&mut self, system_id: TypeId, system: S) {
+        if self.custom.contains(&system_id) {
+            return;
+        }
+        self.custom.insert(system_id);
+        self.schedule
+            .add_system_to_stage(BindingStage::Custom, system);
+    }
     pub fn run(&mut self, world: &mut World) {
         let mut last_change = world.resource::<ChangeCounter>().0;
         loop {
@@ -175,16 +186,19 @@ impl Default for BindingSystemsInternal {
         let collectors = HashSet::default();
         let appliers = HashSet::default();
         let reporters = HashSet::default();
+        let custom = HashSet::default();
         let mut schedule = Schedule::default();
         schedule
             .add_stage(BindingStage::Collect, SystemStage::parallel())
             .add_stage(BindingStage::Apply, SystemStage::parallel())
+            .add_stage(BindingStage::Custom, SystemStage::parallel())
             .add_stage(BindingStage::Report, SystemStage::parallel());
         Self {
             schedule,
             collectors,
             appliers,
             reporters,
+            custom,
             last_writer: 0,
         }
     }
