@@ -12,7 +12,7 @@ use smallvec::SmallVec;
 mod colors;
 pub (crate) mod impls;
 
-use crate::{element::*, ElementsError, ess::{Styles, Stylesheet, ElementsBranch}};
+use crate::{element::*, ElementsError, ess::{Styles, StyleSheet, ElementsBranch}};
 use crate::tags::*;
 
 
@@ -454,7 +454,7 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
         mut commands: Commands,
         asset_server: Res<AssetServer>,
         styles: Res<Styles>,
-        stylesheets: Res<Assets<Stylesheet>>,
+        stylesheets: Res<Assets<StyleSheet>>,
         parents: Query<&Parent>,
         elements: Query<&Element>
     ) {

@@ -16,7 +16,7 @@ pub struct EssPlugin;
 impl Plugin for EssPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.init_resource::<Styles>();
-        app.add_asset::<Stylesheet>();
+        app.add_asset::<StyleSheet>();
         let extractor = app.world.get_resource_or_insert_with(PropertyExtractor::default).clone();
         let validator = app.world.get_resource_or_insert_with(PropertyValidator::default).clone();
         app.add_asset_loader(EssLoader { validator, extractor });
@@ -43,7 +43,7 @@ impl AssetLoader for EssLoader {
             let source = std::str::from_utf8(bytes)?;
 
             let rules = StyleSheetParser::parse(source, self.validator.clone(), self.extractor.clone());
-            let mut stylesheet = Stylesheet::default();
+            let mut stylesheet = StyleSheet::default();
             for rule in rules {
                 stylesheet.add_rule(rule)
             };
@@ -55,12 +55,12 @@ impl AssetLoader for EssLoader {
 
 #[derive(Default, TypeUuid)]
 #[uuid = "93767098-caca-4f2b-b1d3-cdc91919be75"]
-pub struct Stylesheet {
+pub struct StyleSheet {
     rules: Vec<StyleRule>
 }
 
-unsafe impl Send for Stylesheet { }
-unsafe impl Sync for Stylesheet { }
+unsafe impl Send for StyleSheet { }
+unsafe impl Sync for StyleSheet { }
 
 pub struct LoadCommand {
     path: String
@@ -76,9 +76,9 @@ impl Command for ParseCommand {
         let extractor = world.resource::<PropertyExtractor>().clone();
         let validator = world.resource::<PropertyValidator>().clone();
         let rules = StyleSheetParser::parse(&self.source, validator, extractor);
-        let stylesheet = Stylesheet::new(rules);
+        let stylesheet = StyleSheet::new(rules);
         let mut styles = world.resource_mut::<Styles>();
-        let mut assets = world.resource_mut::<Assets<Stylesheet>>();
+        let mut assets = world.resource_mut::<Assets<StyleSheet>>();
         let handle = assets.add(stylesheet);
         styles.insert(handle);
     }
@@ -93,8 +93,8 @@ impl Command for LoadCommand {
     }
 }
 
-impl Stylesheet {
-    pub fn new<T:IntoIterator<Item=StyleRule>>(rules: T) -> Stylesheet {
+impl StyleSheet {
+    pub fn new<T:IntoIterator<Item=StyleRule>>(rules: T) -> StyleSheet {
         let mut sheet = Self::default();
         for rule in rules.into_iter() {
             sheet.add_rule(rule);
@@ -115,7 +115,7 @@ impl Stylesheet {
 
 
 
-impl Deref for Stylesheet {
+impl Deref for StyleSheet {
     type Target = Vec<StyleRule>;
 
     fn deref(&self) -> &Self::Target {
@@ -129,10 +129,10 @@ pub struct StyleRule {
 }
 
 #[derive(Default,Resource)]
-pub struct Styles(HashSet<Handle<Stylesheet>>);
+pub struct Styles(HashSet<Handle<StyleSheet>>);
 
 impl Deref for Styles {
-    type Target = HashSet<Handle<Stylesheet>>;
+    type Target = HashSet<Handle<StyleSheet>>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }

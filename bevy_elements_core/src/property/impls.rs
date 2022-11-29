@@ -349,7 +349,7 @@ mod text {
                         FontPath::Bold => defaults.0.clone(),
                         _ => defaults.0.clone()
                     };
-                    let text = world
+                    world
                         .entity_mut(entity)
                         .get_mut::<Text>()
                         .unwrap()

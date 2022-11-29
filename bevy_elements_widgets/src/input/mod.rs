@@ -20,7 +20,6 @@ pub enum TextInputLabel {
 impl Plugin for InputPlugins {
     fn build(&self, app: &mut App) {
         app
-            .register_element_builder("text", build_text)
             .add_system(blink_cursor)
             .add_system_to_stage(CoreStage::PreUpdate, process_cursor_focus
                 .label(TextInputLabel::Focus)
@@ -146,7 +145,7 @@ widget!( TextInput,
             c:text-input 
             c:text-input-border
             s:background-color="#2f2f2f00" 
-            s:padding="2px"
+            s:padding="1px"
             s:width="200px"
         >
             <el with=BackgroundColor

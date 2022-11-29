@@ -1,12 +1,11 @@
-use bevy::ecs::system::{BoxedSystem, Command};
+use bevy::ecs::system::Command;
 use bevy::prelude::*;
-use std::any::{TypeId, type_name};
+use std::any::TypeId;
 use std::ops::{Deref, DerefMut};
 use std::mem;
 
 use crate::{bind::*, Element};
 use crate::{attributes::*, ElementsBuilder};
-use crate::builders::TextElementBuilder;
 use crate::tags::*;
 
 #[derive(Default,Resource)]
@@ -15,16 +14,7 @@ pub struct BuildingContext {
 }
 
 impl BuildingContext {
-    pub (crate) fn text(&mut self) -> TextContext {
-        let text = self.stack.last_mut().expect("Awaited TextContest for element");
-        let text = mem::take(text);
-        if let ContextData::Text(text) = text {
-            text
-            // text
-        } else {
-            panic!("Awaited TextContest for element")
-        }
-    }
+
 }
 
 impl Deref for BuildingContext {
@@ -54,7 +44,6 @@ pub enum ContextData {
     #[default]
     Empty,
     Element(ElementContext),
-    Text(TextContext),
 }
 
 impl ContextData {
@@ -114,9 +103,6 @@ pub struct TextContext {
 
 pub mod internal {
     use super::*;
-    pub fn push_text(world: &mut World, element: Entity, text: String) {
-        push_context(world, ContextData::Text(TextContext { element, text }))
-    }
     pub fn push_element(world: &mut World, element: ElementContext) {
         push_context(world, ContextData::Element(element))
     }
@@ -136,19 +122,10 @@ pub mod internal {
 }
 
 pub trait IntoContent {
-    fn update_content(&self, parent: Entity, world: &mut World) { }
     fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity>;
 }
 
 impl IntoContent for String {
-    fn update_content(&self, parent: Entity, world: &mut World) {
-        let mut entity = world.entity_mut(parent);
-        info!("Updating content {:?}", self);
-        if let Some(mut text) = entity.get_mut::<Text>() {
-            info!("setting content for {:?}", text);
-            text.sections[0].value = self.clone();
-        }
-    }
     fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity> {
         let mut entity = world.entity_mut(parent);
         if let Some(mut text) = entity.get_mut::<Text>() {
@@ -212,7 +189,7 @@ impl IntoContent for Vec<Entity> {
 }
 
 impl<T: Iterator, F: Fn(T::Item) -> ElementsBuilder> IntoContent for ExpandElements<T, F> {
-    fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity> {
+    fn into_content(self, _parent: Entity, world: &mut World) -> Vec<Entity> {
         let mut result = vec![];
         for builder in self {
             let entity = world.spawn_empty().id();
@@ -224,7 +201,7 @@ impl<T: Iterator, F: Fn(T::Item) -> ElementsBuilder> IntoContent for ExpandEleme
 }
 
 impl IntoContent for Vec<ElementsBuilder> {
-    fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity> {
+    fn into_content(self, _parent: Entity, world: &mut World) -> Vec<Entity> {
         let mut result = vec![];
         for builder in self {
             let entity = world.spawn_empty().id();

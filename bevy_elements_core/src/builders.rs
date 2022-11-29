@@ -8,7 +8,6 @@ use std::ops::Deref;
 use bevy::ecs::system::BoxedSystem;
 use bevy::prelude::*;
 use crate::AttributeValue;
-use crate::WithElements;
 use crate::context::*;
 use crate::element::*;
 use crate::tags;
@@ -32,28 +31,6 @@ pub (crate) fn setup_default_font(mut fonts: ResMut<Assets<Font>>, mut default_f
     let default_font_asset = Font::try_from_bytes(default_font_bytes).unwrap();
     let default_font_handle = fonts.add(default_font_asset);
     default_font.0 = default_font_handle;
-}
-
-pub (crate) fn build_text(
-    mut ctx: ResMut<BuildingContext>,
-    mut commands: Commands,
-    default_font: Res<DefaultFont>,
-) {
-    let ctx = ctx.text();
-    commands
-        .entity(ctx.element)
-        .insert(TextBundle::from_section(
-            ctx.text,
-            TextStyle {
-                font: default_font.0.clone(),
-                font_size: 24.0,
-                color: Color::WHITE,
-            },
-        ))
-        .insert(Element {
-            display: DisplayElement::Inline,
-            ..default()
-        });
 }
 
 pub (crate) fn default_postprocessor(

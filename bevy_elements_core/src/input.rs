@@ -1,5 +1,4 @@
-use bevy::{prelude::*, ecs::query::WorldQuery, ui::{FocusPolicy, UiStack}, render::camera::RenderTarget, input::keyboard};
-use tagstr::tag;
+use bevy::{prelude::*, ecs::query::WorldQuery, ui::{FocusPolicy, UiStack}, render::camera::RenderTarget};
 
 use crate::{Element, tags};
 

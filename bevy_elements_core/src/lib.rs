@@ -25,7 +25,7 @@ pub mod ess;
 pub mod bind;
 pub mod input;
 
-pub struct ElementsPlugin;
+pub struct ElementsCorePlugin;
 
 use crate::builders::*;
 pub use context::BuildingContext;
@@ -42,9 +42,9 @@ pub use attributes::AttributeValue;
 
 use bind::process_binds_system;
 
-impl Plugin for ElementsPlugin {
+impl Plugin for ElementsCorePlugin {
     fn build(&self, app: &mut App) {
-        app.register_text_element_builder(build_text)
+        app
             .add_plugin(FrameTimeDiagnosticsPlugin)
             .add_event::<input::PointerInput>()
             .add_system_to_stage(CoreStage::PreUpdate, input::pointer_input_system

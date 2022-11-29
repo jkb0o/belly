@@ -12,3 +12,7 @@ impl Plugin for WidgetsPlugin {
         app.add_plugin(text_line::TextLinePlugin);
     }
 }
+
+pub mod prelude {
+    pub use crate::input::TextInput;
+}

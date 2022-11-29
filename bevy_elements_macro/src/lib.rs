@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::*;
 extern crate proc_macro;
-use syn::{Expr, spanned::Spanned, Error, ExprPath};
+use syn::{Expr, spanned::Spanned, Error, ExprPath, parse_macro_input, DeriveInput, ItemFn};
 use syn_rsx::{Node, parse, NodeAttribute, NodeName};
 
 fn create_single_command_stmt(expr: &ExprPath) -> TokenStream {
@@ -139,15 +139,17 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                     let text = text.value.as_ref();
                     children = quote! {
                         #children
-                        {
-                            let __text_entity = __world.spawn_empty().id();
-                            __ctx.add_child(__text_entity.clone());
-                            ::bevy_elements_core::context::internal::push_text(__world, __text_entity, #text.to_string());
-                            __world
-                                .resource::<::bevy_elements_core::builders::TextElementBuilder>().clone()
-                                .build(__world);
-                            ::bevy_elements_core::context::internal::pop_context(__world);
-                        }
+                        __ctx.add_child(
+                            __world.spawn(::bevy::prelude::TextBundle {
+                                text: ::bevy::prelude::Text::from_section(
+                                    #text,
+                                    ::std::default::Default::default()
+                                ),
+                                ..default()
+                            })
+                            .insert(::bevy_elements_core::Element::inline())
+                            .id()
+                        );
                     };
                 },
                 Node::Block(block) => {
@@ -225,6 +227,22 @@ pub fn eml(tree: proc_macro::TokenStream) -> proc_macro::TokenStream {
         }
     }
 }
+
+// #[proc_macro_attribute]
+// pub fn widget(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+//     if !args.is_empty() {
+//         eprintln!("widget macro do not take any args");
+//     }
+//     let parsed = parse_macro_input!(input as ItemFn);
+    
+
+
+//     let result = quote! { #parsed };
+//     proc_macro::TokenStream::from( result )
+//     // let result = {
+
+//     // }
+// }
 
 
 // pub fn components(tree: proc_macro::TokenStream) -> proc_macro::TokenStream {

@@ -2,7 +2,8 @@
 use bevy::{
     prelude::*, input::keyboard::KeyboardInput
 };
-use bevy_elements::{*, ess::Stylesheet};
+use bevy_elements::*;
+use bevy_elements::build::*;
 
 fn main() {
     App::new()
@@ -104,15 +105,11 @@ fn build_window(
 #[derive(Component, Default)]
 struct Test;
 
-fn custom_builder() -> ElementsBuilder {
-    eml! { <el/> }
-}
-
 fn setup(
     mut commands: Commands,
 ) {
     commands.spawn(Camera2dBundle::default());
-    commands.add(Stylesheet::parse(r#"
+    commands.add(StyleSheet::parse(r#"
         .winxxx {
             padding-left: 20px;
             margin-left: 20px;
