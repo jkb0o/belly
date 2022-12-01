@@ -277,6 +277,10 @@ mod text {
             tag!("color")
         }
 
+        fn affects_virtual_elements() -> bool {
+            true
+        }
+
         fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
             if let Some(color) = values.color() {
                 Ok(color)
@@ -312,6 +316,10 @@ mod text {
 
         fn name() -> Tag {
             tag!("font")
+        }
+
+        fn affects_virtual_elements() -> bool {
+            true
         }
 
         fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
@@ -378,6 +386,10 @@ mod text {
 
         fn name() -> Tag {
             tag!("font-size")
+        }
+
+        fn affects_virtual_elements() -> bool {
+            true
         }
 
         fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {

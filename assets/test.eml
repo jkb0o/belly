@@ -1,1 +1,6 @@
-<el s:margin-left="50px" s:font-size="36px">Hello world!</el>
+<el s:flex-direction="column">
+    <el s:height="15px"/>
+    <el s:width="50px" s:height="15px" s:background-color="rebeccapurple"/>
+    <el s:margin-left="50px" s:font-size="36px">Hello world!</el>
+    <el s:width="50px" s:height="15px" s:background-color="rebeccapurple"/>
+</el>

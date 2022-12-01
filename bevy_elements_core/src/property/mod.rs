@@ -405,6 +405,10 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
     /// For compliance, use always `lower-case` and `kebab-case` names.
     fn name() -> Tag;
 
+    fn affects_virtual_elements() -> bool {
+        false
+    }
+
     /// Parses the [`PropertyValues`] into the [`Cache`](Property::Cache) value to be reused across multiple entities.
     ///
     /// This function is called only once, on the first time a matching property is found while applying style rule.
@@ -483,11 +487,10 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
         rules.sort_by_key(|r| -r.selector.weight);
 
         for (entity, components) in components.iter_mut() {
-            let element = elements.get(entity);
-            if element.is_err() {
+            let Ok(element) = elements.get(entity) else { continue };
+            if element.is_virtual() && !Self::affects_virtual_elements() {
                 continue;
             }
-            let element = element.unwrap();
 
             // extract default value
             let mut element_with_default = element;
