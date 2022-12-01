@@ -184,7 +184,7 @@ fn walk(node: roxmltree::Node, loader: &EmlLoader) -> Result<EmlElement, Error> 
                 elem.children.push(EmlNode::Text(text));
             }
         } else if ch.is_element() {
-            elem.children.push(EmlNode::Element(walk(node, loader)?));
+            elem.children.push(EmlNode::Element(walk(ch, loader)?));
         }
     }
     Ok(elem)
