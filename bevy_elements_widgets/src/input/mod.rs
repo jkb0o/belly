@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use ab_glyph::ScaleFont;
 use bevy::{prelude::*, ui::FocusPolicy, input::keyboard::KeyboardInput, diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin}};
-use bevy_elements_core::{*, element::{Element, DisplayElement}, builders::DefaultFont, input::PointerInput};
+use bevy_elements_core::{*, element::{Element, DisplayElement}, input::PointerInput};
 use bevy_elements_macro::*;
 pub struct InputPlugins;
 use crate::text_line::TextLine;
@@ -499,7 +499,7 @@ fn blink_cursor(
 fn build_text(
     mut ctx: ResMut<BuildingContext>,
     mut commands: Commands,
-    default_font: Res<DefaultFont>,
+    defaults: Res<Defaults>,
 ) {
     let text = bindattr!(ctx, commands, value:String => Text.sections[0].value);
     commands
@@ -508,7 +508,7 @@ fn build_text(
             // "hahaha".to_string(),
             text.unwrap_or("".to_string()),
             TextStyle {
-                font: default_font.0.clone(),
+                font: defaults.regular_font.clone(),
                 font_size: 24.0,
                 color: Color::WHITE,
             },

@@ -1,3 +1,5 @@
+use std::ops::Neg;
+
 use bevy::{
     prelude::{default, Changed, Entity, Parent, Query}
 };
@@ -6,8 +8,29 @@ use tagstr::Tag;
 
 use crate::Element;
 
+#[derive(Copy, Clone, PartialEq, Eq, Ord, Default, Debug)]
+pub struct SelectorWeight(pub (crate) i32, pub (crate) i32);
 
-#[derive(Default)]
+impl PartialOrd for SelectorWeight {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        let res = self.0.cmp(&other.0);
+        if res == std::cmp::Ordering::Equal {
+            Some(self.1.cmp(&other.1))
+        } else {
+            Some(res)
+        }
+    }
+}
+
+impl Neg for SelectorWeight {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        Self(-self.0, -self.1)
+    }
+}
+
+
+#[derive(Default, Debug)]
 pub struct SelectorIndex(usize);
 
 impl SelectorIndex {
@@ -16,6 +39,7 @@ impl SelectorIndex {
     }
 }
 
+#[derive(Debug)]
 pub enum SelectorElement {
     AnyChild,
     Any,
@@ -178,10 +202,10 @@ impl<'a> SelectorEntry<'a> {
     }
 }
 
-#[derive(Default)]
+#[derive(Default,Debug)]
 pub struct Selector {
     pub index: SelectorIndex,
-    pub weight: u32,
+    pub weight: SelectorWeight,
     pub elements: SelectorElements,
 }
 
@@ -190,7 +214,7 @@ impl Selector {
         let weight: u32 = elements.iter().map(|e| e.weight()).sum();
         Selector {
             elements,
-            weight,
+            weight: SelectorWeight(weight as i32, 0),
             ..default()
         }
     }

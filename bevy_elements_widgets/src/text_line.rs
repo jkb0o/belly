@@ -1,5 +1,5 @@
-use bevy::{prelude::*, ecs::query::QueryItem};
-use bevy_elements_core::{*, property::PropertyValues};
+use bevy::prelude::*;
+use bevy_elements_core::*;
 
 #[derive(Default)]
 pub struct TextLinePlugin;
@@ -19,15 +19,9 @@ pub struct TextLine {
 
 widget!(TextLine,
     mut ctx: ResMut<BuildingContext>,
-    mut commands: Commands,
-    default_font: Res<DefaultFont>
+    mut commands: Commands
 => {
     let text = bindattr!(ctx, commands, value:String => Self.value);
-    let style = TextStyle {
-        font: default_font.0.clone(),
-        font_size: 24.0,
-        color: Color::WHITE,
-    };
     let line = Self {
         value: text.unwrap_or("".to_string())
     };
@@ -36,12 +30,9 @@ widget!(TextLine,
         .insert(line)
         .insert(TextBundle::from_section(
             "".to_string(),
-            TextStyle {
-                font: default_font.0.clone(),
-                font_size: 24.0,
-                color: Color::WHITE,
-            },
+            Default::default()
         ));
+            
 });
 
 fn update_text_line(

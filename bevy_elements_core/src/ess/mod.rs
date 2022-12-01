@@ -1,14 +1,14 @@
 mod parser;
 mod selector;
 
-use bevy::{asset::{AssetLoader, LoadedAsset}, prelude::{Handle, AssetServer, Assets, Plugin, AddAsset, Resource}, utils::{HashSet, HashMap}, reflect::TypeUuid, ecs::system::Command};
+use bevy::{asset::{AssetLoader, LoadedAsset}, prelude::{Handle, AssetServer, Assets, Plugin, AddAsset, Resource, EventReader, AssetEvent, ResMut, Res}, utils::{HashMap, hashbrown::hash_map::Keys}, reflect::TypeUuid, ecs::system::Command};
 pub use selector::*;
 use tagstr::Tag;
 
-use crate::{PropertyValidator, PropertyExtractor, property::PropertyValues};
+use crate::{PropertyValidator, PropertyExtractor, property::PropertyValues, Defaults};
 
 use self::parser::StyleSheetParser;
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
 
 #[derive(Default)]
 pub struct EssPlugin;
@@ -20,6 +20,7 @@ impl Plugin for EssPlugin {
         let extractor = app.world.get_resource_or_insert_with(PropertyExtractor::default).clone();
         let validator = app.world.get_resource_or_insert_with(PropertyValidator::default).clone();
         app.add_asset_loader(EssLoader { validator, extractor });
+        app.add_system(update_weights);
     }
 }
 
@@ -67,7 +68,8 @@ pub struct LoadCommand {
 }
 
 pub struct ParseCommand {
-    source: String
+    source: String,
+    default: bool
 }
 
 impl Command for ParseCommand {
@@ -80,6 +82,9 @@ impl Command for ParseCommand {
         let mut styles = world.resource_mut::<Styles>();
         let mut assets = world.resource_mut::<Assets<StyleSheet>>();
         let handle = assets.add(stylesheet);
+        if self.default {
+            world.resource_mut::<Defaults>().style_sheet = handle.clone();
+        }
         styles.insert(handle);
     }
 }
@@ -105,11 +110,20 @@ impl StyleSheet {
         LoadCommand { path: path.to_string() }
     }
     pub fn parse(source: &str) -> ParseCommand {
-        ParseCommand { source: source.to_string() }
+        ParseCommand { source: source.to_string(), default: false }
+    }
+    pub fn parse_default(source: &str) -> ParseCommand {
+        ParseCommand { source: source.to_string(), default: true }
     }
     pub fn add_rule(&mut self, mut rule: StyleRule) {
         rule.selector.index = SelectorIndex::new(self.rules.len());
         self.rules.push(rule);
+    }
+
+    pub (crate) fn set_extra_weight(&mut self, weight: usize) {
+        self.rules
+            .iter_mut()
+            .for_each(|r| r.selector.weight.1 = weight as i32);
     }
 }
 
@@ -123,23 +137,56 @@ impl Deref for StyleSheet {
     }
 }
 
+#[derive(Debug)]
 pub struct StyleRule {
     pub selector: Selector,
     pub properties: HashMap<Tag, PropertyValues>
 }
 
 #[derive(Default,Resource)]
-pub struct Styles(HashSet<Handle<StyleSheet>>);
+pub struct Styles {
+    last_id: usize,
+    map: HashMap<Handle<StyleSheet>, usize>
+}
 
-impl Deref for Styles {
-    type Target = HashSet<Handle<StyleSheet>>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
+impl Styles {
+    pub fn insert(&mut self, handle: Handle<StyleSheet>) -> usize {
+        let default = self.last_id + 1;
+        let id = *self.map.entry(handle).or_insert(default);
+        if id > self.last_id {
+            self.last_id = id;
+        }
+        id
+    }
+
+    pub fn iter(&self) -> Keys<Handle<StyleSheet>, usize>{ 
+        self.map.keys()
+    }
+
+    pub fn weight(&self, handle: &Handle<StyleSheet>) -> usize {
+        *self.map.get(handle).unwrap_or(&0)
     }
 }
 
-impl DerefMut for Styles {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+fn update_weights(
+    mut styles: ResMut<Styles>,
+    mut assets: ResMut<Assets<StyleSheet>>,
+    mut events: EventReader<AssetEvent<StyleSheet>>,
+    defaults: Res<Defaults>,
+) {
+    for event in events.iter() {
+        match event {
+            AssetEvent::Created { handle } |
+            AssetEvent::Modified { handle } => {
+                let stylesheet = assets.get_mut(handle).unwrap();
+                if handle == &defaults.style_sheet {
+                    stylesheet.set_extra_weight(0);
+                } else {
+                    let weight = styles.insert(handle.clone());
+                    stylesheet.set_extra_weight(weight);
+                }
+            },
+            _ => { }
+        }
     }
 }

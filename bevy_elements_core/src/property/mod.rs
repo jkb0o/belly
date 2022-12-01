@@ -470,7 +470,7 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
             .flat_map(|s| s.iter())
             .filter(|r| r.properties.contains_key(&Self::name()))
             .collect();
-        rules.sort_by_key(|r| -(r.selector.weight as i32));
+        rules.sort_by_key(|r| -r.selector.weight);
 
         for (entity, components) in components.iter_mut() {
             let element = elements.get(entity);

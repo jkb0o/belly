@@ -20,12 +20,5 @@ fn setup(
     asset_server: Res<AssetServer>
 ) {
     commands.spawn(Camera2dBundle::default());
-    commands.add(StyleSheet::parse(r#"
-        * {
-            font: default-regular;
-            color: #cfcfcf;
-            font-size: 22px;
-        }
-    "#));
     commands.spawn(EmlScene::new(asset_server.load("test.eml")));
 }

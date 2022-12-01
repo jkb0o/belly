@@ -11,7 +11,7 @@ use bevy::{
 };
 use bevy_inspector_egui::egui::mutex::RwLock;
 use eml::EmlPlugin;
-use ess::EssPlugin;
+use ess::{EssPlugin, StyleSheet};
 // use focus::{Focused, update_focus};
 use property::PropertyValues;
 
@@ -36,9 +36,7 @@ pub use tagstr::*;
 pub use context::IntoContent;
 pub use context::ExpandElements;
 pub use context::ExpandElementsExt;
-pub use crate::builders::{
-    Widget, DefaultFont
-};
+pub use crate::builders::Widget;
 pub use attributes::AttributeValue;
 
 use bind::process_binds_system;
@@ -65,13 +63,13 @@ impl Plugin for ElementsCorePlugin {
             .add_system(process_binds_system)
             .register_element_builder("el", build_element)
             .register_elements_postprocessor(default_postprocessor)
-            .insert_resource(DefaultFont::default())
+            .insert_resource(Defaults::default())
             .add_plugin(EssPlugin::default())
             .add_plugin(EmlPlugin::default())
             ;
 
         // TODO: may be desabled with feature
-        app.add_startup_system(setup_default_font);
+        app.add_startup_system(setup_defaults);
 
         register_properties(app);
     }
@@ -298,4 +296,28 @@ impl RegisterProperty for bevy::prelude::App {
 
         self
     }
+}
+
+#[derive(Default,Resource)]
+pub struct Defaults {
+    pub regular_font: Handle<Font>,
+    pub style_sheet: Handle<StyleSheet>,
+}
+
+pub (crate) fn setup_defaults(
+    mut commands: Commands,
+    mut fonts: ResMut<Assets<Font>>,
+    mut defaults: ResMut<Defaults>,
+) {
+    let default_font_bytes = include_bytes!("SourceCodePro-Light.ttf").to_vec();
+    let default_font_asset = Font::try_from_bytes(default_font_bytes).unwrap();
+    let default_font_handle = fonts.add(default_font_asset);
+    defaults.regular_font = default_font_handle;
+    commands.add(StyleSheet::parse_default(r#"
+        * {
+            font: default-regular;
+            color: #cfcfcf;
+            font-size: 22px;
+        }
+    "#))
 }

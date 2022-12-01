@@ -14,15 +14,10 @@ fn main() {
 }
 
 fn setup(
-    mut commands: Commands
+    mut commands: Commands,
 ) {
     commands.spawn(Camera2dBundle::default());
     commands.add(StyleSheet::parse(r#"
-        * {
-            font: default-regular;
-            color: #cfcfcf;
-            font-size: 22px;
-        }
         .text-input-value {
             color: #2f2f2f;
         }

@@ -253,7 +253,7 @@ mod style {
 /// Impls for `bevy_text` [`Text`] component
 mod text {
     use super::*;
-    use crate::{ManualTextProperties, DefaultFont};
+    use crate::{ManualTextProperties, Defaults};
 
     #[derive(Default,Clone)]
     pub enum FontPath {
@@ -342,12 +342,12 @@ mod text {
             } else {
                 let path = cache.clone();
                 commands.add(move |world: &mut World| {
-                    let defaults = world.resource::<DefaultFont>();
+                    let defaults = world.resource::<Defaults>();
                     let font = match path {
-                        FontPath::Regular => defaults.0.clone(),
-                        FontPath::Italic => defaults.0.clone(),
-                        FontPath::Bold => defaults.0.clone(),
-                        _ => defaults.0.clone()
+                        FontPath::Regular => defaults.regular_font.clone(),
+                        FontPath::Italic => defaults.regular_font.clone(),
+                        FontPath::Bold => defaults.regular_font.clone(),
+                        _ => defaults.regular_font.clone()
                     };
                     world
                         .entity_mut(entity)
