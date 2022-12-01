@@ -9,6 +9,16 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+pub struct BindPlugin;
+
+impl Plugin for BindPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .init_resource::<ChangeCounter>()
+            .add_system(process_binds_system);
+    }
+}
+
 pub trait BindValue: Default + PartialEq + Clone + Send + Sync + 'static {}
 impl<T: Default + PartialEq + Clone + Send + Sync + 'static> BindValue for T {}
 
@@ -528,7 +538,7 @@ mod test {
     #[test]
     fn single_property() {
         let mut app = App::new();
-        app.add_system(process_binds_system);
+        app.add_plugin(BindPlugin);
 
         let player = app.world.spawn_empty().id();
         let bar = app.world.spawn_empty().id();
@@ -594,7 +604,7 @@ mod test {
     #[test]
     fn self_bind() {
         let mut app = App::new();
-        app.add_system(process_binds_system);
+        app.add_plugin(BindPlugin);
 
         let player = app.world.spawn_empty().id();
 
@@ -623,7 +633,7 @@ mod test {
     #[test]
     fn chain_bind() {
         let mut app = App::new();
-        app.add_system(process_binds_system);
+        app.add_plugin(BindPlugin);
 
         let player = app.world.spawn_empty().id();
         let bar = app.world.spawn_empty().id();

@@ -36,7 +36,7 @@ pub use element::Element;
 pub use property::Property;
 pub use tagstr::*;
 
-use bind::process_binds_system;
+use bind::{process_binds_system, BindPlugin};
 
 impl Plugin for ElementsCorePlugin {
     fn build(&self, app: &mut App) {
@@ -61,13 +61,12 @@ impl Plugin for ElementsCorePlugin {
                     .after(input::Label::TabFocus),
             )
             .init_resource::<input::Focused>()
-            .init_resource::<bind::ChangeCounter>()
-            .add_system(process_binds_system)
             .register_element_builder("el", build_element)
             .register_elements_postprocessor(default_postprocessor)
             .insert_resource(Defaults::default())
-            .add_plugin(EssPlugin::default())
-            .add_plugin(EmlPlugin::default());
+            .add_plugin(BindPlugin)
+            .add_plugin(EssPlugin)
+            .add_plugin(EmlPlugin);
 
         // TODO: may be desabled with feature
         app.add_startup_system(setup_defaults);
