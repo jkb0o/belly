@@ -167,6 +167,8 @@ impl PropertyValues {
         self.0.iter().find_map(|token| match token {
             PropertyToken::Percentage(val) => Some(Val::Percent(val.into())),
             PropertyToken::Dimension(val) => Some(Val::Px(val.into())),
+            PropertyToken::Identifier(val) if val.as_str() == "auto" => Some(Val::Auto),
+            PropertyToken::Identifier(val) if val.as_str() == "undefined" => Some(Val::Undefined),
             _ => None,
         })
     }

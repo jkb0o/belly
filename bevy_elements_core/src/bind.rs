@@ -218,7 +218,6 @@ impl<R: Component, T: BindValue> BindFrom<R, T> {
         {
             let systems = world.get_resource_or_insert_with(BindingSystems::default);
             if systems.0.write().unwrap().add_collect_system::<R, T>() {
-                world.init_resource::<ChangeCounter>();
                 world.init_resource::<Changes<R>>();
             }
         }

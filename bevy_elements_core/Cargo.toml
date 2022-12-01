@@ -10,6 +10,7 @@ bevy = "0.9.0"
 bevy-inspector-egui = "0.13.0"
 cssparser = "0.29.6"
 lazy_static = "1.4.0"
+roxmltree = "0.16.0"
 smallvec = "1.10.0"
 tagstr = { path = "../tagstr" }
 tagstr_core = { path = "../tagstr_core" }

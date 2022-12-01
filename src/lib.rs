@@ -6,6 +6,8 @@ use bevy_elements_widgets::WidgetsPlugin;
 
 // structs
 pub use bevy_elements_core::ess::StyleSheet;
+pub use bevy_elements_core::eml::EmlAsset;
+pub use bevy_elements_core::eml::EmlScene;
 
 // macros
 pub use bevy_elements_core::bind;

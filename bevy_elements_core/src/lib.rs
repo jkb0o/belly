@@ -1,7 +1,6 @@
 use std::error::Error;
 use std::fmt::Display;
 use std::sync::Arc;
-
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::ecs::system::Command;
 use bevy::input::InputSystem;
@@ -11,6 +10,7 @@ use bevy::{
     prelude::*
 };
 use bevy_inspector_egui::egui::mutex::RwLock;
+use eml::EmlPlugin;
 use ess::EssPlugin;
 // use focus::{Focused, update_focus};
 use property::PropertyValues;
@@ -24,6 +24,7 @@ pub mod property;
 pub mod ess;
 pub mod bind;
 pub mod input;
+pub mod eml;
 
 pub struct ElementsCorePlugin;
 
@@ -59,12 +60,14 @@ impl Plugin for ElementsCorePlugin {
                 .label(input::Label::Focus)
                 .after(input::Label::TabFocus)
             )
+            .init_resource::<input::Focused>()
+            .init_resource::<bind::ChangeCounter>()
+            .add_system(process_binds_system)
             .register_element_builder("el", build_element)
             .register_elements_postprocessor(default_postprocessor)
             .insert_resource(DefaultFont::default())
             .add_plugin(EssPlugin::default())
-            .init_resource::<input::Focused>()
-            .add_system(process_binds_system)
+            .add_plugin(EmlPlugin::default())
             ;
 
         // TODO: may be desabled with feature
@@ -179,13 +182,6 @@ pub trait RegisterElementBuilder {
     ) -> &mut Self;
 }
 
-pub (crate) trait RegisterElementBuilderInternal {
-    fn register_text_element_builder<Params, D: IntoSystem<(), (), Params>> (
-        &mut self,
-        builder: D,
-    ) -> &mut Self;
-}
-
 
 
 impl RegisterElementBuilder for App {
@@ -211,17 +207,6 @@ impl RegisterElementBuilder for App {
             .push(builder);
         self
 
-    }
-}
-
-impl RegisterElementBuilderInternal for App {
-    fn register_text_element_builder<Params, D: IntoSystem<(), (), Params>> (
-        &mut self,
-        builder: D,
-    ) -> &mut Self {
-        let builder = ElementBuilder::new(&mut self.world, builder);
-        self.world.insert_resource(TextElementBuilder(builder));
-        self
     }
 }
 

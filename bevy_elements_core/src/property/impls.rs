@@ -82,7 +82,7 @@ mod style {
                     if let Some(val) = values.$parse_func() {
                         Ok(val)
                     } else {
-                        Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
+                        Err(ElementsError::InvalidPropertyValue(values.to_string()))
                     }
                 }
 

@@ -1,5 +1,7 @@
 use std::cell::RefCell;
 use std::marker::PhantomData;
+use std::sync::Arc;
+use std::sync::RwLock;
 use bevy::ui::FocusPolicy;
 use bevy::utils::HashMap;
 use std::rc::Rc;
@@ -119,25 +121,14 @@ impl ElementBuilder {
     }
 }
 
-#[derive(Clone,Resource)]
-pub struct TextElementBuilder(pub (crate) ElementBuilder);
-unsafe impl Send for TextElementBuilder {}
-unsafe impl Sync for TextElementBuilder {}
-impl Deref for TextElementBuilder {
-    type Target = ElementBuilder;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 #[derive(Default,Resource)]
 pub struct ElementPostProcessors(pub (crate) Rc<RefCell<Vec<ElementBuilder>>>);
 unsafe impl Send for ElementPostProcessors {}
 unsafe impl Sync for ElementPostProcessors {}
 
 
-#[derive(Resource)]
-pub struct ElementBuilderRegistry(HashMap<Tag, ElementBuilder>);
+#[derive(Resource, Clone, Default)]
+pub struct ElementBuilderRegistry(Arc<RwLock<HashMap<Tag, ElementBuilder>>>);
 
 unsafe impl Send for ElementBuilderRegistry {}
 unsafe impl Sync for ElementBuilderRegistry {}
@@ -148,11 +139,15 @@ impl ElementBuilderRegistry {
     }
 
     pub fn get_builder(&self, name: Tag) -> Option<ElementBuilder> {
-        self.0.get(&name).map(|b| b.clone())
+        self.0.read().unwrap().get(&name).map(|b| b.clone())
     }
 
     pub fn add_builder(&mut self, name: Tag, builder: ElementBuilder) {
-        self.0.insert(name, builder);
+        self.0.write().unwrap().insert(name, builder);
+    }
+
+    pub fn has_builder(&self, name: Tag) -> bool {
+        self.0.read().unwrap().contains_key(&name)
     }
 }
 

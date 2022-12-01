@@ -47,6 +47,12 @@ pub struct Tag(
     &'static str
 );
 
+impl Tag {
+    pub fn as_str(&self) -> &'static str {
+        self.0
+    }
+}
+
 impl PartialEq for Tag {
     fn eq(&self, other: &Self) -> bool {
         self.0 as *const _ == other.0 as *const _
