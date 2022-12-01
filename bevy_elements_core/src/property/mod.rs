@@ -490,7 +490,25 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
             let element = element.unwrap();
 
             // extract default value
-            let default = element.styles.get(&Self::name());
+            let mut element_with_default = element;
+            let mut entity_with_default = entity;
+            let mut default = None;
+            loop {
+                if !element_with_default.is_virtual() {
+                    default = element_with_default.styles.get(&Self::name());
+                    break;
+                }
+                if let Ok(parent) = parents.get(entity_with_default) {
+                    entity_with_default = parent.get();
+                    if let Ok(element) = elements.get(entity_with_default) {
+                        element_with_default = element;
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
 
             // compute branch
             let mut branch = ElementsBranch::new();
@@ -509,8 +527,16 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
             // apply rules
             let property = rules
                 .iter()
-                .filter(|r| r.selector.matches(&branch))
-                .map(|r| r.properties.get(&Self::name()).unwrap())
+                .filter_map(|r|
+                    // use default values for zero-weighted selectors
+                    if r.selector.weight.is_zero() && default.is_some() {
+                        default
+                    } else if r.selector.matches(&branch) {
+                        Some(r.properties.get(&Self::name()).unwrap())
+                    } else {
+                        None
+                    }
+                )
                 .next()
                 .or(default);
 

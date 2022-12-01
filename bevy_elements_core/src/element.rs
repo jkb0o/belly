@@ -17,7 +17,7 @@ pub enum DisplayElement {
 
 #[derive(Component, Default)]
 pub struct Element {
-    pub name: Tag,
+    pub name: Option<Tag>,
     pub id: Option<Tag>,
     pub classes: HashSet<Tag>,
     pub state: HashSet<Tag>,
@@ -27,6 +27,9 @@ pub struct Element {
 }
 
 impl Element {
+    pub fn is_virtual(&self) -> bool {
+        self.name.is_none()
+    }
     pub fn inline() -> Element {
         Element {
             display: DisplayElement::Inline,

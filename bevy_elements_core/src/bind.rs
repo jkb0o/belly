@@ -13,8 +13,7 @@ pub struct BindPlugin;
 
 impl Plugin for BindPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<ChangeCounter>()
+        app.init_resource::<ChangeCounter>()
             .add_system(process_binds_system);
     }
 }

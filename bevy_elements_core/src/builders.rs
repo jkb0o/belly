@@ -39,20 +39,18 @@ pub(crate) fn default_postprocessor(
         attr_commands(&mut commands);
     }
     if let Ok(mut element) = elements.get_mut(element) {
-        element.name = tag;
+        element.name = Some(tag);
         element.id = params.id();
         element.classes.extend(params.classes());
         element.styles.extend(params.styles());
-        println!("element {} classes:{:?}", element.name, element.classes);
     } else {
         let element = Element {
-            name: tag,
+            name: Some(tag),
             id: params.id(),
             classes: params.classes(),
             styles: params.styles(),
             ..default()
         };
-        println!("element {} classes:{:?}", element.name, element.classes);
         commands.insert(element);
     }
     let focus_policy = match params.drop_variant(tag!("interactable")) {

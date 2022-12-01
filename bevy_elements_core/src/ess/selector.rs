@@ -9,6 +9,12 @@ use crate::Element;
 #[derive(Copy, Clone, PartialEq, Eq, Ord, Default, Debug)]
 pub struct SelectorWeight(pub(crate) i32, pub(crate) i32);
 
+impl SelectorWeight {
+    pub fn is_zero(&self) -> bool {
+        self.0 == 0
+    }
+}
+
 impl PartialOrd for SelectorWeight {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         let res = self.0.cmp(&other.0);
@@ -63,7 +69,7 @@ impl SelectorElement {
             SelectorElement::Any => true,
             SelectorElement::Id(id) => node.id() == Some(*id),
             SelectorElement::State(attr) => node.has_state(attr),
-            SelectorElement::Tag(tag) => node.tag() == *tag,
+            SelectorElement::Tag(tag) => node.has_tag(tag),
             SelectorElement::Class(class) => node.has_class(class),
             _ => false,
         }
@@ -256,7 +262,7 @@ pub trait EmlBranch {
 
 pub trait EmlNode: Sized {
     fn id(&self) -> Option<Tag>;
-    fn tag(&self) -> Tag;
+    fn has_tag(&self, tag: &Tag) -> bool;
     fn has_state(&self, tag: &Tag) -> bool;
     fn has_class(&self, class: &Tag) -> bool;
 
@@ -301,7 +307,10 @@ impl<'e> ElementsBranch<'e> {
     pub fn to_string(&self) -> String {
         let mut result = "".to_string();
         for (idx, node) in self.0.iter().enumerate().rev() {
-            result.push_str(&format!("{}", node.name));
+            if node.is_virtual() {
+                continue;
+            }
+            result.push_str(&format!("{}", node.name.unwrap()));
             if let Some(id) = node.id {
                 result.push_str(&format!("#{}", id));
             }
@@ -327,8 +336,8 @@ impl<'b, 'e> EmlNode for ElementNode<'b, 'e> {
     fn id(&self) -> Option<Tag> {
         self.branch.0[self.idx].id
     }
-    fn tag(&self) -> Tag {
-        self.branch.0[self.idx].name
+    fn has_tag(&self, tag: &Tag) -> bool {
+        self.branch.0[self.idx].name == Some(*tag)
     }
 
     fn has_class(&self, class: &Tag) -> bool {
@@ -473,8 +482,8 @@ mod test {
         fn id(&self) -> Option<Tag> {
             self.branch.0[self.index].id
         }
-        fn tag(&self) -> Tag {
-            self.branch.0[self.index].tag
+        fn has_tag(&self, tag: &Tag) -> bool {
+            self.branch.0[self.index].tag == *tag
         }
         fn has_state(&self, tag: &Tag) -> bool {
             self.branch.0[self.index].attributes.contains(tag)
