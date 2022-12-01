@@ -136,7 +136,7 @@ impl AssetLoader for EmlLoader {
 }
 
 pub fn update_eml_scene(
-    scenes: Query<(Entity, &EmlScene)>,
+    scenes: Query<(Entity, &EmlScene, Option<&Children>)>,
     mut events: EventReader<AssetEvent<EmlAsset>>,
     assets: Res<Assets<EmlAsset>>,
     mut commands: Commands,
@@ -144,7 +144,20 @@ pub fn update_eml_scene(
     for event in events.iter() {
         if let AssetEvent::Created { handle } = event {
             let asset = assets.get(handle).unwrap();
-            for (entity, _) in scenes.iter().filter(|(_, s)| &s.asset == handle) {
+            for (entity, _, _) in scenes.iter().filter(|(_, s, _)| &s.asset == handle) {
+                let asset = asset.clone();
+                commands.add(move |world: &mut World| {
+                    asset.write(world, entity);
+                });
+            }
+        } else if let AssetEvent::Modified { handle } = event {
+            let asset = assets.get(handle).unwrap();
+            for (entity, _, children) in scenes.iter().filter(|(_, s, _)| &s.asset == handle) {
+                if let Some(children) = children {
+                    for ch in children.iter() {
+                        commands.entity(*ch).despawn_recursive();
+                    }
+                }
                 let asset = asset.clone();
                 commands.add(move |world: &mut World| {
                     asset.write(world, entity);
