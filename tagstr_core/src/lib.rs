@@ -1,5 +1,5 @@
 use hashbrown::HashSet;
-use std::fmt::{Display, Debug};
+use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::ops::Deref;
@@ -21,7 +21,7 @@ fn value(name: impl AsRef<str>) -> &'static str {
             return value;
         }
     }
-    
+
     // try read one more time then write
     {
         let mut map = TAGS.write().unwrap();
@@ -43,9 +43,7 @@ pub const fn undefined_tag() -> Tag {
 }
 
 #[derive(Clone, Copy)]
-pub struct Tag(
-    &'static str
-);
+pub struct Tag(&'static str);
 
 impl Tag {
     pub fn as_str(&self) -> &'static str {
@@ -59,7 +57,7 @@ impl PartialEq for Tag {
     }
 }
 
-impl Eq for Tag { }
+impl Eq for Tag {}
 
 impl Hash for Tag {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -106,7 +104,7 @@ impl From<Tag> for &str {
 
 impl From<&str> for Tag {
     fn from(t: &str) -> Self {
-       tag(t) 
+        tag(t)
     }
 }
 

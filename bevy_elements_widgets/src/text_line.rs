@@ -12,7 +12,7 @@ impl Plugin for TextLinePlugin {
 
 #[derive(Component)]
 pub struct TextLine {
-    pub value: String
+    pub value: String,
 }
 
 // pub struct TextLineLayout
@@ -32,11 +32,11 @@ widget!(TextLine,
             "".to_string(),
             Default::default()
         ));
-            
+
 });
 
 fn update_text_line(
-    mut lines: Query<(&TextLine, &mut Text, &mut Style), Or<(Changed<Text>, Changed<TextLine>)>>
+    mut lines: Query<(&TextLine, &mut Text, &mut Style), Or<(Changed<Text>, Changed<TextLine>)>>,
 ) {
     for (line, mut text, mut style) in lines.iter_mut() {
         style.size.height = Val::Px(text.sections[0].style.font_size);

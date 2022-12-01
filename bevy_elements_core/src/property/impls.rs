@@ -104,7 +104,7 @@ mod style {
     impl_style_single_value!("right", RightProperty, Val, val, position.right);
     impl_style_single_value!("top", TopProperty, Val, val, position.top);
     impl_style_single_value!("bottom", BottomProperty, Val, val, position.bottom);
-    
+
     impl_style_single_value!("margin-left", MarginLeftProperty, Val, val, margin.left);
     impl_style_single_value!("margin-right", MarginRightProperty, Val, val, margin.right);
     impl_style_single_value!("padding-left", PaddingLeftProperty, Val, val, padding.left);
@@ -253,15 +253,15 @@ mod style {
 /// Impls for `bevy_text` [`Text`] component
 mod text {
     use super::*;
-    use crate::{ManualTextProperties, Defaults};
+    use crate::{Defaults, ManualTextProperties};
 
-    #[derive(Default,Clone)]
+    #[derive(Default, Clone)]
     pub enum FontPath {
         #[default]
         Regular,
         Bold,
         Italic,
-        Custom(String)
+        Custom(String),
     }
 
     /// Applies the `color` property on [`TextStyle::color`](`TextStyle`) field of all sections on matched [`Text`] components.
@@ -281,7 +281,9 @@ mod text {
             if let Some(color) = values.color() {
                 Ok(color)
             } else {
-                Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
+                Err(ElementsError::InvalidPropertyValue(
+                    Self::name().to_string(),
+                ))
             }
         }
 
@@ -320,10 +322,14 @@ mod text {
                     "default-regular" => Ok(FontPath::Regular),
                     "default-bold" => Ok(FontPath::Bold),
                     "default-italic" => Ok(FontPath::Italic),
-                    _ => Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
+                    _ => Err(ElementsError::InvalidPropertyValue(
+                        Self::name().to_string(),
+                    )),
                 }
             } else {
-                Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
+                Err(ElementsError::InvalidPropertyValue(
+                    Self::name().to_string(),
+                ))
             }
         }
 
@@ -347,7 +353,7 @@ mod text {
                         FontPath::Regular => defaults.regular_font.clone(),
                         FontPath::Italic => defaults.regular_font.clone(),
                         FontPath::Bold => defaults.regular_font.clone(),
-                        _ => defaults.regular_font.clone()
+                        _ => defaults.regular_font.clone(),
                     };
                     world
                         .entity_mut(entity)
@@ -378,7 +384,9 @@ mod text {
             if let Some(size) = values.f32() {
                 Ok(size)
             } else {
-                Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
+                Err(ElementsError::InvalidPropertyValue(
+                    Self::name().to_string(),
+                ))
             }
         }
 
@@ -419,7 +427,9 @@ mod text {
                     _ => (),
                 }
             }
-            Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
+            Err(ElementsError::InvalidPropertyValue(
+                Self::name().to_string(),
+            ))
         }
 
         fn apply<'w>(
@@ -456,7 +466,9 @@ mod text {
                     _ => (),
                 }
             }
-            Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
+            Err(ElementsError::InvalidPropertyValue(
+                Self::name().to_string(),
+            ))
         }
 
         fn apply<'w>(
@@ -487,7 +499,9 @@ mod text {
             if let Some(content) = values.string() {
                 Ok(content)
             } else {
-                Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
+                Err(ElementsError::InvalidPropertyValue(
+                    Self::name().to_string(),
+                ))
             }
         }
 
@@ -524,7 +538,9 @@ impl Property for BackgroundColorProperty {
         if let Some(color) = values.color() {
             Ok(color)
         } else {
-            Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
+            Err(ElementsError::InvalidPropertyValue(
+                Self::name().to_string(),
+            ))
         }
     }
 

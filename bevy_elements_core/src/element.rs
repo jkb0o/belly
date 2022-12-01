@@ -1,10 +1,10 @@
 use bevy::utils::HashMap;
 use bevy::utils::HashSet;
 
-use bevy::prelude::*;
+use crate::property::*;
 use crate::tags;
 use crate::tags::*;
-use crate::property::*;
+use bevy::prelude::*;
 
 #[derive(Default)]
 pub enum DisplayElement {
@@ -33,7 +33,7 @@ impl Element {
             ..default()
         }
     }
-    pub fn invalidate(&mut self) { }
+    pub fn invalidate(&mut self) {}
     pub fn focused(&self) -> bool {
         self.state.contains(&tags::focus())
     }
@@ -41,4 +41,3 @@ impl Element {
         self.state.insert(tags::focus_request());
     }
 }
-

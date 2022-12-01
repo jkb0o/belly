@@ -1,20 +1,20 @@
-use std::cell::RefCell;
-use std::marker::PhantomData;
-use std::sync::Arc;
-use std::sync::RwLock;
 use bevy::ui::FocusPolicy;
 use bevy::utils::HashMap;
+use std::cell::RefCell;
+use std::marker::PhantomData;
 use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::RwLock;
 
-use bevy::ecs::system::BoxedSystem;
-use bevy::prelude::*;
-use crate::AttributeValue;
 use crate::context::*;
 use crate::element::*;
 use crate::tags;
+use crate::AttributeValue;
+use bevy::ecs::system::BoxedSystem;
+use bevy::prelude::*;
 use tagstr::*;
 
-pub (crate) fn build_element(mut ctx: ResMut<BuildingContext>, mut commands: Commands) {
+pub(crate) fn build_element(mut ctx: ResMut<BuildingContext>, mut commands: Commands) {
     commands
         .entity(ctx.element)
         .insert(NodeBundle {
@@ -24,7 +24,7 @@ pub (crate) fn build_element(mut ctx: ResMut<BuildingContext>, mut commands: Com
         .push_children(&ctx.content());
 }
 
-pub (crate) fn default_postprocessor(
+pub(crate) fn default_postprocessor(
     mut ctx: ResMut<BuildingContext>,
     mut commands: Commands,
     mut elements: Query<&mut Element>,
@@ -34,7 +34,7 @@ pub (crate) fn default_postprocessor(
     let mut commands = commands.entity(element.clone());
     let mut params = ctx.params();
     commands.insert(Name::new(tag.to_string()));
-    
+
     if let Some(attr_commands) = params.commands(tags::with()) {
         attr_commands(&mut commands);
     }
@@ -59,7 +59,7 @@ pub (crate) fn default_postprocessor(
         Some(AttributeValue::Empty) => Some(FocusPolicy::Pass),
         Some(AttributeValue::String(s)) if &s == "block" => Some(FocusPolicy::Block),
         Some(AttributeValue::String(s)) if &s == "pass" => Some(FocusPolicy::Pass),
-        _ => None
+        _ => None,
     };
     if let Some(policy) = focus_policy {
         commands.insert(policy);
@@ -70,26 +70,29 @@ pub (crate) fn default_postprocessor(
 #[derive(Clone)]
 pub struct ElementBuilder {
     system: Rc<RefCell<BoxedSystem<(), ()>>>,
-    postprocess: bool
+    postprocess: bool,
 }
 
-unsafe impl Send for ElementBuilder { }
-unsafe impl Sync for ElementBuilder { }
+unsafe impl Send for ElementBuilder {}
+unsafe impl Sync for ElementBuilder {}
 
 impl ElementBuilder {
     pub fn from_boxed(mut boxed: BoxedSystem<(), ()>, world: &mut World) -> ElementBuilder {
         boxed.initialize(world);
         ElementBuilder {
             postprocess: false,
-            system: Rc::new(RefCell::new(boxed))
+            system: Rc::new(RefCell::new(boxed)),
         }
     }
-    pub (crate) fn new<Params, S:IntoSystem<(), (), Params>>(world: &mut World, builder: S) -> ElementBuilder {
+    pub(crate) fn new<Params, S: IntoSystem<(), (), Params>>(
+        world: &mut World,
+        builder: S,
+    ) -> ElementBuilder {
         let mut system = IntoSystem::into_system(builder);
         system.initialize(world);
         ElementBuilder {
             postprocess: false,
-            system: Rc::new(RefCell::new(Box::new(system)))
+            system: Rc::new(RefCell::new(Box::new(system))),
         }
     }
     pub fn with_postprocessing(mut self) -> Self {
@@ -103,18 +106,21 @@ impl ElementBuilder {
         if !self.postprocess {
             return;
         }
-        let processors = world.get_resource_mut::<ElementPostProcessors>().unwrap().0.clone();
+        let processors = world
+            .get_resource_mut::<ElementPostProcessors>()
+            .unwrap()
+            .0
+            .clone();
         for postprocessor in processors.borrow().iter() {
             postprocessor.build(world)
         }
     }
 }
 
-#[derive(Default,Resource)]
-pub struct ElementPostProcessors(pub (crate) Rc<RefCell<Vec<ElementBuilder>>>);
+#[derive(Default, Resource)]
+pub struct ElementPostProcessors(pub(crate) Rc<RefCell<Vec<ElementBuilder>>>);
 unsafe impl Send for ElementPostProcessors {}
 unsafe impl Sync for ElementPostProcessors {}
-
 
 #[derive(Resource, Clone, Default)]
 pub struct ElementBuilderRegistry(Arc<RwLock<HashMap<Tag, ElementBuilder>>>);
@@ -143,7 +149,7 @@ impl ElementBuilderRegistry {
 #[derive(Resource)]
 struct WidgetBuilder<T> {
     builder: ElementBuilder,
-    marker: PhantomData<T>
+    marker: PhantomData<T>,
 }
 
 pub trait Widget: Sized + Send + Sync + 'static {
@@ -153,10 +159,10 @@ pub trait Widget: Sized + Send + Sync + 'static {
             systemres.builder.clone()
         } else {
             let system = Self::get_system();
-            let builder = ElementBuilder::from_boxed(system, world)
-                .with_postprocessing();
-            world.insert_resource(WidgetBuilder{
-                builder: builder.clone(), marker: PhantomData::<Self>
+            let builder = ElementBuilder::from_boxed(system, world).with_postprocessing();
+            world.insert_resource(WidgetBuilder {
+                builder: builder.clone(),
+                marker: PhantomData::<Self>,
             });
             builder
         }
@@ -175,6 +181,6 @@ macro_rules! widget {
                     )
                 )
             }
-        } 
+        }
     };
 }

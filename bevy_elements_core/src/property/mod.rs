@@ -1,7 +1,7 @@
 use std::{any::Any, hash::Hash};
 
 use bevy::{
-    ecs::query::{QueryItem, WorldQuery, ReadOnlyWorldQuery},
+    ecs::query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
     prelude::*,
     ui::{UiRect, Val},
     utils::HashMap,
@@ -10,16 +10,19 @@ use bevy::{
 use cssparser::Token;
 use smallvec::SmallVec;
 mod colors;
-pub (crate) mod impls;
+pub(crate) mod impls;
 
-use crate::{element::*, ElementsError, ess::{Styles, StyleSheet, ElementsBranch}};
 use crate::tags::*;
-
+use crate::{
+    element::*,
+    ess::{ElementsBranch, StyleSheet, Styles},
+    ElementsError,
+};
 
 // pub(crate) mod impls;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Hash)]
-pub struct Number([u8;4]);
+pub struct Number([u8; 4]);
 
 impl Number {
     fn from_float(value: f32) -> Self {
@@ -80,7 +83,7 @@ impl PropertyToken {
             PropertyToken::Number(v) => format!("{}", v.to_float()),
             PropertyToken::Identifier(v) => format!("{}", v),
             PropertyToken::Hash(v) => format!("#{}", v),
-            PropertyToken::String(v) => format!("\"{}\"", v)
+            PropertyToken::String(v) => format!("\"{}\"", v),
         }
     }
 }
@@ -95,7 +98,9 @@ impl<'i> TryFrom<Token<'i>> for PropertyToken {
             Token::IDHash(val) => Ok(Self::Hash(val.to_string())),
             Token::QuotedString(val) => Ok(Self::String(val.to_string())),
             Token::Number { value, .. } => Ok(Self::Number(value.into())),
-            Token::Percentage { unit_value, .. } => Ok(Self::Percentage((unit_value * 100.0).into())),
+            Token::Percentage { unit_value, .. } => {
+                Ok(Self::Percentage((unit_value * 100.0).into()))
+            }
             Token::Dimension { value, .. } => Ok(Self::Dimension(value.into())),
             token => Err(format!("Invalid token: {:?}", token)),
         }
@@ -302,17 +307,22 @@ pub enum CacheState<T> {
 
 #[derive(Default)]
 pub struct CachedProperties<T: Property>(HashMap<PropertyValues, CacheState<T::Cache>>);
-impl <T:Property> CachedProperties<T> {
-    fn get_or_parse(&mut self, value: &PropertyValues) -> &CacheState<T::Cache>{
-        self.0.entry_ref(value).or_insert_with(|| {
-            match T::parse(value) {
+impl<T: Property> CachedProperties<T> {
+    fn get_or_parse(&mut self, value: &PropertyValues) -> &CacheState<T::Cache> {
+        self.0
+            .entry_ref(value)
+            .or_insert_with(|| match T::parse(value) {
                 Ok(parsed) => CacheState::Ok(parsed),
                 Err(err) => {
-                    warn!("Failed to parse `{}` for {} property: {:?}", value.to_string(), T::name(), err);
+                    warn!(
+                        "Failed to parse `{}` for {} property: {:?}",
+                        value.to_string(),
+                        T::name(),
+                        err
+                    );
                     CacheState::Error
                 }
-            }
-        })
+            })
     }
 }
 
@@ -458,7 +468,7 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
         styles: Res<Styles>,
         stylesheets: Res<Assets<StyleSheet>>,
         parents: Query<&Parent>,
-        elements: Query<&Element>
+        elements: Query<&Element>,
     ) {
         if components.is_empty() {
             return;
@@ -497,7 +507,8 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
             // info!("testing branch {}", branch.to_string());
 
             // apply rules
-            let property = rules.iter()
+            let property = rules
+                .iter()
                 .filter(|r| r.selector.matches(&branch))
                 .map(|r| r.properties.get(&Self::name()).unwrap())
                 .next()
@@ -521,7 +532,6 @@ pub trait CompoundProperty: Default + Sized + Send + Sync + 'static {
     fn parse(values: PropertyValues) -> Result<HashMap<Tag, PropertyValues>, ElementsError>;
 }
 
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -530,10 +540,9 @@ mod test {
     fn parse_value() {
         let expected = PropertyValues(SmallVec::from_vec(vec![
             PropertyToken::Percentage(21f32.into()),
-            PropertyToken::Dimension(22f32.into())
+            PropertyToken::Dimension(22f32.into()),
         ]));
         let value = "21% 22px";
         assert_eq!(Ok(expected), value.try_into());
-
     }
 }

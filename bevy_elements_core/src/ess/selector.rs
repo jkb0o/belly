@@ -1,15 +1,13 @@
 use std::ops::Neg;
 
-use bevy::{
-    prelude::{default, Changed, Entity, Parent, Query}
-};
-use smallvec::{SmallVec, smallvec};
+use bevy::prelude::{default, Changed, Entity, Parent, Query};
+use smallvec::{smallvec, SmallVec};
 use tagstr::Tag;
 
 use crate::Element;
 
 #[derive(Copy, Clone, PartialEq, Eq, Ord, Default, Debug)]
-pub struct SelectorWeight(pub (crate) i32, pub (crate) i32);
+pub struct SelectorWeight(pub(crate) i32, pub(crate) i32);
 
 impl PartialOrd for SelectorWeight {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -28,7 +26,6 @@ impl Neg for SelectorWeight {
         Self(-self.0, -self.1)
     }
 }
-
 
 #[derive(Default, Debug)]
 pub struct SelectorIndex(usize);
@@ -90,7 +87,7 @@ impl SelectorElement {
             SelectorElement::Tag(_) => 1,
             SelectorElement::State(_) => 10,
             SelectorElement::Class(_) => 10,
-            SelectorElement::Id(_) => 100, 
+            SelectorElement::Id(_) => 100,
         }
     }
 }
@@ -157,18 +154,18 @@ impl<'a> SelectorEntry<'a> {
             match element {
                 SelectorElement::AnyChild => return false,
                 SelectorElement::Id(element_id) if id == *element_id => return true,
-                _ => continue
+                _ => continue,
             }
         }
         false
     }
-    
+
     pub fn has_class(&self, class: Tag) -> bool {
         for element in self.elements.iter().skip(self.offset) {
             match element {
                 SelectorElement::AnyChild => return false,
                 SelectorElement::Class(element_class) if class == *element_class => return true,
-                _ => continue
+                _ => continue,
             }
         }
         false
@@ -179,12 +176,12 @@ impl<'a> SelectorEntry<'a> {
             match element {
                 SelectorElement::AnyChild => return false,
                 SelectorElement::Tag(element_tag) if tag == *element_tag => return true,
-                _ => continue
+                _ => continue,
             }
         }
         false
     }
-    
+
     pub fn describes_node(&self, node: &impl EmlNode) -> bool {
         let mut offset = self.offset;
         let elements = self.elements;
@@ -202,7 +199,7 @@ impl<'a> SelectorEntry<'a> {
     }
 }
 
-#[derive(Default,Debug)]
+#[derive(Default, Debug)]
 pub struct Selector {
     pub index: SelectorIndex,
     pub weight: SelectorWeight,
@@ -229,7 +226,7 @@ impl Selector {
     pub fn entries(&self) -> SmallVec<[SelectorEntry; 8]> {
         let mut entries = smallvec![];
         let mut tail = Some(self.tail());
-        while let Some(entry) =  tail {
+        while let Some(entry) = tail {
             tail = entry.next();
             if entry.is_value() {
                 entries.insert(0, entry);
@@ -325,7 +322,6 @@ pub struct ElementNode<'b, 'e> {
     idx: usize,
     branch: &'b ElementsBranch<'e>,
 }
-
 
 impl<'b, 'e> EmlNode for ElementNode<'b, 'e> {
     fn id(&self) -> Option<Tag> {
@@ -446,7 +442,6 @@ mod test {
     use super::*;
     use bevy::utils::HashSet;
     use tagstr::*;
-    
 
     struct TestBranch(Vec<TestNodeData>);
 
@@ -510,7 +505,7 @@ mod test {
                 match element {
                     SelectorElement::Any => {
                         continue;
-                    },
+                    }
                     SelectorElement::AnyChild => {
                         if has_values {
                             branch.0.push(node);

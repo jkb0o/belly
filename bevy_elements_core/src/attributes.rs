@@ -5,14 +5,17 @@ use std::{
 };
 
 use super::ElementsBuilder;
-use crate::{property::*, bind::{BindFrom, BindValue, BindFromUntyped}};
 use crate::tags;
-use tagstr::*;
+use crate::{
+    bind::{BindFrom, BindFromUntyped, BindValue},
+    property::*,
+};
 use bevy::{
     ecs::system::EntityCommands,
     prelude::*,
     utils::{hashbrown::hash_map::Drain, HashMap, HashSet},
 };
+use tagstr::*;
 
 pub type ApplyCommands = Box<dyn FnOnce(&mut EntityCommands)>;
 
@@ -26,7 +29,7 @@ pub enum AttributeValue {
     Commands(ApplyCommands),
     Elements(ElementsBuilder),
     Attributes(Attributes),
-    BindFrom(BindFromUntyped)
+    BindFrom(BindFromUntyped),
 }
 
 impl Debug for AttributeValue {
@@ -82,7 +85,6 @@ impl<F: FnOnce(&mut EntityCommands) + 'static> From<F> for AttributeCommands {
     }
 }
 
-
 impl AttributeValue {
     // pub fn new<T:Any + 'static>(value: T) {
     //     let boxed: Box<dyn Any> = Box::new(value);
@@ -112,7 +114,6 @@ impl AttributeValue {
             AttributeValue::Elements(v) => try_cast::<T, ElementsBuilder>(v),
             AttributeValue::Attributes(v) => try_cast::<T, Attributes>(v),
             AttributeValue::BindFrom(v) => try_cast::<T, BindFromUntyped>(v),
-
         }
     }
     pub fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
@@ -179,7 +180,11 @@ pub struct Attribute {
 impl Attribute {
     pub fn from_commands(name: &str, commands: ApplyCommands) -> Attribute {
         let value = AttributeValue::Commands(commands);
-        Attribute { name: name.as_tag(), value, target: AttributeTarget::Attribute }
+        Attribute {
+            name: name.as_tag(),
+            value,
+            target: AttributeTarget::Attribute,
+        }
     }
     pub fn new(name: &str, value: AttributeValue) -> Attribute {
         if name.starts_with("c:") {
@@ -441,12 +446,11 @@ impl From<Attributes> for AttributeValue {
     }
 }
 
-impl<W:Component, T:BindValue> From<BindFrom<W, T>> for AttributeValue {
+impl<W: Component, T: BindValue> From<BindFrom<W, T>> for AttributeValue {
     fn from(bind: BindFrom<W, T>) -> Self {
-        AttributeValue::BindFrom(bind.to_untyped())   
+        AttributeValue::BindFrom(bind.to_untyped())
     }
 }
-
 
 #[macro_export]
 macro_rules! bindattr {
@@ -466,7 +470,6 @@ macro_rules! bindattr {
         }
     };
 }
-
 
 #[cfg(test)]
 mod test {
@@ -517,6 +520,9 @@ mod test {
         let styles = attrs.drop::<Attributes>("styles".as_tag());
         assert!(styles.is_some());
         let styles = styles.unwrap();
-        assert_eq!(styles.get::<String>("color".as_tag()), Some(&"black".to_string()));
+        assert_eq!(
+            styles.get::<String>("color".as_tag()),
+            Some(&"black".to_string())
+        );
     }
 }

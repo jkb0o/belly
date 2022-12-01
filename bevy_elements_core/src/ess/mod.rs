@@ -1,11 +1,20 @@
 mod parser;
 mod selector;
 
-use bevy::{asset::{AssetLoader, LoadedAsset}, prelude::{Handle, AssetServer, Assets, Plugin, AddAsset, Resource, EventReader, AssetEvent, ResMut, Res}, utils::{HashMap, hashbrown::hash_map::Keys}, reflect::TypeUuid, ecs::system::Command};
+use bevy::{
+    asset::{AssetLoader, LoadedAsset},
+    ecs::system::Command,
+    prelude::{
+        AddAsset, AssetEvent, AssetServer, Assets, EventReader, Handle, Plugin, Res, ResMut,
+        Resource,
+    },
+    reflect::TypeUuid,
+    utils::{hashbrown::hash_map::Keys, HashMap},
+};
 pub use selector::*;
 use tagstr::Tag;
 
-use crate::{PropertyValidator, PropertyExtractor, property::PropertyValues, Defaults};
+use crate::{property::PropertyValues, Defaults, PropertyExtractor, PropertyValidator};
 
 use self::parser::StyleSheetParser;
 use std::ops::Deref;
@@ -17,9 +26,18 @@ impl Plugin for EssPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.init_resource::<Styles>();
         app.add_asset::<StyleSheet>();
-        let extractor = app.world.get_resource_or_insert_with(PropertyExtractor::default).clone();
-        let validator = app.world.get_resource_or_insert_with(PropertyValidator::default).clone();
-        app.add_asset_loader(EssLoader { validator, extractor });
+        let extractor = app
+            .world
+            .get_resource_or_insert_with(PropertyExtractor::default)
+            .clone();
+        let validator = app
+            .world
+            .get_resource_or_insert_with(PropertyValidator::default)
+            .clone();
+        app.add_asset_loader(EssLoader {
+            validator,
+            extractor,
+        });
         app.add_system(update_weights);
     }
 }
@@ -27,7 +45,7 @@ impl Plugin for EssPlugin {
 #[derive(Default)]
 struct EssLoader {
     validator: PropertyValidator,
-    extractor: PropertyExtractor
+    extractor: PropertyExtractor,
 }
 
 impl AssetLoader for EssLoader {
@@ -43,11 +61,12 @@ impl AssetLoader for EssLoader {
         Box::pin(async move {
             let source = std::str::from_utf8(bytes)?;
 
-            let rules = StyleSheetParser::parse(source, self.validator.clone(), self.extractor.clone());
+            let rules =
+                StyleSheetParser::parse(source, self.validator.clone(), self.extractor.clone());
             let mut stylesheet = StyleSheet::default();
             for rule in rules {
                 stylesheet.add_rule(rule)
-            };
+            }
             load_context.set_default_asset(LoadedAsset::new(stylesheet));
             Ok(())
         })
@@ -57,19 +76,19 @@ impl AssetLoader for EssLoader {
 #[derive(Default, TypeUuid)]
 #[uuid = "93767098-caca-4f2b-b1d3-cdc91919be75"]
 pub struct StyleSheet {
-    rules: Vec<StyleRule>
+    rules: Vec<StyleRule>,
 }
 
-unsafe impl Send for StyleSheet { }
-unsafe impl Sync for StyleSheet { }
+unsafe impl Send for StyleSheet {}
+unsafe impl Sync for StyleSheet {}
 
 pub struct LoadCommand {
-    path: String
+    path: String,
 }
 
 pub struct ParseCommand {
     source: String,
-    default: bool
+    default: bool,
 }
 
 impl Command for ParseCommand {
@@ -99,7 +118,7 @@ impl Command for LoadCommand {
 }
 
 impl StyleSheet {
-    pub fn new<T:IntoIterator<Item=StyleRule>>(rules: T) -> StyleSheet {
+    pub fn new<T: IntoIterator<Item = StyleRule>>(rules: T) -> StyleSheet {
         let mut sheet = Self::default();
         for rule in rules.into_iter() {
             sheet.add_rule(rule);
@@ -107,27 +126,33 @@ impl StyleSheet {
         sheet
     }
     pub fn load(path: &str) -> LoadCommand {
-        LoadCommand { path: path.to_string() }
+        LoadCommand {
+            path: path.to_string(),
+        }
     }
     pub fn parse(source: &str) -> ParseCommand {
-        ParseCommand { source: source.to_string(), default: false }
+        ParseCommand {
+            source: source.to_string(),
+            default: false,
+        }
     }
     pub fn parse_default(source: &str) -> ParseCommand {
-        ParseCommand { source: source.to_string(), default: true }
+        ParseCommand {
+            source: source.to_string(),
+            default: true,
+        }
     }
     pub fn add_rule(&mut self, mut rule: StyleRule) {
         rule.selector.index = SelectorIndex::new(self.rules.len());
         self.rules.push(rule);
     }
 
-    pub (crate) fn set_extra_weight(&mut self, weight: usize) {
+    pub(crate) fn set_extra_weight(&mut self, weight: usize) {
         self.rules
             .iter_mut()
             .for_each(|r| r.selector.weight.1 = weight as i32);
     }
 }
-
-
 
 impl Deref for StyleSheet {
     type Target = Vec<StyleRule>;
@@ -140,13 +165,13 @@ impl Deref for StyleSheet {
 #[derive(Debug)]
 pub struct StyleRule {
     pub selector: Selector,
-    pub properties: HashMap<Tag, PropertyValues>
+    pub properties: HashMap<Tag, PropertyValues>,
 }
 
-#[derive(Default,Resource)]
+#[derive(Default, Resource)]
 pub struct Styles {
     last_id: usize,
-    map: HashMap<Handle<StyleSheet>, usize>
+    map: HashMap<Handle<StyleSheet>, usize>,
 }
 
 impl Styles {
@@ -159,7 +184,7 @@ impl Styles {
         id
     }
 
-    pub fn iter(&self) -> Keys<Handle<StyleSheet>, usize>{ 
+    pub fn iter(&self) -> Keys<Handle<StyleSheet>, usize> {
         self.map.keys()
     }
 
@@ -176,8 +201,7 @@ fn update_weights(
 ) {
     for event in events.iter() {
         match event {
-            AssetEvent::Created { handle } |
-            AssetEvent::Modified { handle } => {
+            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                 let stylesheet = assets.get_mut(handle).unwrap();
                 if handle == &defaults.style_sheet {
                     stylesheet.set_extra_weight(0);
@@ -185,8 +209,8 @@ fn update_weights(
                     let weight = styles.insert(handle.clone());
                     stylesheet.set_extra_weight(weight);
                 }
-            },
-            _ => { }
+            }
+            _ => {}
         }
     }
 }

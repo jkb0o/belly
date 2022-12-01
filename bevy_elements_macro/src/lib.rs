@@ -1,8 +1,8 @@
 use proc_macro2::TokenStream;
 use quote::*;
 extern crate proc_macro;
-use syn::{Expr, spanned::Spanned, Error, ExprPath, parse_macro_input, DeriveInput, ItemFn};
-use syn_rsx::{Node, parse, NodeAttribute, NodeName};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Error, Expr, ExprPath, ItemFn};
+use syn_rsx::{parse, Node, NodeAttribute, NodeName};
 
 fn create_single_command_stmt(expr: &ExprPath) -> TokenStream {
     let component_span = expr.span();
@@ -25,7 +25,7 @@ fn create_command_stmts(expr: &Expr) -> TokenStream {
     let with_body = match expr {
         Expr::Path(path) => create_single_command_stmt(path),
         Expr::Tuple(components) => {
-            let mut components_expr = quote! { };
+            let mut components_expr = quote! {};
             for component_expr in components.elems.iter() {
                 let component_span = component_expr.span();
                 if let Expr::Path(component) = component_expr {
@@ -35,11 +35,12 @@ fn create_command_stmts(expr: &Expr) -> TokenStream {
                         #component_expr
                     };
                 } else {
-                    return Error::new(component_span, "Invalid component name").into_compile_error();
+                    return Error::new(component_span, "Invalid component name")
+                        .into_compile_error();
                 }
             }
             components_expr
-        },
+        }
         _ => {
             return Error::new(expr.span(), "Invalid components declaration").into_compile_error();
         }
@@ -74,19 +75,18 @@ fn create_attr_stmt(attr: &NodeAttribute) -> TokenStream {
                         #attr_name.into(),
                         (#attr_value).into()
                     ));
-                }
+                };
             }
         }
     }
-
 }
 
 fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
-    let mut children = quote! { };
+    let mut children = quote! {};
     let mut parent = if create_entity {
         quote! { let __parent = __world.spawn_empty().id(); }
     } else {
-        quote! { }
+        quote! {}
     };
     if let Node::Element(element) = element {
         let mut parent_defined = false;
@@ -95,7 +95,8 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                 let entity_span = entity.value.span();
                 let entity = entity.value.as_ref();
                 if parent_defined {
-                    return Error::new(entity_span, "Entity already provided by entity attribute").into_compile_error();
+                    return Error::new(entity_span, "Entity already provided by entity attribute")
+                        .into_compile_error();
                 }
                 parent_defined = true;
                 parent = quote! {
@@ -106,15 +107,17 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                 if &attr_name == "entity" {
                     let attr_span = attr.key.span();
                     if parent_defined {
-                        return Error::new(attr_span, "Entity already provided by braced block").into_compile_error();
+                        return Error::new(attr_span, "Entity already provided by braced block")
+                            .into_compile_error();
                     }
                     parent_defined = true;
                     let attr_value = attr.value.as_ref();
                     if attr_value.is_none() {
-                        return Error::new(attr_span, "Attriute entity should has a value").into_compile_error();
+                        return Error::new(attr_span, "Attriute entity should has a value")
+                            .into_compile_error();
                     }
                     let entity = attr_value.unwrap().as_ref();
-                    parent = quote_spanned!{ attr_span=>
+                    parent = quote_spanned! { attr_span=>
                         let __parent = #entity;
                     };
                 } else {
@@ -134,7 +137,7 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                         #children
                         __ctx.add_child( #expr );
                     };
-                },
+                }
                 Node::Text(text) => {
                     let text = text.value.as_ref();
                     children = quote! {
@@ -151,7 +154,7 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                             .id()
                         );
                     };
-                },
+                }
                 Node::Block(block) => {
                     let block = block.value.as_ref();
                     let block_span = block.span();
@@ -163,11 +166,10 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                         }
                     }
                 }
-                _ => ()
+                _ => (),
             };
         }
 
-        
         // let tag = element.name.to_string();
         let tag = element.name.to_string();
         let tag_span = element.name.span();
@@ -185,15 +187,15 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                     .expect( #invalid_element_msg )
             )
         };
-        
+
         quote! {
             {
                 #parent
                 let __tag_name = #tag.into();
                 let mut __ctx = ::bevy_elements_core::context::ElementContext::new(__tag_name, __parent);
-                
+
                 #children
-                
+
                 ::bevy_elements_core::context::internal::push_element(__world, __ctx);
                 #builder.build(__world);
                 ::bevy_elements_core::context::internal::pop_context(__world);
@@ -201,11 +203,9 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
             }
         }
     } else {
-        quote! { }
+        quote! {}
     }
-
 }
-
 
 #[proc_macro]
 pub fn eml(tree: proc_macro::TokenStream) -> proc_macro::TokenStream {
@@ -234,8 +234,6 @@ pub fn eml(tree: proc_macro::TokenStream) -> proc_macro::TokenStream {
 //         eprintln!("widget macro do not take any args");
 //     }
 //     let parsed = parse_macro_input!(input as ItemFn);
-    
-
 
 //     let result = quote! { #parsed };
 //     proc_macro::TokenStream::from( result )
@@ -244,15 +242,12 @@ pub fn eml(tree: proc_macro::TokenStream) -> proc_macro::TokenStream {
 //     // }
 // }
 
-
 // pub fn components(tree: proc_macro::TokenStream) -> proc_macro::TokenStream {
-
 
 // }
 
-
 // #macro_rules!  {
 //     () => {
-        
+
 //     };
 // }

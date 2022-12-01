@@ -1,9 +1,13 @@
-use bevy::{prelude::*, ecs::query::WorldQuery, ui::{FocusPolicy, UiStack}, render::camera::RenderTarget};
+use bevy::{
+    ecs::query::WorldQuery,
+    prelude::*,
+    render::camera::RenderTarget,
+    ui::{FocusPolicy, UiStack},
+};
 
-use crate::{Element, tags};
+use crate::{tags, Element};
 
 const DRAG_THRESHOLD: f32 = 5.;
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
 pub enum Label {
@@ -12,7 +16,7 @@ pub enum Label {
     Focus,
 }
 
-#[derive(Debug,Clone,PartialEq,Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PointerInputData {
     Down { presses: u8 },
     Up { presses: u8 },
@@ -28,7 +32,7 @@ pub struct PointerInput {
     pub entities: Vec<Entity>,
     pub pos: Vec2,
     pub delta: Vec2,
-    pub data: PointerInputData
+    pub data: PointerInputData,
 }
 
 impl PointerInput {
@@ -40,14 +44,14 @@ impl PointerInput {
         }
         return false;
     }
-    
+
     pub fn presses(&self) -> u8 {
         use PointerInputData::*;
         match self.data {
             Down { presses } => presses,
             Up { presses } => presses,
             Pressed { presses } => presses,
-            _ => 0
+            _ => 0,
         }
     }
 
@@ -58,7 +62,6 @@ impl PointerInput {
             false
         }
     }
-
 
     pub fn pressed(&self) -> bool {
         if let PointerInputData::Pressed { presses: _ } = self.data {
@@ -88,7 +91,7 @@ impl PointerInput {
         if let PointerInputData::Drag { from } = &self.data {
             for e in from.iter() {
                 if *e == entity {
-                    return true
+                    return true;
                 }
             }
             false
@@ -97,7 +100,6 @@ impl PointerInput {
         }
     }
 }
-
 
 /// Contains entities whose Interaction should be set to None
 #[derive(Default)]
@@ -110,7 +112,7 @@ pub struct State {
     press_position: Option<Vec2>,
     last_cursor_position: Option<Vec2>,
     drag_accumulator: Vec2,
-    dragging: bool
+    dragging: bool,
 }
 
 /// Main query for [`ui_focus_system`]
@@ -167,7 +169,7 @@ pub fn pointer_input_system(
             })
         })
         .or_else(|| touches_input.first_pressed_position());
-    
+
     let mut send_drag_start = false;
     let send_drag_stop = state.dragging && up;
     if down {
@@ -176,7 +178,7 @@ pub fn pointer_input_system(
     }
     let delta = match (cursor_position, state.last_cursor_position) {
         (Some(c), Some(l)) => c - l,
-        _ => Vec2::ZERO
+        _ => Vec2::ZERO,
     };
     state.last_cursor_position = cursor_position;
     if !state.press_position.is_none() && !state.dragging {
@@ -184,10 +186,8 @@ pub fn pointer_input_system(
         if state.drag_accumulator.length() > DRAG_THRESHOLD {
             send_drag_start = true;
             state.dragging = true;
-
         }
     }
-
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one.
@@ -250,7 +250,7 @@ pub fn pointer_input_system(
     let mut drag_entities = vec![];
     let mut drag_stop_entities = vec![];
     let mut motion_entities = vec![];
-    
+
     // set Clicked or Hovered on top nodes. as soon as a node with a `Block` focus policy is detected,
     // the iteration will stop on it because it "captures" the interaction.
     let mut iter = node_query.iter_many_mut(moused_over_nodes.by_ref());
@@ -262,7 +262,7 @@ pub fn pointer_input_system(
             continue;
         }
         let entity = node.entity;
-        
+
         if down {
             state.pressed_entities.push(entity);
             down_entities.push(entity);
@@ -284,12 +284,11 @@ pub fn pointer_input_system(
             } else {
                 motion_entities.push(entity);
             };
-
         }
         if send_drag_stop {
             drag_stop_entities.push(entity);
         }
-        
+
         match node.focus_policy.unwrap() {
             FocusPolicy::Block => {
                 break;
@@ -303,34 +302,70 @@ pub fn pointer_input_system(
         if time.elapsed_seconds() - state.was_down_at < 0.3 && down_entities == state.was_down {
             state.presses += 1;
         } else {
-
             state.presses = 0;
         }
         let presses = state.presses + 1;
         state.was_down = down_entities.clone();
         state.was_down_at = time.elapsed_seconds();
-        events.send(PointerInput { pos, delta, entities: down_entities, data: PointerInputData::Down { presses }});
+        events.send(PointerInput {
+            pos,
+            delta,
+            entities: down_entities,
+            data: PointerInputData::Down { presses },
+        });
     }
     if up_entities.len() > 0 {
         let presses = state.presses;
-        events.send(PointerInput { pos, delta, entities: up_entities, data: PointerInputData::Up { presses }});
+        events.send(PointerInput {
+            pos,
+            delta,
+            entities: up_entities,
+            data: PointerInputData::Up { presses },
+        });
     }
     if pressed_entities.len() > 0 {
         let presses = state.presses;
-        events.send(PointerInput { pos, delta, entities: pressed_entities.clone(), data: PointerInputData::Pressed { presses }});
+        events.send(PointerInput {
+            pos,
+            delta,
+            entities: pressed_entities.clone(),
+            data: PointerInputData::Pressed { presses },
+        });
     }
     if motion_entities.len() > 0 {
-        events.send(PointerInput { pos, delta, entities: motion_entities, data: PointerInputData::Motion });
+        events.send(PointerInput {
+            pos,
+            delta,
+            entities: motion_entities,
+            data: PointerInputData::Motion,
+        });
     }
     if drag_start_entities.len() > 0 {
         state.dragging_from = drag_start_entities.clone();
-        events.send(PointerInput { pos, delta, entities: drag_start_entities, data: PointerInputData::DragStart});
+        events.send(PointerInput {
+            pos,
+            delta,
+            entities: drag_start_entities,
+            data: PointerInputData::DragStart,
+        });
     }
     if drag_entities.len() > 0 {
-        events.send(PointerInput { pos, delta, entities: drag_entities, data: PointerInputData::Drag { from: state.dragging_from.clone() }});
+        events.send(PointerInput {
+            pos,
+            delta,
+            entities: drag_entities,
+            data: PointerInputData::Drag {
+                from: state.dragging_from.clone(),
+            },
+        });
     }
     if drag_stop_entities.len() > 0 {
-        events.send(PointerInput { pos, delta, entities: drag_stop_entities, data: PointerInputData::DragStop});
+        events.send(PointerInput {
+            pos,
+            delta,
+            entities: drag_stop_entities,
+            data: PointerInputData::DragStop,
+        });
     }
 
     if up {
@@ -344,9 +379,8 @@ pub fn pointer_input_system(
 #[derive(Component)]
 pub struct Focus(bool);
 
-#[derive(Resource,Default)]
+#[derive(Resource, Default)]
 pub struct Focused(Option<Entity>);
-
 
 pub fn focus_system(
     mut focused: ResMut<Focused>,
@@ -354,7 +388,6 @@ pub fn focus_system(
     mut elements: Query<(Entity, &mut Element)>,
     mut signals: EventReader<PointerInput>,
     children: Query<&Children>,
-
 ) {
     let mut target_focus = None;
     let mut update_required = false;
@@ -395,7 +428,7 @@ pub fn focus_system(
 
 pub fn tab_focus_system(
     keyboard: Res<Input<KeyCode>>,
-    mut elements: Query<&mut Element, With<Interaction>>
+    mut elements: Query<&mut Element, With<Interaction>>,
 ) {
     if !keyboard.just_pressed(KeyCode::Tab) {
         return;
@@ -409,7 +442,7 @@ pub fn tab_focus_system(
 fn invalidate_tree(
     node: Entity,
     q_elements: &mut Query<(Entity, &mut Element)>,
-    q_children: &Query<&Children>
+    q_children: &Query<&Children>,
 ) {
     if let Ok((_, mut element)) = q_elements.get_mut(node) {
         element.invalidate();

@@ -56,7 +56,7 @@ impl<T: Component> Default for Changes<T> {
         Changes::<T>(PhantomData::<T>)
     }
 }
-#[derive(Resource,Default)]
+#[derive(Resource, Default)]
 pub struct ChangeCounter(usize);
 
 pub fn process_binds_system(world: &mut World) {
@@ -112,7 +112,7 @@ pub fn report_changes_system<R: Component>(
     }
 }
 
-pub (crate) struct BindingSystemsInternal {
+pub(crate) struct BindingSystemsInternal {
     last_writer: usize,
     schedule: Schedule,
     collectors: HashSet<(TypeId, TypeId)>,
@@ -121,8 +121,8 @@ pub (crate) struct BindingSystemsInternal {
     custom: HashSet<TypeId>,
 }
 
-#[derive(Default,Clone,Resource)]
-pub struct BindingSystems(pub (crate) Arc<RwLock<BindingSystemsInternal>>);
+#[derive(Default, Clone, Resource)]
+pub struct BindingSystems(pub(crate) Arc<RwLock<BindingSystemsInternal>>);
 
 impl BindingSystemsInternal {
     fn reserve_writer(&mut self) -> usize {
@@ -159,7 +159,11 @@ impl BindingSystemsInternal {
             .add_system_to_stage(BindingStage::Apply, apply_changes_system::<W, T>);
     }
 
-    pub fn add_custom_system<Params, S: IntoSystemDescriptor<Params>>(&mut self, system_id: TypeId, system: S) {
+    pub fn add_custom_system<Params, S: IntoSystemDescriptor<Params>>(
+        &mut self,
+        system_id: TypeId,
+        system: S,
+    ) {
         if self.custom.contains(&system_id) {
             return;
         }
@@ -352,7 +356,10 @@ impl BindFromUntyped {
     }
 
     pub fn to<W: Component, T: BindValue>(self, bind: BindTo<W, T>) -> BindUntyped {
-        BindUntyped { bind_from: self, bind_to: bind.to_untyped() }
+        BindUntyped {
+            bind_from: self,
+            bind_to: bind.to_untyped(),
+        }
     }
 }
 
@@ -501,7 +508,6 @@ macro_rules! bind {
         )
     };
 }
-
 
 #[cfg(test)]
 mod test {

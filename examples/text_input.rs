@@ -1,7 +1,6 @@
 use bevy::prelude::*;
 use bevy_elements::build::*;
 
-
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -10,14 +9,12 @@ fn main() {
         .register_element_builder("body", build_body)
         .register_element_builder("div", build_div)
         .run();
-    
 }
 
-fn setup(
-    mut commands: Commands,
-) {
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
-    commands.add(StyleSheet::parse(r#"
+    commands.add(StyleSheet::parse(
+        r#"
         .text-input-value {
             color: #2f2f2f;
         }
@@ -28,7 +25,8 @@ fn setup(
             align-content: space-around;
             align-items: center;
         }
-    "#));
+    "#,
+    ));
     let input = commands.spawn_empty().id();
     commands.add(eml! {
         <body s:padding="20px">
@@ -40,10 +38,7 @@ fn setup(
     });
 }
 
-fn build_body(
-    mut ctx: ResMut<BuildingContext>,
-    mut commands: Commands
-) {
+fn build_body(mut ctx: ResMut<BuildingContext>, mut commands: Commands) {
     let content = ctx.content();
     commands.entity(ctx.element).with_elements(eml! {
         <el interactable s:width="100%" s:height="100%" s:align-content="flex-start" s:align-items="flex-start">
@@ -52,10 +47,7 @@ fn build_body(
     });
 }
 
-fn build_div(
-    mut ctx: ResMut<BuildingContext>,
-    mut commands: Commands
-) {
+fn build_div(mut ctx: ResMut<BuildingContext>, mut commands: Commands) {
     let content = ctx.content();
     commands.entity(ctx.element).with_elements(eml! {
         <el>{content}</el>

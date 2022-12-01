@@ -1,62 +1,64 @@
-use std::error::Error;
-use std::fmt::Display;
-use std::sync::Arc;
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::ecs::system::Command;
 use bevy::input::InputSystem;
 use bevy::utils::HashMap;
-use bevy::{
-    ecs::system::EntityCommands,
-    prelude::*
-};
+use bevy::{ecs::system::EntityCommands, prelude::*};
 use bevy_inspector_egui::egui::mutex::RwLock;
 use eml::EmlPlugin;
 use ess::{EssPlugin, StyleSheet};
+use std::error::Error;
+use std::fmt::Display;
+use std::sync::Arc;
 // use focus::{Focused, update_focus};
 use property::PropertyValues;
 
 pub mod attributes;
-pub mod tags;
-pub mod context;
-pub mod builders;
-pub mod element;
-pub mod property;
-pub mod ess;
 pub mod bind;
-pub mod input;
+pub mod builders;
+pub mod context;
+pub mod element;
 pub mod eml;
+pub mod ess;
+pub mod input;
+pub mod property;
+pub mod tags;
 
 pub struct ElementsCorePlugin;
 
+pub use crate::builders::Widget;
 use crate::builders::*;
+pub use attributes::AttributeValue;
 pub use context::BuildingContext;
-pub use property::Property;
-pub use element::Element;
-pub use tagstr::*;
-pub use context::IntoContent;
 pub use context::ExpandElements;
 pub use context::ExpandElementsExt;
-pub use crate::builders::Widget;
-pub use attributes::AttributeValue;
+pub use context::IntoContent;
+pub use element::Element;
+pub use property::Property;
+pub use tagstr::*;
 
 use bind::process_binds_system;
 
 impl Plugin for ElementsCorePlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_plugin(FrameTimeDiagnosticsPlugin)
+        app.add_plugin(FrameTimeDiagnosticsPlugin)
             .add_event::<input::PointerInput>()
-            .add_system_to_stage(CoreStage::PreUpdate, input::pointer_input_system
-                .label(input::Label::Signals)
-                .after(InputSystem)
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                input::pointer_input_system
+                    .label(input::Label::Signals)
+                    .after(InputSystem),
             )
-            .add_system_to_stage(CoreStage::PreUpdate, input::tab_focus_system
-                .label(input::Label::TabFocus)
-                .after(input::Label::Signals)
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                input::tab_focus_system
+                    .label(input::Label::TabFocus)
+                    .after(input::Label::Signals),
             )
-            .add_system_to_stage(CoreStage::PreUpdate, input::focus_system
-                .label(input::Label::Focus)
-                .after(input::Label::TabFocus)
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                input::focus_system
+                    .label(input::Label::Focus)
+                    .after(input::Label::TabFocus),
             )
             .init_resource::<input::Focused>()
             .init_resource::<bind::ChangeCounter>()
@@ -65,8 +67,7 @@ impl Plugin for ElementsCorePlugin {
             .register_elements_postprocessor(default_postprocessor)
             .insert_resource(Defaults::default())
             .add_plugin(EssPlugin::default())
-            .add_plugin(EmlPlugin::default())
-            ;
+            .add_plugin(EmlPlugin::default());
 
         // TODO: may be desabled with feature
         app.add_startup_system(setup_defaults);
@@ -121,8 +122,7 @@ fn register_properties(app: &mut bevy::prelude::App) {
     app.register_property::<BackgroundColorProperty>();
 }
 
-
-#[derive(Component,Default)]
+#[derive(Component, Default)]
 pub struct ManualTextProperties;
 #[derive(Debug)]
 pub enum ElementsError {
@@ -173,14 +173,11 @@ pub trait RegisterElementBuilder {
         builder: D,
     ) -> &mut Self;
 
-    
     fn register_elements_postprocessor<Params, D: IntoSystem<(), (), Params>>(
         &mut self,
         builder: D,
     ) -> &mut Self;
 }
-
-
 
 impl RegisterElementBuilder for App {
     fn register_element_builder<Params, D: IntoSystem<(), (), Params>>(
@@ -201,10 +198,11 @@ impl RegisterElementBuilder for App {
     ) -> &mut Self {
         let builder = ElementBuilder::new(&mut self.world, builder);
         self.world
-            .get_resource_or_insert_with::<ElementPostProcessors>(ElementPostProcessors::default).0.borrow_mut()
+            .get_resource_or_insert_with::<ElementPostProcessors>(ElementPostProcessors::default)
+            .0
+            .borrow_mut()
             .push(builder);
         self
-
     }
 }
 
@@ -236,39 +234,48 @@ impl Command for ElementsBuilder {
     }
 }
 
-pub (crate) type ValidateProperty =  Box<dyn Fn(&PropertyValues) -> Result<(), ElementsError>>;
-#[derive(Default,Clone,Resource)]
-pub (crate) struct PropertyValidator(Arc<RwLock<HashMap<Tag, ValidateProperty>>>);
-unsafe impl Send for PropertyValidator { }
-unsafe impl Sync for PropertyValidator { }
+pub(crate) type ValidateProperty = Box<dyn Fn(&PropertyValues) -> Result<(), ElementsError>>;
+#[derive(Default, Clone, Resource)]
+pub(crate) struct PropertyValidator(Arc<RwLock<HashMap<Tag, ValidateProperty>>>);
+unsafe impl Send for PropertyValidator {}
+unsafe impl Sync for PropertyValidator {}
 impl PropertyValidator {
     #[cfg(test)]
-    pub (crate) fn new(rules: HashMap<Tag, ValidateProperty>) -> PropertyValidator {
+    pub(crate) fn new(rules: HashMap<Tag, ValidateProperty>) -> PropertyValidator {
         PropertyValidator(Arc::new(RwLock::new(rules)))
     }
-    pub (crate) fn validate(&self, name: Tag, value: &PropertyValues) -> Result<(), ElementsError> {
-        self.0.read().get(&name)
+    pub(crate) fn validate(&self, name: Tag, value: &PropertyValues) -> Result<(), ElementsError> {
+        self.0
+            .read()
+            .get(&name)
             .ok_or(ElementsError::UnsupportedProperty(name.to_string()))
             .and_then(|validator| validator(value))
     }
 }
 
-pub (crate) type ExtractProperty = Box<dyn Fn(PropertyValues) -> Result<HashMap<Tag, PropertyValues>, ElementsError>>;
-#[derive(Default,Clone,Resource)]
-pub (crate) struct PropertyExtractor(Arc<RwLock<HashMap<Tag, ExtractProperty>>>);
-unsafe impl Send for PropertyExtractor { }
-unsafe impl Sync for PropertyExtractor { }
+pub(crate) type ExtractProperty =
+    Box<dyn Fn(PropertyValues) -> Result<HashMap<Tag, PropertyValues>, ElementsError>>;
+#[derive(Default, Clone, Resource)]
+pub(crate) struct PropertyExtractor(Arc<RwLock<HashMap<Tag, ExtractProperty>>>);
+unsafe impl Send for PropertyExtractor {}
+unsafe impl Sync for PropertyExtractor {}
 impl PropertyExtractor {
     #[cfg(test)]
-    pub (crate) fn new(rules: HashMap<Tag, ExtractProperty>) -> PropertyExtractor {
+    pub(crate) fn new(rules: HashMap<Tag, ExtractProperty>) -> PropertyExtractor {
         PropertyExtractor(Arc::new(RwLock::new(rules)))
     }
-    pub (crate) fn is_compound_property(&self, name: Tag) -> bool {
+    pub(crate) fn is_compound_property(&self, name: Tag) -> bool {
         self.0.read().contains_key(&name)
     }
 
-    pub (crate) fn extract(&self, name: Tag, value: PropertyValues) -> Result<HashMap<Tag, PropertyValues>, ElementsError> {
-        self.0.read().get(&name)
+    pub(crate) fn extract(
+        &self,
+        name: Tag,
+        value: PropertyValues,
+    ) -> Result<HashMap<Tag, PropertyValues>, ElementsError> {
+        self.0
+            .read()
+            .get(&name)
             .ok_or(ElementsError::UnsupportedProperty(name.to_string()))
             .and_then(|extractor| extractor(value))
     }
@@ -288,23 +295,24 @@ impl RegisterProperty for bevy::prelude::App {
     where
         T: Property + 'static,
     {
-        self.world.get_resource_or_insert_with(PropertyValidator::default)
-            .0.write().insert(T::name(), Box::new(|props| {
-                T::validate(props)
-            }));
+        self.world
+            .get_resource_or_insert_with(PropertyValidator::default)
+            .0
+            .write()
+            .insert(T::name(), Box::new(|props| T::validate(props)));
         self.add_system(T::apply_defaults /* .label(EcssSystem::Apply) */);
 
         self
     }
 }
 
-#[derive(Default,Resource)]
+#[derive(Default, Resource)]
 pub struct Defaults {
     pub regular_font: Handle<Font>,
     pub style_sheet: Handle<StyleSheet>,
 }
 
-pub (crate) fn setup_defaults(
+pub(crate) fn setup_defaults(
     mut commands: Commands,
     mut fonts: ResMut<Assets<Font>>,
     mut defaults: ResMut<Defaults>,
@@ -313,11 +321,13 @@ pub (crate) fn setup_defaults(
     let default_font_asset = Font::try_from_bytes(default_font_bytes).unwrap();
     let default_font_handle = fonts.add(default_font_asset);
     defaults.regular_font = default_font_handle;
-    commands.add(StyleSheet::parse_default(r#"
+    commands.add(StyleSheet::parse_default(
+        r#"
         * {
             font: default-regular;
             color: #cfcfcf;
             font-size: 22px;
         }
-    "#))
+    "#,
+    ))
 }

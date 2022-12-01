@@ -2,7 +2,6 @@ pub mod input;
 pub mod text_line;
 use bevy::prelude::Plugin;
 
-
 #[derive(Default)]
 pub struct WidgetsPlugin;
 

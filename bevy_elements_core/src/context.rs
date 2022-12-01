@@ -1,21 +1,19 @@
 use bevy::ecs::system::Command;
 use bevy::prelude::*;
 use std::any::TypeId;
-use std::ops::{Deref, DerefMut};
 use std::mem;
+use std::ops::{Deref, DerefMut};
 
-use crate::{bind::*, Element};
-use crate::{attributes::*, ElementsBuilder};
 use crate::tags::*;
+use crate::{attributes::*, ElementsBuilder};
+use crate::{bind::*, Element};
 
-#[derive(Default,Resource)]
+#[derive(Default, Resource)]
 pub struct BuildingContext {
-    stack: Vec<ContextData>
+    stack: Vec<ContextData>,
 }
 
-impl BuildingContext {
-
-}
+impl BuildingContext {}
 
 impl Deref for BuildingContext {
     type Target = ElementContext;
@@ -50,7 +48,7 @@ impl ContextData {
     pub fn is_inline(&self) -> bool {
         match self {
             ContextData::Element(ctx) => ctx.inline_element,
-            _ => true
+            _ => true,
         }
     }
 }
@@ -67,10 +65,11 @@ pub struct ElementContext {
 impl ElementContext {
     pub fn new(name: Tag, element: Entity) -> ElementContext {
         ElementContext {
-            name, element,
+            name,
+            element,
             inline_element: false,
             child_elements: Default::default(),
-            attributes: Default::default()
+            attributes: Default::default(),
         }
     }
 
@@ -82,7 +81,7 @@ impl ElementContext {
         mem::take(&mut self.child_elements)
     }
 
-    pub fn param<T:'static>(&mut self, param: &str, default: T) -> T {
+    pub fn param<T: 'static>(&mut self, param: &str, default: T) -> T {
         self.attributes.drop_or_default(param.as_tag(), default)
     }
 
@@ -98,7 +97,7 @@ impl ElementContext {
 #[derive(Debug)]
 pub struct TextContext {
     pub element: Entity,
-    pub text: String
+    pub text: String,
 }
 
 pub mod internal {
@@ -135,7 +134,6 @@ impl IntoContent for String {
             entity
                 .insert(Element::inline())
                 .insert(TextBundle { text, ..default() });
-                    
         }
         vec![parent]
     }
@@ -143,19 +141,20 @@ impl IntoContent for String {
 
 #[derive(Component)]
 struct BindContent<T: BindValue + IntoContent + std::fmt::Debug> {
-    value: T
+    value: T,
 }
-impl<C: Component, T:BindValue + IntoContent + std::fmt::Debug> IntoContent for BindFrom<C, T> {
+impl<C: Component, T: BindValue + IntoContent + std::fmt::Debug> IntoContent for BindFrom<C, T> {
     fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity> {
-        world.entity_mut(parent)
+        world
+            .entity_mut(parent)
             .insert(NodeBundle::default())
-            .insert(BindContent { value: T::default() });
+            .insert(BindContent {
+                value: T::default(),
+            });
         let target = BindTo::new(
             parent,
             |t: &BindContent<T>, v| &t.value == v,
-            |t: &mut BindContent<T>, v| {
-                t.value.clone_from(v)
-            }
+            |t: &mut BindContent<T>, v| t.value.clone_from(v),
         );
         let bind = Bind::new(self, target);
         bind.write(world);
@@ -167,9 +166,9 @@ impl<C: Component, T:BindValue + IntoContent + std::fmt::Debug> IntoContent for 
     }
 }
 
-fn bind_component_system<T:BindValue + IntoContent + std::fmt::Debug>(
+fn bind_component_system<T: BindValue + IntoContent + std::fmt::Debug>(
     mut commands: Commands,
-    binds: Query<(Entity, &BindContent<T>), Changed<BindContent<T>>>
+    binds: Query<(Entity, &BindContent<T>), Changed<BindContent<T>>>,
 ) {
     // info!("bindsystem for {}", type_name::<T>());
     for (entity, bind) in binds.iter() {
@@ -219,15 +218,15 @@ impl IntoContent for ElementsBuilder {
     }
 }
 
-pub struct ExpandElements<I:Iterator, F:Fn(I::Item) -> ElementsBuilder> {
+pub struct ExpandElements<I: Iterator, F: Fn(I::Item) -> ElementsBuilder> {
     mapper: F,
-    previous: I
+    previous: I,
 }
 
 impl<I, F> Iterator for ExpandElements<I, F>
 where
     I: Iterator,
-    F:Fn(I::Item) -> ElementsBuilder
+    F: Fn(I::Item) -> ElementsBuilder,
 {
     type Item = ElementsBuilder;
 
@@ -240,12 +239,14 @@ where
 }
 
 pub trait ExpandElementsExt: Iterator {
-    fn elements<F:Fn(Self::Item) -> ElementsBuilder>(self, mapper:F) -> ExpandElements<Self, F> 
+    fn elements<F: Fn(Self::Item) -> ElementsBuilder>(self, mapper: F) -> ExpandElements<Self, F>
     where
-        Self: Sized
+        Self: Sized,
     {
-        ExpandElements { mapper, previous: self }
-
+        ExpandElements {
+            mapper,
+            previous: self,
+        }
     }
 }
 

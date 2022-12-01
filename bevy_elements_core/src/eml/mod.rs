@@ -1,8 +1,18 @@
 use std::sync::Arc;
 
+use crate::{
+    attributes::Attribute,
+    builders::ElementBuilderRegistry,
+    context::{internal, ElementContext},
+    Element, PropertyExtractor, PropertyValidator,
+};
+use bevy::{
+    asset::{AssetLoader, LoadedAsset},
+    prelude::*,
+    reflect::TypeUuid,
+    utils::HashMap,
+};
 use tagstr::*;
-use bevy::{prelude::*, utils::HashMap, reflect::TypeUuid, asset::{AssetLoader, LoadedAsset}};
-use crate::{attributes::Attribute, builders::ElementBuilderRegistry, context::{ElementContext, internal}, Element, PropertyValidator, PropertyExtractor};
 mod parser;
 
 #[derive(Default)]
@@ -11,24 +21,37 @@ pub struct EmlPlugin;
 impl Plugin for EmlPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_asset::<EmlAsset>();
-        let extractor = app.world.get_resource_or_insert_with(PropertyExtractor::default).clone();
-        let validator = app.world.get_resource_or_insert_with(PropertyValidator::default).clone();
-        let registry = app.world.get_resource_or_insert_with(ElementBuilderRegistry::default).clone();
-        app.add_asset_loader(EmlLoader { validator, extractor, registry });
+        let extractor = app
+            .world
+            .get_resource_or_insert_with(PropertyExtractor::default)
+            .clone();
+        let validator = app
+            .world
+            .get_resource_or_insert_with(PropertyValidator::default)
+            .clone();
+        let registry = app
+            .world
+            .get_resource_or_insert_with(ElementBuilderRegistry::default)
+            .clone();
+        app.add_asset_loader(EmlLoader {
+            validator,
+            extractor,
+            registry,
+        });
         app.add_system(update_eml_scene);
     }
 }
 
 pub enum EmlNode {
     Element(EmlElement),
-    Text(String)
+    Text(String),
 }
 
 #[derive(Default)]
 pub struct EmlElement {
     name: Tag,
     attributes: HashMap<String, String>,
-    children: Vec<EmlNode>
+    children: Vec<EmlNode>,
 }
 
 impl EmlElement {
@@ -39,7 +62,7 @@ impl EmlElement {
 
 #[derive(Component)]
 pub struct EmlScene {
-    asset: Handle<EmlAsset>
+    asset: Handle<EmlAsset>,
 }
 
 impl EmlScene {
@@ -48,10 +71,10 @@ impl EmlScene {
     }
 }
 
-#[derive(TypeUuid,Clone)]
+#[derive(TypeUuid, Clone)]
 #[uuid = "f8d22a65-d671-4fa6-ae8f-0dccdb387ddd"]
 pub struct EmlAsset {
-    root: Arc<EmlElement>
+    root: Arc<EmlElement>,
 }
 
 impl EmlAsset {
@@ -77,14 +100,15 @@ fn walk(node: &EmlElement, world: &mut World, parent: Option<Entity>) -> Option<
     for child in node.children.iter() {
         match child {
             EmlNode::Text(text) => {
-                let entity = world.spawn(TextBundle {
-                    text: Text::from_section(text, Default::default()),
-                    ..default()
-                })
-                .insert(Element::inline())
-                .id();
+                let entity = world
+                    .spawn(TextBundle {
+                        text: Text::from_section(text, Default::default()),
+                        ..default()
+                    })
+                    .insert(Element::inline())
+                    .id();
                 context.add_child(entity);
-            },
+            }
             EmlNode::Element(child) => {
                 if let Some(entity) = walk(child, world, None) {
                     context.add_child(entity);
@@ -100,10 +124,10 @@ fn walk(node: &EmlElement, world: &mut World, parent: Option<Entity>) -> Option<
 }
 
 #[derive(Default)]
-pub (crate) struct EmlLoader {
-    pub (crate) registry: ElementBuilderRegistry,
-    pub (crate) validator: PropertyValidator,
-    pub (crate) extractor: PropertyExtractor
+pub(crate) struct EmlLoader {
+    pub(crate) registry: ElementBuilderRegistry,
+    pub(crate) validator: PropertyValidator,
+    pub(crate) extractor: PropertyExtractor,
 }
 
 impl AssetLoader for EmlLoader {
@@ -121,14 +145,17 @@ impl AssetLoader for EmlLoader {
 
             match parser::parse(source, self) {
                 Ok(root) => {
-                    let asset = EmlAsset { root: Arc::new(root) };
+                    let asset = EmlAsset {
+                        root: Arc::new(root),
+                    };
                     load_context.set_default_asset(LoadedAsset::new(asset));
                     Ok(())
-                },
+                }
                 Err(err) => {
                     let path = load_context.path();
                     error!("Error parsing {}:\n\n{}", path.to_str().unwrap(), err);
-                    Err(bevy::asset::Error::new(err).context(format!("Unable to parse {}", path.to_str().unwrap())))
+                    Err(bevy::asset::Error::new(err)
+                        .context(format!("Unable to parse {}", path.to_str().unwrap())))
                 }
             }
         })

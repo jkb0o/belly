@@ -1,9 +1,6 @@
-
-use bevy::{
-    prelude::*, input::keyboard::KeyboardInput
-};
-use bevy_elements::*;
+use bevy::{input::keyboard::KeyboardInput, prelude::*};
 use bevy_elements::build::*;
+use bevy_elements::*;
 
 fn main() {
     App::new()
@@ -18,10 +15,7 @@ fn main() {
         .run();
 }
 
-fn build_ui(
-    mut ctx: ResMut<BuildingContext>,
-    mut commands: Commands
-) {
+fn build_ui(mut ctx: ResMut<BuildingContext>, mut commands: Commands) {
     let mut elem = commands.entity(ctx.element);
     elem.insert(NodeBundle {
         background_color: BackgroundColor(Color::NONE),
@@ -31,31 +25,30 @@ fn build_ui(
             align_content: AlignContent::Center,
             flex_direction: FlexDirection::ColumnReverse,
             size: Size::new(Val::Percent(100.), Val::Percent(100.)),
-            align_self: AlignSelf::Center,  
+            align_self: AlignSelf::Center,
             ..default()
         },
         ..default()
-    }).with_children(|parent|{
-        parent.spawn(NodeBundle {
-            background_color: BackgroundColor(Color::rgba(0.2, 0.2, 0.2, 0.2)),
-            style: Style {
-                justify_content: JustifyContent::Center,
-                align_content: AlignContent::Center,
-                flex_direction: FlexDirection::ColumnReverse,
-                size: Size::new(Val::Percent(100.), Val::Percent(100.)),
-                align_self: AlignSelf::Center,
+    })
+    .with_children(|parent| {
+        parent
+            .spawn(NodeBundle {
+                background_color: BackgroundColor(Color::rgba(0.2, 0.2, 0.2, 0.2)),
+                style: Style {
+                    justify_content: JustifyContent::Center,
+                    align_content: AlignContent::Center,
+                    flex_direction: FlexDirection::ColumnReverse,
+                    size: Size::new(Val::Percent(100.), Val::Percent(100.)),
+                    align_self: AlignSelf::Center,
+                    ..default()
+                },
                 ..default()
-            },
-            ..default()
-        }).push_children(&ctx.content());
+            })
+            .push_children(&ctx.content());
     });
-
 }
 
-fn build_vbox(
-    mut ctx: ResMut<BuildingContext>,
-    mut commands: Commands
-) {
+fn build_vbox(mut ctx: ResMut<BuildingContext>, mut commands: Commands) {
     let content = ctx.content();
     commands.entity(ctx.element).with_elements(eml! {
         <el s:justify-content="center" s:flex-direction="column-reverse">
@@ -64,27 +57,21 @@ fn build_vbox(
     });
 }
 
-fn build_hbox(    
-    mut ctx: ResMut<BuildingContext>,
-    mut commands: Commands
-) {
-let mut elem = commands.entity(ctx.element);
-elem.insert(NodeBundle {
-    background_color: BackgroundColor(Color::NONE),
-    style: Style {
-        justify_content: JustifyContent::Center,
-        flex_direction: FlexDirection::Row,
+fn build_hbox(mut ctx: ResMut<BuildingContext>, mut commands: Commands) {
+    let mut elem = commands.entity(ctx.element);
+    elem.insert(NodeBundle {
+        background_color: BackgroundColor(Color::NONE),
+        style: Style {
+            justify_content: JustifyContent::Center,
+            flex_direction: FlexDirection::Row,
+            ..default()
+        },
         ..default()
-    },
-    ..default()
-}).push_children(&ctx.content());
-
+    })
+    .push_children(&ctx.content());
 }
 
-fn build_window(
-    mut ctx: ResMut<BuildingContext>,
-    mut commands: Commands
-) {
+fn build_window(mut ctx: ResMut<BuildingContext>, mut commands: Commands) {
     let content = ctx.content();
     let header = ctx.param("title", "Title".to_string());
     commands.entity(ctx.element).with_elements(eml! {
@@ -105,16 +92,16 @@ fn build_window(
 #[derive(Component, Default)]
 struct Test;
 
-fn setup(
-    mut commands: Commands,
-) {
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
-    commands.add(StyleSheet::parse(r#"
+    commands.add(StyleSheet::parse(
+        r#"
         .winxxx {
             padding-left: 20px;
             margin-left: 20px;
         }
-    "#));
+    "#,
+    ));
 
     let transform = Transform::default();
     let elements = &["a", "b"];
@@ -125,7 +112,7 @@ fn setup(
                 <vbox>
                     "hello world!"
                     {elements.iter().elements(|e| { eml! {
-                        <el>{e.to_string()}</el> 
+                        <el>{e.to_string()}</el>
                     }})}
                 </vbox>
             </window>
@@ -141,23 +128,22 @@ fn print_char_system(
 ) {
     for e in kbd.iter() {
         println!("kbd: {:?}, {:?}", e.key_code, e.scan_code);
-        
     }
-    let cmd_key = keys.pressed(KeyCode::LWin) 
-            || keys.pressed(KeyCode::RWin)
-            || keys.pressed(KeyCode::LControl)
-            || keys.pressed(KeyCode::RControl);
+    let cmd_key = keys.pressed(KeyCode::LWin)
+        || keys.pressed(KeyCode::RWin)
+        || keys.pressed(KeyCode::LControl)
+        || keys.pressed(KeyCode::RControl);
     if cmd_key {
         return;
     }
     for e in chr.iter() {
-        // let cmd_key = keys.pressed(KeyCode::LWin) 
+        // let cmd_key = keys.pressed(KeyCode::LWin)
         //     || keys.pressed(KeyCode::RWin)
         //     || keys.pressed(KeyCode::LControl)
         //     || keys.pressed(KeyCode::RControl);
         //     // || keys.pressed(KeyCode::L)
         // println!("chr: {}, {:?}", e.char, cmd_key);
-        for mut text in q_text.iter_mut() { 
+        for mut text in q_text.iter_mut() {
             if keys.pressed(KeyCode::Back) {
                 text.sections[0].value.pop();
                 continue;

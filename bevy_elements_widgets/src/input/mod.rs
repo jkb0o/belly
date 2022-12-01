@@ -1,8 +1,17 @@
 use std::ops::Range;
 
 use ab_glyph::ScaleFont;
-use bevy::{prelude::*, ui::FocusPolicy, input::keyboard::KeyboardInput, diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin}};
-use bevy_elements_core::{*, element::{Element, DisplayElement}, input::PointerInput};
+use bevy::{
+    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
+    input::keyboard::KeyboardInput,
+    prelude::*,
+    ui::FocusPolicy,
+};
+use bevy_elements_core::{
+    element::{DisplayElement, Element},
+    input::PointerInput,
+    *,
+};
 use bevy_elements_macro::*;
 pub struct InputPlugins;
 use crate::text_line::TextLine;
@@ -14,27 +23,30 @@ const CURSOR_WIDTH: f32 = 2.;
 pub enum TextInputLabel {
     Focus,
     Mouse,
-    Keyboard
+    Keyboard,
 }
 
 impl Plugin for InputPlugins {
     fn build(&self, app: &mut App) {
-        app
-            .add_system(blink_cursor)
-            .add_system_to_stage(CoreStage::PreUpdate, process_cursor_focus
-                .label(TextInputLabel::Focus)
-                .after(bevy_elements_core::input::Label::Focus)
+        app.add_system(blink_cursor)
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                process_cursor_focus
+                    .label(TextInputLabel::Focus)
+                    .after(bevy_elements_core::input::Label::Focus),
             )
-            .add_system_to_stage(CoreStage::PreUpdate, process_mouse
-                .label(TextInputLabel::Mouse)
-                .after(TextInputLabel::Focus)
-                // .after(TextInputLabel::Focus)
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                process_mouse
+                    .label(TextInputLabel::Mouse)
+                    .after(TextInputLabel::Focus), // .after(TextInputLabel::Focus)
             )
-            .add_system_to_stage(CoreStage::PreUpdate, process_keyboard_input
-                .label(TextInputLabel::Keyboard)
-                .after(TextInputLabel::Mouse)
-            )
-            ;
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                process_keyboard_input
+                    .label(TextInputLabel::Keyboard)
+                    .after(TextInputLabel::Mouse),
+            );
     }
 }
 
@@ -53,7 +65,7 @@ pub struct TextInput {
 pub struct Selection {
     min: usize,
     max: usize,
-    started: Option<usize>
+    started: Option<usize>,
 }
 
 impl Selection {
@@ -61,7 +73,7 @@ impl Selection {
         Selection {
             min: 0,
             max: 0,
-            started: None
+            started: None,
         }
     }
     pub fn is_empty(&self) -> bool {
@@ -93,7 +105,7 @@ impl Selection {
         if value > self.max {
             self.max = value;
             self.min = started;
-        } else if  value < self.min {
+        } else if value < self.min {
             self.min = value;
             self.max = started;
         } else if value > started {
@@ -119,9 +131,8 @@ impl Selection {
 
 #[derive(Component, Default)]
 pub struct TextInputCursor {
-    state: f32
+    state: f32,
 }
-
 
 widget!( TextInput,
     mut ctx: ResMut<BuildingContext>,
@@ -140,11 +151,11 @@ widget!( TextInput,
         value: value.unwrap_or("".to_string()),
     };
     commands.entity(entity).with_elements(eml! {
-        <el with=widget 
+        <el with=widget
             interactable="block"
-            c:text-input 
+            c:text-input
             c:text-input-border
-            s:background-color="#2f2f2f00" 
+            s:background-color="#2f2f2f00"
             s:padding="1px"
             s:width="200px"
         >
@@ -192,13 +203,7 @@ widget!( TextInput,
     });
 });
 
-
-
-fn get_char_advance(
-    ch: char,
-    font: &Font,
-    font_size: f32,
-) -> f32 {
+fn get_char_advance(ch: char, font: &Font, font_size: f32) -> f32 {
     let font = ab_glyph::Font::as_scaled(&font.font, font_size);
     let glyph = font.glyph_id(ch);
     font.h_advance(glyph)
@@ -217,21 +222,23 @@ fn process_keyboard_input(
     mut texts: Query<(&TextLine, &Text)>,
     diag: Res<Diagnostics>,
 ) {
-    let frame = diag.get(FrameTimeDiagnosticsPlugin::FRAME_COUNT).unwrap().average().unwrap_or_default();
+    let frame = diag
+        .get(FrameTimeDiagnosticsPlugin::FRAME_COUNT)
+        .unwrap()
+        .average()
+        .unwrap_or_default();
     let Some((entity, mut input)) = inputs.iter_mut()
         .filter(|(_, _, e)| e.focused())
         .map(|(e, i, _)| (e, i))
-        .next() 
+        .next()
         else { return };
-    if characters.is_empty()
-    && keyboard_input.is_empty()
-    && !changed_elements.contains(entity) {
+    if characters.is_empty() && keyboard_input.is_empty() && !changed_elements.contains(entity) {
         return;
     }
-    
+
     let Ok((text_line, text)) = texts.get_mut(input.text)
         else { return };
-    
+
     let shift = keyboard.any_pressed([KeyCode::LShift, KeyCode::RShift]);
     let mut index = input.index;
     let mut selected = input.selected.clone();
@@ -243,7 +250,7 @@ fn process_keyboard_input(
         }
         if index > 0 {
             index -= 1;
-            if shift { 
+            if shift {
                 selected.extend(index + 1);
                 selected.extend(index);
             }
@@ -254,40 +261,42 @@ fn process_keyboard_input(
         }
         if index < chars.len() {
             index += 1;
-            if shift { 
+            if shift {
                 selected.extend(index - 1);
-                selected.extend(index); 
+                selected.extend(index);
             }
         }
     // } else if keyboard.just_pressed(KeyCode::Tab) {
-        // continue
-    } else { for ch in characters.iter() {
-        if ch.char == '\t' {
-            continue
-        }
-        info!("Pressed: '{}'", ch.char);
-        if ch.char == CHAR_DELETE {
-            if !selected.is_empty() {
-                chars.drain(selected.range());
-                index = selected.min;
-                selected.stop();
-                input.value = chars.iter().collect();
-            } else if index > 0 {
-                index -= 1;
-                chars.remove(index);
-                input.value = chars.iter().collect();
+    // continue
+    } else {
+        for ch in characters.iter() {
+            if ch.char == '\t' {
+                continue;
             }
-        } else {
-            if !selected.is_empty() {
-                chars.drain(selected.range());
-                index = selected.min;
-                selected.stop();
+            info!("Pressed: '{}'", ch.char);
+            if ch.char == CHAR_DELETE {
+                if !selected.is_empty() {
+                    chars.drain(selected.range());
+                    index = selected.min;
+                    selected.stop();
+                    input.value = chars.iter().collect();
+                } else if index > 0 {
+                    index -= 1;
+                    chars.remove(index);
+                    input.value = chars.iter().collect();
+                }
+            } else {
+                if !selected.is_empty() {
+                    chars.drain(selected.range());
+                    index = selected.min;
+                    selected.stop();
+                }
+                chars.insert(index, ch.char);
+                input.value = chars.iter().collect();
+                index += 1;
             }
-            chars.insert(index, ch.char);
-            input.value = chars.iter().collect();
-            index += 1;
         }
-    }}
+    }
 
     if let Ok(mut cursor) = cursors.get_mut(input.cursor) {
         cursor.state = 1.;
@@ -316,15 +325,15 @@ fn process_keyboard_input(
     let mut offset = if let Ok(contaienr_style) = styles.get_mut(input.container) {
         match contaienr_style.padding.left {
             Val::Px(x) => x,
-            _ => 0.
+            _ => 0.,
         }
     } else {
         0.
     };
     if offset + position_from_start < 0. {
-       offset = -position_from_start;
+        offset = -position_from_start;
     }
-    if offset + position_from_start > container_width - CURSOR_WIDTH{
+    if offset + position_from_start > container_width - CURSOR_WIDTH {
         offset = container_width - position_from_start - CURSOR_WIDTH;
     }
     let unused_space = container_width - text_width - offset - CURSOR_WIDTH;
@@ -357,9 +366,11 @@ fn process_keyboard_input(
     if input.selected != selected {
         input.selected = selected;
     }
-    
-    info!("{}:process_keyboard_input: Resulting index: {}, cursor: {}, selection: {:?}",  frame, input.index, cursor_position, selected);
-    
+
+    info!(
+        "{}:process_keyboard_input: Resulting index: {}, cursor: {}, selection: {:?}",
+        frame, input.index, cursor_position, selected
+    );
 }
 
 fn process_cursor_focus(
@@ -370,7 +381,9 @@ fn process_cursor_focus(
 ) {
     for (mut input, element) in input.iter_mut() {
         if element.focused() && !cursors.contains(input.cursor) {
-            commands.entity(input.cursor).insert(TextInputCursor::default());
+            commands
+                .entity(input.cursor)
+                .insert(TextInputCursor::default());
         }
         if !element.focused() && cursors.contains(input.cursor) {
             input.index = 0;
@@ -394,7 +407,10 @@ fn process_mouse(
     keyboard: Res<Input<KeyCode>>,
     diag: Res<Diagnostics>,
 ) {
-    for evt in events.iter().filter(|s| s.down() || s.dragging() || s.drag_stop()) {
+    for evt in events
+        .iter()
+        .filter(|s| s.down() || s.dragging() || s.drag_stop())
+    {
         for (entity, mut input, mut element) in inputs.iter_mut() {
             if evt.drag_start() && evt.contains(entity) {
                 let start = input.index;
@@ -435,7 +451,7 @@ fn process_mouse(
                 offset += advance;
                 if !whitespace && !ch.is_whitespace() {
                     word_end = idx + 1;
-                }  else if whitespace && ch.is_whitespace() {
+                } else if whitespace && ch.is_whitespace() {
                     word_end = idx + 1;
                 } else if idx_found {
                     break;
@@ -470,18 +486,17 @@ fn process_mouse(
                 input.selected = selected;
                 element.invalidate();
             }
-            let frame = diag.get(FrameTimeDiagnosticsPlugin::FRAME_COUNT).unwrap().average().unwrap_or_default();
+            let frame = diag
+                .get(FrameTimeDiagnosticsPlugin::FRAME_COUNT)
+                .unwrap()
+                .average()
+                .unwrap_or_default();
             info!("{}:process_mouse: Clicked relative: {:.2}, idx={}, offset={}, focused: {}, range: {:?}", frame, pos, index, offset, element.focused(), selected);
-
         }
     }
-
 }
 
-fn blink_cursor(
-    time: Res<Time>,
-    mut cursor: Query<(&mut TextInputCursor, &mut Style)>,
-) {
+fn blink_cursor(time: Res<Time>, mut cursor: Query<(&mut TextInputCursor, &mut Style)>) {
     for (mut cursor, mut style) in cursor.iter_mut() {
         cursor.state -= time.delta_seconds();
         if cursor.state < 0. {
@@ -496,11 +511,7 @@ fn blink_cursor(
     }
 }
 
-fn build_text(
-    mut ctx: ResMut<BuildingContext>,
-    mut commands: Commands,
-    defaults: Res<Defaults>,
-) {
+fn build_text(mut ctx: ResMut<BuildingContext>, mut commands: Commands, defaults: Res<Defaults>) {
     let text = bindattr!(ctx, commands, value:String => Text.sections[0].value);
     commands
         .entity(ctx.element)

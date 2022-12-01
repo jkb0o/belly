@@ -1,39 +1,50 @@
-use smallvec::{SmallVec, smallvec};
 use bevy::prelude::{error, warn};
+use smallvec::{smallvec, SmallVec};
 
 use cssparser::*;
-use tagstr::{Tag, AsTag};
+use tagstr::{AsTag, Tag};
 
 use crate::{
-    ElementsError,
+    ess::selector::{Selector, SelectorElement},
     ess::StyleRule,
-    ess::selector::{Selector, SelectorElement }, PropertyValidator, PropertyExtractor, property::PropertyValues
+    property::PropertyValues,
+    ElementsError, PropertyExtractor, PropertyValidator,
 };
 
 pub(crate) struct StyleSheetParser {
     validator: PropertyValidator,
-    extractor: PropertyExtractor
+    extractor: PropertyExtractor,
 }
 
 impl StyleSheetParser {
-    pub(crate) fn parse(content: &str, validator: PropertyValidator, extractor: PropertyExtractor) -> SmallVec<[StyleRule; 8]> {
+    pub(crate) fn parse(
+        content: &str,
+        validator: PropertyValidator,
+        extractor: PropertyExtractor,
+    ) -> SmallVec<[StyleRule; 8]> {
         let mut input = ParserInput::new(content);
         let mut parser = Parser::new(&mut input);
 
-        RuleListParser::new_for_stylesheet(&mut parser, StyleSheetParser { validator, extractor })
-            .into_iter()
-            .filter_map(|result| match result {
-                Ok(rule) => Some(rule),
-                Err((err, rule)) => {
-                    error!(
-                        "Failed to parse rule: {}. Error: {}",
-                        rule,
-                        format_error(err)
-                    );
-                    None
-                }
-            })
-            .collect()
+        RuleListParser::new_for_stylesheet(
+            &mut parser,
+            StyleSheetParser {
+                validator,
+                extractor,
+            },
+        )
+        .into_iter()
+        .filter_map(|result| match result {
+            Ok(rule) => Some(rule),
+            Err((err, rule)) => {
+                error!(
+                    "Failed to parse rule: {}. Error: {}",
+                    rule,
+                    format_error(err)
+                );
+                None
+            }
+        })
+        .collect()
     }
 }
 
@@ -61,13 +72,12 @@ fn format_error(error: ParseError<ElementsError>) -> String {
     )
 }
 
-
 #[derive(Default)]
 enum NextElement {
     #[default]
     Tag,
     Class,
-    Attribute
+    Attribute,
 }
 
 impl<'i> QualifiedRuleParser<'i> for StyleSheetParser {
@@ -86,14 +96,20 @@ impl<'i> QualifiedRuleParser<'i> for StyleSheetParser {
         while let Ok(token) = input.next_including_whitespace() {
             use cssparser::Token::*;
             match token {
-                Ident(v) => { 
+                Ident(v) => {
                     match next {
-                        NextElement::Tag => elements.insert(0, SelectorElement::Tag(v.to_string().as_tag())),
-                        NextElement::Class => elements.insert(0, SelectorElement::Class(v.to_string().as_tag())),
-                        NextElement::Attribute => elements.insert(0, SelectorElement::State(v.to_string().as_tag()))
+                        NextElement::Tag => {
+                            elements.insert(0, SelectorElement::Tag(v.to_string().as_tag()))
+                        }
+                        NextElement::Class => {
+                            elements.insert(0, SelectorElement::Class(v.to_string().as_tag()))
+                        }
+                        NextElement::Attribute => {
+                            elements.insert(0, SelectorElement::State(v.to_string().as_tag()))
+                        }
                     };
                     next = NextElement::Tag;
-                },
+                }
                 IDHash(v) => {
                     if v.is_empty() {
                         return Err(input.new_custom_error(ElementsError::InvalidSelector));
@@ -149,7 +165,7 @@ impl<'i> QualifiedRuleParser<'i> for StyleSheetParser {
                     if self.extractor.is_compound_property(name) {
                         let extracted = match self.extractor.extract(name, property) {
                             Err(e) => return Err(input.new_custom_error(e)),
-                            Ok(extracted) => extracted
+                            Ok(extracted) => extracted,
                         };
                         for (name, property) in extracted {
                             if let Err(e) = self.validator.validate(name, &property) {
@@ -163,7 +179,7 @@ impl<'i> QualifiedRuleParser<'i> for StyleSheetParser {
                         }
                         rule.properties.insert(name, property);
                     }
-                },
+                }
                 Err((err, a)) => println!("Failed: {:?} ({})", err, a),
             }
         }
@@ -222,15 +238,17 @@ fn parse_values<'i, 'tt>(
 
 #[cfg(test)]
 mod tests {
-    use crate::{property::PropertyToken, ExtractProperty, ValidateProperty, ess::selector::EmlNode};
+    use crate::{
+        ess::selector::EmlNode, property::PropertyToken, ExtractProperty, ValidateProperty,
+    };
 
     use super::*;
-    use std::ops::Deref;
     use bevy::utils::HashMap;
+    use std::ops::Deref;
 
     struct TestParser {
         extractor: PropertyExtractor,
-        validator: PropertyValidator
+        validator: PropertyValidator,
     }
 
     impl TestParser {
@@ -241,24 +259,35 @@ mod tests {
                 validators.insert(format!("{}-{}", tag, tag).as_tag(), Box::new(|v| Ok(())));
             }
             let mut extractors: HashMap<Tag, ExtractProperty> = Default::default();
-            extractors.insert("compound".as_tag(), Box::new(|p| {
-                let mut map = HashMap::default();
-                map.insert("a".as_tag(), PropertyValues(smallvec![PropertyToken::Identifier("a".to_string())]));
-                map.insert("b".as_tag(), PropertyValues(smallvec![PropertyToken::Identifier("b".to_string())]));
-                Ok(map)
-            }));
+            extractors.insert(
+                "compound".as_tag(),
+                Box::new(|p| {
+                    let mut map = HashMap::default();
+                    map.insert(
+                        "a".as_tag(),
+                        PropertyValues(smallvec![PropertyToken::Identifier("a".to_string())]),
+                    );
+                    map.insert(
+                        "b".as_tag(),
+                        PropertyValues(smallvec![PropertyToken::Identifier("b".to_string())]),
+                    );
+                    Ok(map)
+                }),
+            );
 
             let validator = PropertyValidator::new(validators);
             let extractor = PropertyExtractor::new(extractors);
-            TestParser { validator, extractor }
+            TestParser {
+                validator,
+                extractor,
+            }
         }
 
         fn parse(&self, content: &str) -> SmallVec<[StyleRule; 8]> {
             StyleSheetParser::parse(content, self.validator.clone(), self.extractor.clone())
         }
 
-
-        // fn 
+        // fn
     }
 
     #[test]
@@ -291,7 +320,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_single_name_selector_no_property() { 
+    fn parse_single_name_selector_no_property() {
         let rules = TestParser::new().parse("#id {}");
         assert_eq!(rules.len(), 1, "Should have a single rule");
 
@@ -302,7 +331,7 @@ mod tests {
         let node = &tree[0];
         assert_eq!(node.len(), 1, "Should have a single selector");
         assert!(node.has_id("id".as_tag()), "Should have a id selector");
-        
+
         assert!(rule.properties.is_empty(), "Should have no token");
     }
 
@@ -317,7 +346,10 @@ mod tests {
 
         let node = &tree[0];
         assert_eq!(node.len(), 1, "Should have a single selector");
-        assert!(node.has_class("class".as_tag()), "Should have a class selector");
+        assert!(
+            node.has_class("class".as_tag()),
+            "Should have a class selector"
+        );
 
         assert!(rule.properties.is_empty(), "Should have no token");
     }
@@ -333,7 +365,10 @@ mod tests {
 
         let node = &tree[0];
         assert_eq!(node.len(), 1, "Should have a single selector");
-        assert!(node.has_tag("button".as_tag()), "Should have a tag selector");
+        assert!(
+            node.has_tag("button".as_tag()),
+            "Should have a tag selector"
+        );
 
         assert!(rule.properties.is_empty(), "Should have no token");
     }
@@ -493,8 +528,15 @@ mod tests {
         assert_eq!(rules.len(), 4, "Should have 4 rules");
 
         for rule in rules {
-            assert_eq!(rule.selector.tail().len(), 1, "Should have only a single component");
-            assert!(rule.selector.tail().has_tag("a".as_tag()), "Should has 'a' tag");
+            assert_eq!(
+                rule.selector.tail().len(),
+                1,
+                "Should have only a single component"
+            );
+            assert!(
+                rule.selector.tail().has_tag("a".as_tag()),
+                "Should has 'a' tag"
+            );
 
             match rule
                 .properties
@@ -515,8 +557,15 @@ mod tests {
         let rules = TestParser::new().parse("a { compound: valid }");
         assert_eq!(rules.len(), 1, "Should have a two rules (a and b)");
         let rule = &rules[0];
-        assert_eq!(rule.selector.entries().len(), 1, "Rule should have single selector");
-        assert!(rule.selector.tail().has_tag("a".as_tag()), "Selector should have single property");
+        assert_eq!(
+            rule.selector.entries().len(),
+            1,
+            "Rule should have single selector"
+        );
+        assert!(
+            rule.selector.tail().has_tag("a".as_tag()),
+            "Selector should have single property"
+        );
 
         let properties = &rule.properties;
 
@@ -535,8 +584,5 @@ mod tests {
                     assert_eq!(token, expected);
                 })
         });
-
-
-        
     }
 }
