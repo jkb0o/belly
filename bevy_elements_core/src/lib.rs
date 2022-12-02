@@ -1,6 +1,7 @@
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::ecs::system::Command;
 use bevy::input::InputSystem;
+use bevy::text::TextLayoutInfo;
 use bevy::utils::HashMap;
 use bevy::{ecs::system::EntityCommands, prelude::*};
 use bevy_inspector_egui::egui::mutex::RwLock;
@@ -60,6 +61,7 @@ impl Plugin for ElementsCorePlugin {
                     .label(input::Label::Focus)
                     .after(input::Label::TabFocus),
             )
+            .add_system(fix_text_height)
             .init_resource::<input::Focused>()
             .register_element_builder("el", build_element)
             .register_elements_postprocessor(default_postprocessor)
@@ -311,7 +313,7 @@ pub struct Defaults {
     pub style_sheet: Handle<StyleSheet>,
 }
 
-pub(crate) fn setup_defaults(
+pub fn setup_defaults(
     mut commands: Commands,
     mut fonts: ResMut<Assets<Font>>,
     mut defaults: ResMut<Defaults>,
@@ -329,4 +331,14 @@ pub(crate) fn setup_defaults(
         }
     "#,
     ))
+}
+
+pub fn fix_text_height (
+    mut texts: Query<(&Text, &mut Style), Or<(Changed<Text>, Changed<TextLayoutInfo>)>>,
+) {
+    for (text, mut style) in texts.iter_mut() {
+        if text.sections.len() > 0 {
+            style.size.height = Val::Px(text.sections[0].style.font_size);
+        }
+    }
 }
