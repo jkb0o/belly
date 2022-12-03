@@ -12,14 +12,13 @@ use bevy::{
 };
 use tagstr::*;
 
-use crate::{attributes::Attributes, property::PropertyValues, tags, AttributeValue, Element};
+use crate::{
+    attributes::Attributes, ess::StyleRule, ess::StyleSheetParser, property::PropertyValues, tags,
+    AttributeValue, Element,
+};
 
 pub trait Widget: Sized + Component + 'static {
     fn names() -> &'static [&'static str];
-
-    fn default_styles() -> &'static str {
-        ""
-    }
 
     #[allow(unused_variables)]
     fn construct_component(world: &mut World) -> Option<Self> {
@@ -31,6 +30,19 @@ pub trait Widget: Sized + Component + 'static {
 }
 
 pub trait WidgetBuilder: Widget {
+    #[allow(unused_variables)]
+    fn setup(&mut self, ctx: &mut ElementContext) {
+        panic!("Not implemented")
+    }
+    #[allow(unused_variables)]
+    fn construct(ctx: &mut ElementContext) {
+        panic!("Not implemented")
+    }
+
+    fn styles() -> &'static str {
+        ""
+    }
+
     fn build(world: &mut World, data: ElementContextData) {
         let component = Self::construct_component(world);
         let mut queue = CommandQueue::default();
@@ -50,14 +62,6 @@ pub trait WidgetBuilder: Widget {
         }
         Self::post_process(&mut ctx);
         queue.apply(world);
-    }
-    #[allow(unused_variables)]
-    fn setup(&mut self, ctx: &mut ElementContext) {
-        panic!("Not implemented")
-    }
-    #[allow(unused_variables)]
-    fn construct(ctx: &mut ElementContext) {
-        panic!("Not implemented")
     }
 
     fn post_process(ctx: &mut ElementContext) {
@@ -87,6 +91,7 @@ pub trait WidgetBuilder: Widget {
     fn as_builder() -> ElementBuilder {
         ElementBuilder {
             build_func: |world, ctx| Self::build(world, ctx),
+            styles_func: Self::styles,
             names_func: Self::names,
         }
     }
@@ -196,6 +201,7 @@ type Names = fn() -> &'static [&'static str];
 #[derive(Clone, Copy)]
 pub struct ElementBuilder {
     build_func: fn(&mut World, ElementContextData),
+    styles_func: fn() -> &'static str,
     names_func: Names,
 }
 
@@ -206,6 +212,10 @@ impl ElementBuilder {
 
     pub fn build(&self, world: &mut World, ctx: ElementContextData) {
         (self.build_func)(world, ctx);
+    }
+
+    pub fn styles(&self) -> &'static str {
+        (self.styles_func)()
     }
 }
 
@@ -251,6 +261,16 @@ impl ElementBuilderRegistry {
 
     pub fn has_builder(&self, name: Tag) -> bool {
         self.0.read().unwrap().contains_key(&name)
+    }
+
+    pub fn styles(&self, parser: StyleSheetParser) -> Vec<StyleRule> {
+        self.0
+            .read()
+            .unwrap()
+            .values()
+            .map(|b| b.styles())
+            .flat_map(|s| parser.parse(s))
+            .collect()
     }
 }
 

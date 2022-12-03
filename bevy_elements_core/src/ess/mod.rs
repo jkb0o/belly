@@ -12,11 +12,12 @@ use bevy::{
     utils::{hashbrown::hash_map::Keys, HashMap},
 };
 pub use selector::*;
+use smallvec::SmallVec;
 use tagstr::Tag;
 
 use crate::{property::PropertyValues, Defaults, PropertyExtractor, PropertyValidator};
 
-use self::parser::StyleSheetParser;
+pub use self::parser::StyleSheetParser;
 use std::ops::Deref;
 
 #[derive(Default)]
@@ -60,9 +61,8 @@ impl AssetLoader for EssLoader {
     ) -> bevy::utils::BoxedFuture<'a, Result<(), bevy::asset::Error>> {
         Box::pin(async move {
             let source = std::str::from_utf8(bytes)?;
-
-            let rules =
-                StyleSheetParser::parse(source, self.validator.clone(), self.extractor.clone());
+            let parser = StyleSheetParser::new(self.validator.clone(), self.extractor.clone());
+            let rules = parser.parse(source);
             let mut stylesheet = StyleSheet::default();
             for rule in rules {
                 stylesheet.add_rule(rule)
@@ -96,8 +96,28 @@ impl Command for ParseCommand {
         let world = world.cell();
         let extractor = world.resource::<PropertyExtractor>().clone();
         let validator = world.resource::<PropertyValidator>().clone();
-        let rules = StyleSheetParser::parse(&self.source, validator, extractor);
+        let parser = StyleSheetParser::new(validator, extractor);
+        let rules = parser.parse(&self.source);
         let stylesheet = StyleSheet::new(rules);
+        let mut styles = world.resource_mut::<Styles>();
+        let mut assets = world.resource_mut::<Assets<StyleSheet>>();
+        let handle = assets.add(stylesheet);
+        if self.default {
+            world.resource_mut::<Defaults>().style_sheet = handle.clone();
+        }
+        styles.insert(handle);
+    }
+}
+
+pub struct AddCommand {
+    rules: SmallVec<[StyleRule; 8]>,
+    default: bool,
+}
+
+impl Command for AddCommand {
+    fn write(self, world: &mut bevy::prelude::World) {
+        let world = world.cell();
+        let stylesheet = StyleSheet::new(self.rules);
         let mut styles = world.resource_mut::<Styles>();
         let mut assets = world.resource_mut::<Assets<StyleSheet>>();
         let handle = assets.add(stylesheet);
@@ -139,6 +159,18 @@ impl StyleSheet {
     pub fn parse_default(source: &str) -> ParseCommand {
         ParseCommand {
             source: source.to_string(),
+            default: true,
+        }
+    }
+    pub fn add(rules: SmallVec<[StyleRule; 8]>) -> AddCommand {
+        AddCommand {
+            rules,
+            default: false,
+        }
+    }
+    pub fn add_default(rules: SmallVec<[StyleRule; 8]>) -> AddCommand {
+        AddCommand {
+            rules,
             default: true,
         }
     }

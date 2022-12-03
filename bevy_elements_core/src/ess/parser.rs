@@ -11,40 +11,35 @@ use crate::{
     ElementsError, PropertyExtractor, PropertyValidator,
 };
 
-pub(crate) struct StyleSheetParser {
+pub struct StyleSheetParser {
     validator: PropertyValidator,
     extractor: PropertyExtractor,
 }
 
 impl StyleSheetParser {
-    pub(crate) fn parse(
-        content: &str,
-        validator: PropertyValidator,
-        extractor: PropertyExtractor,
-    ) -> SmallVec<[StyleRule; 8]> {
+    pub fn new(validator: PropertyValidator, extractor: PropertyExtractor) -> StyleSheetParser {
+        StyleSheetParser {
+            extractor,
+            validator,
+        }
+    }
+    pub fn parse(&self, content: &str) -> SmallVec<[StyleRule; 8]> {
         let mut input = ParserInput::new(content);
         let mut parser = Parser::new(&mut input);
-
-        RuleListParser::new_for_stylesheet(
-            &mut parser,
-            StyleSheetParser {
-                validator,
-                extractor,
-            },
-        )
-        .into_iter()
-        .filter_map(|result| match result {
-            Ok(rule) => Some(rule),
-            Err((err, rule)) => {
-                error!(
-                    "Failed to parse rule: {}. Error: {}",
-                    rule,
-                    format_error(err)
-                );
-                None
-            }
-        })
-        .collect()
+        RuleListParser::new_for_stylesheet(&mut parser, self)
+            .into_iter()
+            .filter_map(|result| match result {
+                Ok(rule) => Some(rule),
+                Err((err, rule)) => {
+                    error!(
+                        "Failed to parse rule: {}. Error: {}",
+                        rule,
+                        format_error(err)
+                    );
+                    None
+                }
+            })
+            .collect()
     }
 }
 
@@ -80,7 +75,7 @@ enum NextElement {
     Attribute,
 }
 
-impl<'i> QualifiedRuleParser<'i> for StyleSheetParser {
+impl<'i> QualifiedRuleParser<'i> for &StyleSheetParser {
     type Prelude = Selector;
     type QualifiedRule = StyleRule;
     type Error = ElementsError;
@@ -188,7 +183,7 @@ impl<'i> QualifiedRuleParser<'i> for StyleSheetParser {
     }
 }
 
-impl<'i> AtRuleParser<'i> for StyleSheetParser {
+impl<'i> AtRuleParser<'i> for &StyleSheetParser {
     type Prelude = ();
     type AtRule = StyleRule;
     type Error = ElementsError;
@@ -284,7 +279,9 @@ mod tests {
         }
 
         fn parse(&self, content: &str) -> SmallVec<[StyleRule; 8]> {
-            StyleSheetParser::parse(content, self.validator.clone(), self.extractor.clone())
+            let parser = StyleSheetParser::new(self.validator.clone(), self.extractor.clone());
+            parser.parse(content)
+            // StyleSheetParser::parse(content, self.validator.clone(), self.extractor.clone())
         }
 
         // fn

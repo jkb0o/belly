@@ -171,6 +171,42 @@ impl Widget for TextInput {
 }
 
 impl WidgetBuilder for TextInput {
+    fn styles() -> &'static str {
+        r##"
+
+        .text-input-border {
+            background-color: #2f2f2f00;
+            padding: 1px;
+            width: 200px;
+        }
+        .text-input-background {
+            padding: 1px;
+            width: 100%;
+            height: 100%;
+            background-color: #efefef;
+        }
+        .text-input-container {
+            width: 100%;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+        }
+        .text-input-selection {
+            position-type: absolute;
+            height: 100%;
+            background-color: #9f9f9f;
+        }
+        .text-input-value {
+            color: #2f2f2f;
+        }
+        .text-input-cursor {
+            top: 1px;
+            bottom: 1px;
+            background-color: #2f2f2f;
+        }
+        
+        "##
+    }
     fn setup(&mut self, ctx: &mut ElementContext) {
         let entity = ctx.entity();
         let cursor = self.cursor;
@@ -178,51 +214,15 @@ impl WidgetBuilder for TextInput {
         let container = self.container;
         let selection = self.selection;
         ctx.render(eml! {
-            <div
-                interactable="block"
-                c:text-input
-                c:text-input-border
-                s:background-color="#2f2f2f00"
-                s:padding="1px"
-                s:width="200px"
-            >
-                <div
-                    c:text-input-background
-                    s:padding="1px"
-                    s:width="100%"
-                    s:height="100%"
-                    s:background-color="#efefef"
-                >
-                    <div {container}
-                        c:text-input-container
-                        s:width="100%"
-                        s:heigth="100%"
-                        s:width="100%"
-                        s:overflow="hidden"
-                    >
-                        <div {selection}
-                            c:text-input-selection
+            <div interactable="block" c:text-input c:text-input-border>
+                <div c:text-input-background>
+                    <div {container} c:text-input-container>
+                        <div {selection} c:text-input-selection s:display="none"/>
+                        <label {text} c:text-input-value value=bind!(<= entity, Self.value)/>
+                        <div {cursor} c:text-input-cursor
                             s:position-type="absolute"
-                            s:height="100%"
-                            s:display="none"
-                            // s:left="0px"
-                            // s:width="50px"
-                            s:background-color="#9f9f9f"
-                        />
-
-                        <label {text} value=bind!(<= entity, Self.value) s:color="#2f2f2f" c:text-input-value/>
-                        <div entity=cursor
-                            with=BackgroundColor
-                            c:text-input-cursor
-                            s:position-type="absolute"
-                            s:top="1px"
-                            s:bottom="1px"
-                            // s:left="1px"
-                            // s:right="2px"
                             s:width=format!("{:.0}px", CURSOR_WIDTH)
                             s:display="none"
-                            // s:height="20px"
-                            s:background-color="#2f2f2f"
                         />
                     </div>
                 </div>

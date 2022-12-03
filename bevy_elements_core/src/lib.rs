@@ -5,7 +5,7 @@ use bevy::utils::HashMap;
 use bevy::{ecs::system::EntityCommands, prelude::*};
 use bevy_inspector_egui::egui::mutex::RwLock;
 use eml::EmlPlugin;
-use ess::{EssPlugin, StyleSheet};
+use ess::{EssPlugin, StyleSheet, StyleSheetParser};
 use std::error::Error;
 use std::fmt::Display;
 use std::sync::Arc;
@@ -210,7 +210,7 @@ impl<'w, 's, 'a> WithElements for EntityCommands<'w, 's, 'a> {
 
 pub(crate) type ValidateProperty = Box<dyn Fn(&PropertyValues) -> Result<(), ElementsError>>;
 #[derive(Default, Clone, Resource)]
-pub(crate) struct PropertyValidator(Arc<RwLock<HashMap<Tag, ValidateProperty>>>);
+pub struct PropertyValidator(Arc<RwLock<HashMap<Tag, ValidateProperty>>>);
 unsafe impl Send for PropertyValidator {}
 unsafe impl Sync for PropertyValidator {}
 impl PropertyValidator {
@@ -230,7 +230,7 @@ impl PropertyValidator {
 pub(crate) type ExtractProperty =
     Box<dyn Fn(PropertyValues) -> Result<HashMap<Tag, PropertyValues>, ElementsError>>;
 #[derive(Default, Clone, Resource)]
-pub(crate) struct PropertyExtractor(Arc<RwLock<HashMap<Tag, ExtractProperty>>>);
+pub struct PropertyExtractor(Arc<RwLock<HashMap<Tag, ExtractProperty>>>);
 unsafe impl Send for PropertyExtractor {}
 unsafe impl Sync for PropertyExtractor {}
 impl PropertyExtractor {
@@ -287,20 +287,28 @@ pub fn setup_defaults(
     mut commands: Commands,
     mut fonts: ResMut<Assets<Font>>,
     mut defaults: ResMut<Defaults>,
+    elements_registry: Res<ElementBuilderRegistry>,
+    extractor: Res<PropertyExtractor>,
+    validator: Res<PropertyValidator>,
 ) {
     let default_font_bytes = include_bytes!("SourceCodePro-Light.ttf").to_vec();
     let default_font_asset = Font::try_from_bytes(default_font_bytes).unwrap();
     let default_font_handle = fonts.add(default_font_asset);
     defaults.regular_font = default_font_handle;
-    commands.add(StyleSheet::parse_default(
+    let parser = StyleSheetParser::new(validator.clone(), extractor.clone());
+    let mut rules = parser.parse(
         r#"
-        * {
-            font: default-regular;
-            color: #cfcfcf;
-            font-size: 22px;
-        }
-    "#,
-    ))
+            * {
+                font: default-regular;
+                color: #cfcfcf;
+                font-size: 22px;
+            }
+        "#,
+    );
+    for rule in elements_registry.styles(parser) {
+        rules.push(rule)
+    }
+    commands.add(StyleSheet::add_default(rules));
 }
 
 pub fn fix_text_height(
