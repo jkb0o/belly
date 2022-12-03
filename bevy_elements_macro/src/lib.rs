@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::*;
 extern crate proc_macro;
-use syn::{parse_macro_input, spanned::Spanned, Error, Expr, ExprPath, ItemFn};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Error, Expr, ExprPath, ItemFn};
 use syn_rsx::{parse, Node, NodeAttribute};
 
 fn create_single_command_stmt(expr: &ExprPath) -> TokenStream {
@@ -208,18 +208,111 @@ pub fn eml(tree: proc_macro::TokenStream) -> proc_macro::TokenStream {
     }
 }
 
-// #[proc_macro_attribute]
-// pub fn widget(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-//     if !args.is_empty() {
-//         eprintln!("widget macro do not take any args");
-//     }
-//     let func = parse_macro_input!(input as ItemFn);
+#[proc_macro_derive(Widget, attributes(alias, param))]
+pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
 
-//     let result = quote! {
-//         #func
-//     };
-//     proc_macro::TokenStream::from( result )
-//     // let result = {
+    let component = ast.ident;
+    let component_str = format!("{component}");
+    let mut alias_expr = quote! { #component_str };
+    let extension_ident = format_ident!("{component}WidgetExtension");
 
-//     // }
-// }
+    let mut docs = quote! {};
+    let mut construct_body = quote! {};
+    let mut bind_body = quote! {};
+    // TODO: use `doclines` to generate XSD docs as well as extension docs
+    let mut doclines: Vec<String> = vec![];
+    let mut extension_body = quote! {
+        #[doc = " This is realy cool thing"]
+        #[allow(non_snake_case)]
+        fn #component() -> ::bevy_elements_core::ElementBuilder {
+            #component::as_builder()
+        }
+    };
+
+    let syn::Data::Struct(data) = ast.data else {
+        panic!("Widget could be derived only for structs");
+    };
+
+    for field in data.fields.iter() {
+        let field_ident = &field.ident;
+        for attr in field.attrs.iter() {
+            if !attr.path.is_ident("param") {
+                continue;
+            };
+            let field_type = &field.ty;
+            bind_body = quote! {
+                #bind_body
+                if let ::std::option::Option::Some(value) =
+                    ::bevy_elements_core::bindattr!(ctx, #field_ident:#field_type => Self.#field_ident)
+                {
+                    self.#field_ident = value;
+                }
+            }
+        }
+        if let syn::Type::Path(path) = &field.ty {
+            let type_repr = path.clone().into_token_stream().to_string();
+            if &type_repr == "Entity" {
+                construct_body = quote! {
+                    #construct_body
+                    #field_ident: world.spawn_empty().id(),
+                };
+                continue;
+            }
+        }
+        construct_body = quote! {
+            #construct_body
+            #field_ident: ::std::default::Default::default(),
+        }
+    }
+
+    for attr in ast.attrs.iter().filter(|a| a.path.is_ident("doc")) {
+        let docline = attr.tokens.to_string();
+        if docline.starts_with("= ") {
+            doclines.push(docline[2..].to_string());
+        }
+        docs = quote! {
+            #docs
+            #attr
+        }
+    }
+
+    for attr in ast.attrs.iter() {
+        if attr.path.is_ident("alias") {
+            let alias = attr
+                .parse_args::<syn::Ident>()
+                .expect("Awaited token for alias");
+            let alias_str = format!("{alias}");
+            alias_expr = quote! { #alias_expr, #alias_str };
+            extension_body = quote! {
+                #extension_body
+                #docs
+                fn #alias() -> ::bevy_elements_core::ElementBuilder {
+                    #component::as_builder()
+                }
+            }
+        }
+    }
+
+    proc_macro::TokenStream::from(quote! {
+        impl ::bevy_elements_core::Widget for #component {
+            fn names() -> &'static [&'static str] {
+                &[#alias_expr]
+            }
+            fn construct_component(world: &mut ::bevy::prelude::World) -> ::std::option::Option<Self> {
+                ::std::option::Option::Some(#component {
+                    #construct_body
+                })
+            }
+            fn bind_component(&mut self, ctx: &mut ::bevy_elements_core::ElementContext) {
+                #bind_body
+            }
+        }
+
+        pub trait #extension_ident {
+            #extension_body
+        }
+
+        impl #extension_ident for ::bevy_elements_core::Elements { }
+    })
+}

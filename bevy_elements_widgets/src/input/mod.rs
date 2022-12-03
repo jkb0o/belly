@@ -1,20 +1,14 @@
 use std::ops::Range;
 
+use crate::common::*;
 use ab_glyph::ScaleFont;
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     input::keyboard::KeyboardInput,
     prelude::*,
-    ui::FocusPolicy,
 };
-use bevy_elements_core::{
-    element::{DisplayElement, Element},
-    input::PointerInput,
-    *,
-};
+use bevy_elements_core::*;
 use bevy_elements_macro::*;
-pub struct InputPlugins;
-use crate::common::*;
 
 const CHAR_DELETE: char = '\u{7f}';
 const CURSOR_WIDTH: f32 = 2.;
@@ -26,6 +20,7 @@ pub enum TextInputLabel {
     Keyboard,
 }
 
+pub struct InputPlugins;
 impl Plugin for InputPlugins {
     fn build(&self, app: &mut App) {
         app.register_widget::<TextInput>();
@@ -51,18 +46,85 @@ impl Plugin for InputPlugins {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Widget)]
+#[alias(textinput)]
+/// The `<inputtext>` tag specifies a text input field
+/// where the user can enter data.
 pub struct TextInput {
+    #[param]
     pub value: String,
     index: usize,
     selected: Selection,
-    cursor: Entity,
     text: Entity,
     container: Entity,
     selection: Entity,
+    cursor: Entity,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+impl WidgetBuilder for TextInput {
+    fn setup(&mut self, ctx: &mut ElementContext) {
+        let entity = ctx.entity();
+        let cursor = self.cursor;
+        let text = self.text;
+        let container = self.container;
+        let selection = self.selection;
+        ctx.render(eml! {
+            <div interactable="block" c:text-input c:text-input-border>
+                <div c:text-input-background>
+                    <div {container} c:text-input-container>
+                        <div {selection} c:text-input-selection s:display="none"/>
+                        <label {text} c:text-input-value value=bind!(<= entity, Self.value)/>
+                        <div {cursor} c:text-input-cursor
+                            s:position-type="absolute"
+                            s:width=format!("{:.0}px", CURSOR_WIDTH)
+                            s:display="none"
+                        />
+                    </div>
+                </div>
+            </div>
+        });
+    }
+    fn styles() -> &'static str {
+        r##"
+
+        .text-input {
+            width: 200px;
+        }
+        .text-input-border {
+            background-color: #2f2f2f00;
+            padding: 1px;
+        }
+        .text-input-background {
+            padding: 1px;
+            width: 100%;
+            height: 100%;
+            background-color: #efefef;
+        }
+        .text-input-container {
+            width: 100%;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+        }
+        .text-input-selection {
+            position-type: absolute;
+            height: 100%;
+            background-color: #9f9f9f;
+        }
+        .text-input-value {
+            color: #2f2f2f;
+        }
+        .text-input-cursor {
+            top: 1px;
+            bottom: 1px;
+            background-color: #2f2f2f;
+        }
+
+        "##
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 pub struct Selection {
     min: usize,
     max: usize,
@@ -133,102 +195,6 @@ impl Selection {
 #[derive(Component, Default)]
 pub struct TextInputCursor {
     state: f32,
-}
-
-pub trait TextInputWidgetExtension {
-    fn TextInput() -> ElementBuilder {
-        TextInput::as_builder()
-    }
-    fn textinput() -> ElementBuilder {
-        TextInput::as_builder()
-    }
-}
-
-impl TextInputWidgetExtension for Elements {}
-
-impl Widget for TextInput {
-    fn names() -> &'static [&'static str] {
-        &["TextInput"]
-    }
-
-    fn construct_component(world: &mut World) -> Option<Self> {
-        Some(TextInput {
-            value: "".to_string(),
-            index: 0,
-            selected: Selection::new(),
-            cursor: world.spawn_empty().id(),
-            text: world.spawn_empty().id(),
-            container: world.spawn_empty().id(),
-            selection: world.spawn_empty().id(),
-        })
-    }
-
-    fn bind_component(&mut self, ctx: &mut ElementContext) {
-        if let Some(value) = bindattr!(ctx, value:String => Self.value) {
-            self.value = value;
-        }
-    }
-}
-
-impl WidgetBuilder for TextInput {
-    fn styles() -> &'static str {
-        r##"
-
-        .text-input-border {
-            background-color: #2f2f2f00;
-            padding: 1px;
-            width: 200px;
-        }
-        .text-input-background {
-            padding: 1px;
-            width: 100%;
-            height: 100%;
-            background-color: #efefef;
-        }
-        .text-input-container {
-            width: 100%;
-            height: 100%;
-            width: 100%;
-            overflow: hidden;
-        }
-        .text-input-selection {
-            position-type: absolute;
-            height: 100%;
-            background-color: #9f9f9f;
-        }
-        .text-input-value {
-            color: #2f2f2f;
-        }
-        .text-input-cursor {
-            top: 1px;
-            bottom: 1px;
-            background-color: #2f2f2f;
-        }
-        
-        "##
-    }
-    fn setup(&mut self, ctx: &mut ElementContext) {
-        let entity = ctx.entity();
-        let cursor = self.cursor;
-        let text = self.text;
-        let container = self.container;
-        let selection = self.selection;
-        ctx.render(eml! {
-            <div interactable="block" c:text-input c:text-input-border>
-                <div c:text-input-background>
-                    <div {container} c:text-input-container>
-                        <div {selection} c:text-input-selection s:display="none"/>
-                        <label {text} c:text-input-value value=bind!(<= entity, Self.value)/>
-                        <div {cursor} c:text-input-cursor
-                            s:position-type="absolute"
-                            s:width=format!("{:.0}px", CURSOR_WIDTH)
-                            s:display="none"
-                        />
-                    </div>
-                </div>
-            </div>
-        });
-    }
 }
 
 fn get_char_advance(ch: char, font: &Font, font_size: f32) -> f32 {

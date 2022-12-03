@@ -546,7 +546,6 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
             // if let Some(rule) = rules.iter().filter(|r| r.selector.matches(&branch)).next() {
             //     info!("matched selector: {:?} for branch {}", rule.selector.to_string(), branch.to_string());
             // }
-
             if let Some(property) = property {
                 if let CacheState::Ok(property) = cached_properties.get_or_parse(property) {
                     Self::apply(property, components, &asset_server, &mut commands, entity);

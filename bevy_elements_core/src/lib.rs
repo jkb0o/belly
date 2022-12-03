@@ -33,6 +33,7 @@ pub use crate::eml::build::WidgetBuilder;
 pub use crate::eml::content::ExpandElements;
 pub use crate::eml::content::ExpandElementsExt;
 pub use crate::eml::content::IntoContent;
+pub use crate::input::PointerInput;
 pub use attributes::AttributeValue;
 pub use element::Element;
 pub use property::Property;

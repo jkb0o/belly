@@ -29,7 +29,7 @@ fn setup(mut commands: Commands) {
     commands.add(eml! {
         <body s:padding="20px">
             <div c:center-left>
-                <TextInput {input} value="world" s:margin-right="10px" s:width="100px"/>
+                <textinput {input} value="world" s:margin-right="10px" s:width="100px"/>
                 "Hello, "{bind!(<=input, TextInput.value)}"!"
             </div>
         </body>
