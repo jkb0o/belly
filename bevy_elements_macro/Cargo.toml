@@ -11,8 +11,10 @@ proc-macro = true
 [dependencies]
 bevy = "0.9.0"
 quote = "1.0.21"
-syn-rsx = "0.9.0"
+syn-rsx = { git = "https://github.com/stoically/syn-rsx.git" }
+# syn-rsx = { git = "https://github.com/jkb0o/syn-rsx.git", branch = "add_syn_printing_feature" }
 bevy_elements_core = { path = "../bevy_elements_core" }
 proc-macro2 = "1.0.47"
 procout = "0.1.13"
 syn = "1.0.103"
+# syn = { version = "1.0.105", features = ["full", "parsing", "printing", "extra-traits"] }

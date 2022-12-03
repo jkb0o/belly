@@ -399,7 +399,7 @@ fn _example(
 
 impl From<&str> for Selector {
     fn from(source: &str) -> Self {
-        use cssparser::{Parser, ParserInput, ToCss, Token::*};
+        use cssparser::{Parser, ParserInput, ToCss};
         use tagstr::*;
         const NEXT_TAG: u8 = 0;
         const NEXT_CLASS: u8 = 1;
@@ -410,6 +410,7 @@ impl From<&str> for Selector {
         let mut parser = Parser::new(&mut input);
         let mut next = NEXT_TAG;
         while let Ok(token) = parser.next_including_whitespace() {
+            use cssparser::Token::*;
             match token {
                 Ident(v) => {
                     match next {

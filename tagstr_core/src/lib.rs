@@ -45,6 +45,9 @@ pub const fn undefined_tag() -> Tag {
 #[derive(Clone, Copy)]
 pub struct Tag(&'static str);
 
+unsafe impl Send for Tag { }
+unsafe impl Sync for Tag { }
+
 impl Tag {
     pub fn as_str(&self) -> &'static str {
         self.0

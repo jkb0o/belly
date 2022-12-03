@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    attributes::Attribute,
-    builders::ElementBuilderRegistry,
-    context::{internal, ElementContext},
-    Element, PropertyExtractor, PropertyValidator,
+    attributes::Attribute, Element, ElementBuilderRegistry, PropertyExtractor, PropertyValidator,
 };
 use bevy::{
     asset::{AssetLoader, LoadedAsset},
@@ -13,7 +10,11 @@ use bevy::{
     utils::HashMap,
 };
 use tagstr::*;
-mod parser;
+
+use self::build::{build_element, ElementContextData};
+pub mod build;
+pub mod content;
+mod parse;
 
 #[derive(Default)]
 pub struct EmlPlugin;
@@ -92,7 +93,7 @@ fn walk(node: &EmlElement, world: &mut World, parent: Option<Entity>) -> Option<
         return None;
     };
     let entity = parent.unwrap_or_else(|| world.spawn_empty().id());
-    let mut context = ElementContext::new(node.name, entity);
+    let mut context = ElementContextData::new(entity);
     for (name, value) in node.attributes.iter() {
         let attr = Attribute::new(name, value.clone().into());
         context.attributes.add(attr);
@@ -107,19 +108,16 @@ fn walk(node: &EmlElement, world: &mut World, parent: Option<Entity>) -> Option<
                     })
                     .insert(Element::inline())
                     .id();
-                context.add_child(entity);
+                context.children.push(entity);
             }
             EmlNode::Element(child) => {
                 if let Some(entity) = walk(child, world, None) {
-                    context.add_child(entity);
+                    context.children.push(entity);
                 }
             }
         };
     }
-
-    internal::push_element(world, context);
-    builder.build(world);
-    internal::pop_context(world);
+    build_element(world, context, builder);
     Some(entity)
 }
 
@@ -143,7 +141,7 @@ impl AssetLoader for EmlLoader {
         Box::pin(async move {
             let source = std::str::from_utf8(bytes)?;
 
-            match parser::parse(source, self) {
+            match parse::parse(source, self) {
                 Ok(root) => {
                     let asset = EmlAsset {
                         root: Arc::new(root),

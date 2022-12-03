@@ -6,8 +6,6 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(ElementsPlugin)
         .add_startup_system(setup)
-        .register_element_builder("body", build_body)
-        .register_element_builder("div", build_div)
         .run();
 }
 
@@ -35,21 +33,5 @@ fn setup(mut commands: Commands) {
                 "Hello, "{bind!(<=input, TextInput.value)}"!"
             </div>
         </body>
-    });
-}
-
-fn build_body(mut ctx: ResMut<BuildingContext>, mut commands: Commands) {
-    let content = ctx.content();
-    commands.entity(ctx.element).with_elements(eml! {
-        <el interactable s:width="100%" s:height="100%" s:align-content="flex-start" s:align-items="flex-start">
-            {content}
-        </el>
-    });
-}
-
-fn build_div(mut ctx: ResMut<BuildingContext>, mut commands: Commands) {
-    let content = ctx.content();
-    commands.entity(ctx.element).with_elements(eml! {
-        <el>{content}</el>
     });
 }

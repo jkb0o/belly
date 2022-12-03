@@ -4,7 +4,7 @@ use std::{
     mem,
 };
 
-use super::ElementsBuilder;
+use crate::eml::build::ElementsBuilder;
 use crate::tags;
 use crate::{
     bind::{BindFrom, BindFromUntyped, BindValue},
@@ -454,14 +454,14 @@ impl<W: Component, T: BindValue> From<BindFrom<W, T>> for AttributeValue {
 
 #[macro_export]
 macro_rules! bindattr {
-    ($ctx:ident, $cmd:ident, $key:ident:$typ:ident => $($target:tt)*) => {
+    ($ctx:ident, $key:ident:$typ:ident => $($target:tt)*) => {
         {
-            let elem = $ctx.element.clone();
+            let elem = $ctx.entity();
             let key = stringify!($key).as_tag();
-            let attr = $ctx.attributes.drop_variant(key);
+            let attr = $ctx.param(key);
             let mut value = Default::default();
             match attr {
-                Some($crate::AttributeValue::BindFrom(b)) => $cmd.add(b.to($crate::bind!(=> elem, $($target)*))),
+                Some($crate::AttributeValue::BindFrom(b)) => $ctx.commands().add(b.to($crate::bind!(=> elem, $($target)*))),
                 Some($crate::AttributeValue::$typ(v)) => value = Some(v),
                 Some(attr) => error!("Unsupported value for '{}' attribute: {:?}", key, attr),
                 _ => ()

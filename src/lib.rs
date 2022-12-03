@@ -14,8 +14,8 @@ pub use bevy_elements_core::bind;
 pub use bevy_elements_macro::eml;
 
 // traits
-pub use bevy_elements_core::builders::Widget;
-pub use bevy_elements_core::context::IntoContent;
+pub use bevy_elements_core::eml::build::Widget;
+pub use bevy_elements_core::eml::content::IntoContent;
 pub use bevy_elements_core::ExpandElementsExt;
 pub use bevy_elements_core::WithElements;
 
@@ -32,6 +32,8 @@ impl Plugin for ElementsPlugin {
 
 pub mod build {
     pub use super::*;
-    pub use bevy_elements_core::BuildingContext;
-    pub use bevy_elements_core::RegisterElementBuilder;
+    pub use bevy_elements_core::ElementBuilder;
+    pub use bevy_elements_core::ElementContext;
+    pub use bevy_elements_core::Elements;
+    pub use bevy_elements_core::RegisterWidgetExtension;
 }

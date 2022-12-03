@@ -11,7 +11,7 @@ pub enum DisplayElement {
     #[default]
     Block,
     Inline,
-    // TODO: deside if it event needed
+    // TODO: deside if it even needed
     // InlineBlock,
 }
 

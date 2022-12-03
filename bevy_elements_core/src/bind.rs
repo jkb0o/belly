@@ -426,6 +426,19 @@ macro_rules! bind {
         )
     };
 
+    (
+        $s_entity:expr, $s_class:ident$(.$s_prop:ident)+ =>
+        $t_entity:expr, $t_class:ident$(.$t_prop:ident$([$t_idx:literal])?)+
+    ) => {
+        $crate::bind::Bind::build(
+            $s_entity.clone(),
+            |s: &$s_class| { s$(.$s_prop)+.clone() },
+            $t_entity.clone(),
+            |t: &$t_class, v| &t$(.$t_prop$([$t_idx])?)+ == v,
+            |t: &mut $t_class, v| { t$(.$t_prop$([$t_idx])?)+.clone_from(v); }
+        )
+    };
+
     // bind getter-to-value
     // bind!(source, Sprite.color:a, target, Transform.translation.x)
     (

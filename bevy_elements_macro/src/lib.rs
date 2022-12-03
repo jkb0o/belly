@@ -1,8 +1,8 @@
 use proc_macro2::TokenStream;
 use quote::*;
 extern crate proc_macro;
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Error, Expr, ExprPath, ItemFn};
-use syn_rsx::{parse, Node, NodeAttribute, NodeName};
+use syn::{parse_macro_input, spanned::Spanned, Error, Expr, ExprPath, ItemFn};
+use syn_rsx::{parse, Node, NodeAttribute};
 
 fn create_single_command_stmt(expr: &ExprPath) -> TokenStream {
     let component_span = expr.span();
@@ -135,14 +135,14 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                     let expr = walk_nodes(child, true);
                     children = quote! {
                         #children
-                        __ctx.add_child( #expr );
+                        __ctx.children.push( #expr );
                     };
                 }
                 Node::Text(text) => {
                     let text = text.value.as_ref();
                     children = quote! {
                         #children
-                        __ctx.add_child(
+                        __ctx.children.push(
                             __world.spawn(::bevy::prelude::TextBundle {
                                 text: ::bevy::prelude::Text::from_section(
                                     #text,
@@ -162,7 +162,7 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                         #children
                         let __node = __world.spawn_empty().id();
                         for __child in #block.into_content(__node, __world).iter() {
-                            __ctx.add_child( __child.clone() );
+                            __ctx.children.push( __child.clone() );
                         }
                     }
                 }
@@ -170,35 +170,19 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
             };
         }
 
-        // let tag = element.name.to_string();
-        let tag = element.name.to_string();
-        let tag_span = element.name.span();
-        let invalid_element_msg = format!("Invalid tag name: {}", tag);
-        let builder = if tag.chars().next().unwrap().is_uppercase() {
-            let widget = format_ident!("{}", tag);
-            quote_spanned!(tag_span=>
-                #widget::widget_builder(__world)
-            )
-        } else {
-            quote_spanned!(tag_span=>
-                __world
-                    .resource::<::bevy_elements_core::builders::ElementBuilderRegistry>()
-                    .get_builder(__tag_name)
-                    .expect( #invalid_element_msg )
-            )
-        };
-
+        let tag = syn::Ident::new(&element.name.to_string(), element.span());
         quote! {
             {
                 #parent
-                let __tag_name = #tag.into();
-                let mut __ctx = ::bevy_elements_core::context::ElementContext::new(__tag_name, __parent);
+                let mut __ctx = ::bevy_elements_core::eml::build::ElementContextData::new(__parent);
 
                 #children
-
-                ::bevy_elements_core::context::internal::push_element(__world, __ctx);
-                #builder.build(__world);
-                ::bevy_elements_core::context::internal::pop_context(__world);
+                let __builder = ::bevy_elements_core::Elements::#tag();
+                ::bevy_elements_core::build_element(
+                    __world,
+                    __ctx,
+                    __builder,
+                );
                 __parent
             }
         }
@@ -233,21 +217,13 @@ pub fn eml(tree: proc_macro::TokenStream) -> proc_macro::TokenStream {
 //     if !args.is_empty() {
 //         eprintln!("widget macro do not take any args");
 //     }
-//     let parsed = parse_macro_input!(input as ItemFn);
+//     let func = parse_macro_input!(input as ItemFn);
 
-//     let result = quote! { #parsed };
+//     let result = quote! {
+//         #func
+//     };
 //     proc_macro::TokenStream::from( result )
 //     // let result = {
 
 //     // }
-// }
-
-// pub fn components(tree: proc_macro::TokenStream) -> proc_macro::TokenStream {
-
-// }
-
-// #macro_rules!  {
-//     () => {
-
-//     };
 // }

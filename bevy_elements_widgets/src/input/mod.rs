@@ -14,7 +14,7 @@ use bevy_elements_core::{
 };
 use bevy_elements_macro::*;
 pub struct InputPlugins;
-use crate::text_line::TextLine;
+use crate::common::*;
 
 const CHAR_DELETE: char = '\u{7f}';
 const CURSOR_WIDTH: f32 = 2.;
@@ -28,6 +28,7 @@ pub enum TextInputLabel {
 
 impl Plugin for InputPlugins {
     fn build(&self, app: &mut App) {
+        app.register_widget::<TextInput>();
         app.add_system(blink_cursor)
             .add_system_to_stage(
                 CoreStage::PreUpdate,
@@ -134,74 +135,92 @@ pub struct TextInputCursor {
     state: f32,
 }
 
-widget!( TextInput,
-    mut ctx: ResMut<BuildingContext>,
-    mut commands: Commands
-=> {
-    let entity = ctx.element;
-    let value = bindattr!(ctx, commands, value:String => Self.value);
-    let cursor = commands.spawn_empty().id();
-    let text = commands.spawn_empty().id();
-    let container = commands.spawn_empty().id();
-    let selection = commands.spawn_empty().id();
-    // let block_input = FocusPolicy::Block;
-    let widget = TextInput {
-        cursor, text, container, selection,
-        index: 0, selected: Selection::new(),
-        value: value.unwrap_or("".to_string()),
-    };
-    commands.entity(entity).with_elements(eml! {
-        <el with=widget
-            interactable="block"
-            c:text-input
-            c:text-input-border
-            s:background-color="#2f2f2f00"
-            s:padding="1px"
-            s:width="200px"
-        >
-            <el with=BackgroundColor
-                c:text-input-background
-                s:padding="1px"
-                s:width="100%"
-                s:height="100%"
-                s:background-color="#efefef"
-            >
-                <el {container}
-                    c:text-input-container
-                    s:width="100%"
-                    s:heigth="100%"
-                    s:width="100%"
-                    s:overflow="hidden"
-                >
-                    <el {selection} with=BackgroundColor
-                        c:text-input-selection
-                        s:position-type="absolute"
-                        s:height="100%"
-                        s:display="none"
-                        // s:left="0px"
-                        // s:width="50px"
-                        s:background-color="#9f9f9f"
-                    />
+pub trait TextInputWidgetExtension {
+    fn TextInput() -> ElementBuilder {
+        TextInput::as_builder()
+    }
+    fn textinput() -> ElementBuilder {
+        TextInput::as_builder()
+    }
+}
 
-                    <TextLine {text} value=bind!(<= entity, Self.value) s:color="#2f2f2f" c:text-input-value/>
-                    <el entity=cursor
-                        with=BackgroundColor
-                        c:text-input-cursor
-                        s:position-type="absolute"
-                        s:top="1px"
-                        s:bottom="1px"
-                        // s:left="1px"
-                        // s:right="2px"
-                        s:width=format!("{:.0}px", CURSOR_WIDTH)
-                        s:display="none"
-                        // s:height="20px"
-                        s:background-color="#2f2f2f"
-                    />
-                </el>
-            </el>
-        </el>
-    });
-});
+impl TextInputWidgetExtension for Elements {}
+
+impl Widget for TextInput {
+    fn names() -> &'static [&'static str] {
+        &["TextInput"]
+    }
+
+    fn build(ctx: &mut ElementContext) {
+        let entity = ctx.entity();
+        let value = bindattr!(ctx, value:String => Self.value);
+        let cursor = ctx.empty();
+        let text = ctx.empty();
+        let container = ctx.empty();
+        let selection = ctx.empty();
+        // let block_input = FocusPolicy::Block;
+        let widget = TextInput {
+            cursor,
+            text,
+            container,
+            selection,
+            index: 0,
+            selected: Selection::new(),
+            value: value.unwrap_or("".to_string()),
+        };
+        ctx.render(eml! {
+            <div with=widget
+                interactable="block"
+                c:text-input
+                c:text-input-border
+                s:background-color="#2f2f2f00"
+                s:padding="1px"
+                s:width="200px"
+            >
+                <div
+                    c:text-input-background
+                    s:padding="1px"
+                    s:width="100%"
+                    s:height="100%"
+                    s:background-color="#efefef"
+                >
+                    <div {container}
+                        c:text-input-container
+                        s:width="100%"
+                        s:heigth="100%"
+                        s:width="100%"
+                        s:overflow="hidden"
+                    >
+                        <div {selection}
+                            c:text-input-selection
+                            s:position-type="absolute"
+                            s:height="100%"
+                            s:display="none"
+                            // s:left="0px"
+                            // s:width="50px"
+                            s:background-color="#9f9f9f"
+                        />
+
+                        <label {text} value=bind!(<= entity, Self.value) s:color="#2f2f2f" c:text-input-value/>
+                        <div entity=cursor
+                            with=BackgroundColor
+                            c:text-input-cursor
+                            s:position-type="absolute"
+                            s:top="1px"
+                            s:bottom="1px"
+                            // s:left="1px"
+                            // s:right="2px"
+                            s:width=format!("{:.0}px", CURSOR_WIDTH)
+                            s:display="none"
+                            // s:height="20px"
+                            s:background-color="#2f2f2f"
+                        />
+                    </div>
+                </div>
+            </div>
+        });
+    }
+}
 
 fn get_char_advance(ch: char, font: &Font, font_size: f32) -> f32 {
     let font = ab_glyph::Font::as_scaled(&font.font, font_size);
@@ -219,7 +238,7 @@ fn process_keyboard_input(
     mut inputs: Query<(Entity, &mut TextInput, &Element)>,
     mut cursors: Query<&mut TextInputCursor>,
     mut styles: Query<&mut Style>,
-    mut texts: Query<(&TextLine, &Text)>,
+    mut texts: Query<&Text>,
     diag: Res<Diagnostics>,
 ) {
     let frame = diag
@@ -236,7 +255,7 @@ fn process_keyboard_input(
         return;
     }
 
-    let Ok((text_line, text)) = texts.get_mut(input.text)
+    let Ok(text) = texts.get_mut(input.text)
         else { return };
 
     let shift = keyboard.any_pressed([KeyCode::LShift, KeyCode::RShift]);
@@ -509,23 +528,4 @@ fn blink_cursor(time: Res<Time>, mut cursor: Query<(&mut TextInputCursor, &mut S
             style.display = Display::None;
         }
     }
-}
-
-fn build_text(mut ctx: ResMut<BuildingContext>, mut commands: Commands, defaults: Res<Defaults>) {
-    let text = bindattr!(ctx, commands, value:String => Text.sections[0].value);
-    commands
-        .entity(ctx.element)
-        .insert(TextBundle::from_section(
-            // "hahaha".to_string(),
-            text.unwrap_or("".to_string()),
-            TextStyle {
-                font: defaults.regular_font.clone(),
-                font_size: 24.0,
-                color: Color::WHITE,
-            },
-        ))
-        .insert(Element {
-            display: DisplayElement::Inline,
-            ..default()
-        });
 }

@@ -1,4 +1,8 @@
-use bevy::{prelude::*, render::camera::ScalingMode, text::{TextPipeline, TextSettings}};
+use bevy::{
+    prelude::*,
+    render::camera::ScalingMode,
+    text::{TextPipeline, TextSettings},
+};
 use bevy_elements::*;
 
 fn main() {
@@ -13,7 +17,10 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle {
         projection: OrthographicProjection {
-            scaling_mode: ScalingMode::Auto { min_width: 1024., min_height: 768. },
+            scaling_mode: ScalingMode::Auto {
+                min_width: 1024.,
+                min_height: 768.,
+            },
             ..default()
         },
         ..default()
@@ -24,14 +31,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
     commands.insert_resource(UiScale { scale: 1. });
-    commands.insert_resource(TextSettings { allow_dynamic_font_size: true, ..default() });
+    commands.insert_resource(TextSettings {
+        allow_dynamic_font_size: true,
+        ..default()
+    });
 }
 
-pub fn scale(
-    mut cached_size: Local<Vec2>,
-    mut ui_scale: ResMut<UiScale>,
-    windows: Res<Windows>,
-) {
+pub fn scale(mut cached_size: Local<Vec2>, mut ui_scale: ResMut<UiScale>, windows: Res<Windows>) {
     let ww = windows.primary().width();
     let wh = windows.primary().height();
     if cached_size.x == ww && cached_size.y == wh {

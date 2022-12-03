@@ -1,5 +1,4 @@
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
-use bevy::ecs::system::Command;
 use bevy::input::InputSystem;
 use bevy::text::TextLayoutInfo;
 use bevy::utils::HashMap;
@@ -15,8 +14,6 @@ use property::PropertyValues;
 
 pub mod attributes;
 pub mod bind;
-pub mod builders;
-pub mod context;
 pub mod element;
 pub mod eml;
 pub mod ess;
@@ -26,18 +23,22 @@ pub mod tags;
 
 pub struct ElementsCorePlugin;
 
-pub use crate::builders::Widget;
-use crate::builders::*;
+pub use crate::eml::build::build_element;
+pub use crate::eml::build::ElementBuilder;
+pub use crate::eml::build::ElementBuilderRegistry;
+pub use crate::eml::build::ElementContext;
+pub use crate::eml::build::ElementsBuilder;
+pub use crate::eml::build::RegisterWidgetExtension;
+pub use crate::eml::build::Widget;
+pub use crate::eml::content::ExpandElements;
+pub use crate::eml::content::ExpandElementsExt;
+pub use crate::eml::content::IntoContent;
 pub use attributes::AttributeValue;
-pub use context::BuildingContext;
-pub use context::ExpandElements;
-pub use context::ExpandElementsExt;
-pub use context::IntoContent;
 pub use element::Element;
 pub use property::Property;
 pub use tagstr::*;
 
-use bind::{process_binds_system, BindPlugin};
+use bind::BindPlugin;
 
 impl Plugin for ElementsCorePlugin {
     fn build(&self, app: &mut App) {
@@ -63,8 +64,6 @@ impl Plugin for ElementsCorePlugin {
             )
             .add_system(fix_text_height)
             .init_resource::<input::Focused>()
-            .register_element_builder("el", build_element)
-            .register_elements_postprocessor(default_postprocessor)
             .insert_resource(Defaults::default())
             .add_plugin(BindPlugin)
             .add_plugin(EssPlugin)
@@ -123,6 +122,48 @@ fn register_properties(app: &mut bevy::prelude::App) {
     app.register_property::<BackgroundColorProperty>();
 }
 
+pub struct Elements;
+
+#[derive(Bundle)]
+pub struct ElementBundle {
+    pub element: Element,
+    #[bundle]
+    pub node: NodeBundle,
+}
+
+impl Default for ElementBundle {
+    fn default() -> Self {
+        ElementBundle {
+            element: Default::default(),
+            node: NodeBundle {
+                background_color: BackgroundColor(Color::NONE),
+                ..default()
+            },
+        }
+    }
+}
+
+#[derive(Bundle)]
+pub struct TextElementBundle {
+    pub element: Element,
+    pub background_color: BackgroundColor,
+    #[bundle]
+    pub text: TextBundle,
+}
+
+impl Default for TextElementBundle {
+    fn default() -> Self {
+        TextElementBundle {
+            element: Element::inline(),
+            background_color: BackgroundColor(Color::NONE),
+            text: TextBundle {
+                text: Text::from_section("", Default::default()),
+                ..default()
+            },
+        }
+    }
+}
+
 #[derive(Component, Default)]
 pub struct ManualTextProperties;
 #[derive(Debug)]
@@ -164,74 +205,6 @@ impl<'w, 's, 'a> WithElements for EntityCommands<'w, 's, 'a> {
         let entity = self.id();
         self.commands().add(elements.with_entity(entity));
         self
-    }
-}
-
-pub trait RegisterElementBuilder {
-    fn register_element_builder<Params, D: IntoSystem<(), (), Params>>(
-        &mut self,
-        name: &'static str,
-        builder: D,
-    ) -> &mut Self;
-
-    fn register_elements_postprocessor<Params, D: IntoSystem<(), (), Params>>(
-        &mut self,
-        builder: D,
-    ) -> &mut Self;
-}
-
-impl RegisterElementBuilder for App {
-    fn register_element_builder<Params, D: IntoSystem<(), (), Params>>(
-        &mut self,
-        name: &'static str,
-        builder: D,
-    ) -> &mut Self {
-        let builder = ElementBuilder::new(&mut self.world, builder).with_postprocessing();
-        self.world
-            .get_resource_or_insert_with::<ElementBuilderRegistry>(ElementBuilderRegistry::new)
-            .add_builder(name.into(), builder);
-        self
-    }
-
-    fn register_elements_postprocessor<Params, D: IntoSystem<(), (), Params>>(
-        &mut self,
-        builder: D,
-    ) -> &mut Self {
-        let builder = ElementBuilder::new(&mut self.world, builder);
-        self.world
-            .get_resource_or_insert_with::<ElementPostProcessors>(ElementPostProcessors::default)
-            .0
-            .borrow_mut()
-            .push(builder);
-        self
-    }
-}
-
-pub struct ElementsBuilder {
-    pub builder: Box<dyn FnOnce(&mut World, Entity) + Sync + Send>,
-}
-
-impl ElementsBuilder {
-    pub fn new<T>(builder: T) -> Self
-    where
-        T: FnOnce(&mut World, Entity) + Sync + Send + 'static,
-    {
-        ElementsBuilder {
-            builder: Box::new(builder),
-        }
-    }
-
-    pub fn with_entity(self, entity: Entity) -> impl FnOnce(&mut World) {
-        move |world: &mut World| {
-            (self.builder)(world, entity);
-        }
-    }
-}
-
-impl Command for ElementsBuilder {
-    fn write(self, world: &mut World) {
-        let entity = world.spawn_empty().id();
-        self.with_entity(entity)(world);
     }
 }
 
@@ -282,9 +255,6 @@ impl PropertyExtractor {
     }
 }
 
-/// Utility trait which adds the [`register_property`](RegisterProperty::register_property) function on [`App`](bevy::prelude::App) to add a [`Property`] parser.
-///
-/// You need to register only custom properties which implements [`Property`] trait.
 pub trait RegisterProperty {
     fn register_property<T>(&mut self) -> &mut Self
     where
@@ -333,7 +303,7 @@ pub fn setup_defaults(
     ))
 }
 
-pub fn fix_text_height (
+pub fn fix_text_height(
     mut texts: Query<(&Text, &mut Style), Or<(Changed<Text>, Changed<TextLayoutInfo>)>>,
 ) {
     for (text, mut style) in texts.iter_mut() {
