@@ -6,7 +6,7 @@ use std::{
 use bevy::{
     asset::Asset,
     ecs::system::{Command, CommandQueue, EntityCommands},
-    prelude::{App, AssetServer, Bundle, Commands, Entity, Handle, Resource, World},
+    prelude::{App, AssetServer, Bundle, Commands, Component, Entity, Handle, Resource, World},
     ui::{FocusPolicy, Interaction},
     utils::{HashMap, HashSet},
 };
@@ -14,9 +14,25 @@ use tagstr::*;
 
 use crate::{attributes::Attributes, property::PropertyValues, tags, AttributeValue, Element};
 
-pub fn build_element(world: &mut World, mut data: ElementContextData, builder: ElementBuilder) {
-    data.names = builder.names_func;
-    for action in [builder.build_func, postprocess_element] {
+pub trait Widget: Sized + Component + 'static {
+    fn names() -> &'static [&'static str];
+
+    fn default_styles() -> &'static str {
+        ""
+    }
+
+    #[allow(unused_variables)]
+    fn construct_component(world: &mut World) -> Option<Self> {
+        None
+    }
+
+    #[allow(unused_variables)]
+    fn bind_component(&mut self, ctx: &mut ElementContext) {}
+}
+
+pub trait WidgetBuilder: Widget {
+    fn build(world: &mut World, data: ElementContextData) {
+        let component = Self::construct_component(world);
         let mut queue = CommandQueue::default();
         let commands = Commands::new(&mut queue, world);
         let asset_server = world.resource::<AssetServer>().clone();
@@ -25,47 +41,52 @@ pub fn build_element(world: &mut World, mut data: ElementContextData, builder: E
             data,
             asset_server,
         };
-        action(&mut ctx);
-        data = ctx.release();
+        if let Some(mut component) = component {
+            component.bind_component(&mut ctx);
+            component.setup(&mut ctx);
+            ctx.insert(component);
+        } else {
+            Self::construct(&mut ctx);
+        }
+        Self::post_process(&mut ctx);
         queue.apply(world);
     }
-    // TODO: report unused arguments here and/or bypass rest params to inner element
-}
-
-fn postprocess_element(ctx: &mut ElementContext) {
-    let tag = ctx.names().next().unwrap();
-    ctx.apply_commands();
-    let focus_policy = match ctx.param(tag!("interactable")) {
-        Some(AttributeValue::Empty) => Some(FocusPolicy::Pass),
-        Some(AttributeValue::String(s)) if &s == "block" => Some(FocusPolicy::Block),
-        Some(AttributeValue::String(s)) if &s == "pass" => Some(FocusPolicy::Pass),
-        _ => None,
-    };
-    if let Some(policy) = focus_policy {
-        ctx.insert(policy);
-        ctx.insert(Interaction::default());
+    #[allow(unused_variables)]
+    fn setup(&mut self, ctx: &mut ElementContext) {
+        panic!("Not implemented")
     }
-    let id = ctx.id();
-    let classes = ctx.classes();
-    let styles = ctx.styles();
-    ctx.update_element(move |element| {
-        element.name = Some(tag);
-        element.id = id;
-        element.classes.extend(classes);
-        element.styles.extend(styles);
-    });
-}
-
-pub trait Widget: Sized + 'static {
-    fn names() -> &'static [&'static str];
-    fn default_styles() -> &'static str {
-        ""
+    #[allow(unused_variables)]
+    fn construct(ctx: &mut ElementContext) {
+        panic!("Not implemented")
     }
-    fn build(context: &mut ElementContext);
+
+    fn post_process(ctx: &mut ElementContext) {
+        let tag = Self::names().iter().next().unwrap().as_tag();
+        ctx.apply_commands();
+        let focus_policy = match ctx.param(tag!("interactable")) {
+            Some(AttributeValue::Empty) => Some(FocusPolicy::Pass),
+            Some(AttributeValue::String(s)) if &s == "block" => Some(FocusPolicy::Block),
+            Some(AttributeValue::String(s)) if &s == "pass" => Some(FocusPolicy::Pass),
+            _ => None,
+        };
+        if let Some(policy) = focus_policy {
+            ctx.insert(policy);
+            ctx.insert(Interaction::default());
+        }
+        let id = ctx.id();
+        let classes = ctx.classes();
+        let styles = ctx.styles();
+        ctx.update_element(move |element| {
+            element.name = Some(tag);
+            element.id = id;
+            element.classes.extend(classes);
+            element.styles.extend(styles);
+        });
+    }
 
     fn as_builder() -> ElementBuilder {
         ElementBuilder {
-            build_func: |ctx| Self::build(ctx),
+            build_func: |world, ctx| Self::build(world, ctx),
             names_func: Self::names,
         }
     }
@@ -174,13 +195,17 @@ type Names = fn() -> &'static [&'static str];
 
 #[derive(Clone, Copy)]
 pub struct ElementBuilder {
-    build_func: fn(&mut ElementContext),
+    build_func: fn(&mut World, ElementContextData),
     names_func: Names,
 }
 
 impl ElementBuilder {
     pub fn names(&self) -> impl Iterator<Item = Tag> {
         (self.names_func)().iter().map(|s| s.as_tag())
+    }
+
+    pub fn build(&self, world: &mut World, ctx: ElementContextData) {
+        (self.build_func)(world, ctx);
     }
 }
 
@@ -230,11 +255,11 @@ impl ElementBuilderRegistry {
 }
 
 pub trait RegisterWidgetExtension {
-    fn register_widget<W: Widget>(&mut self);
+    fn register_widget<W: WidgetBuilder>(&mut self);
 }
 
 impl RegisterWidgetExtension for App {
-    fn register_widget<W: Widget>(&mut self) {
+    fn register_widget<W: WidgetBuilder>(&mut self) {
         let registry = self
             .world
             .get_resource_or_insert_with(ElementBuilderRegistry::default);

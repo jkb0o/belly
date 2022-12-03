@@ -30,25 +30,30 @@ pub trait CommonWidgetsExtension {
 }
 impl CommonWidgetsExtension for Elements {}
 
+#[derive(Component)]
 pub(crate) struct Div;
 impl Widget for Div {
     fn names() -> &'static [&'static str] {
         &["div"]
     }
+}
 
-    fn build(ctx: &mut ElementContext) {
+impl WidgetBuilder for Div {
+    fn construct(ctx: &mut ElementContext) {
         let content = ctx.content();
         ctx.insert(ElementBundle::default()).push_children(&content);
     }
 }
 
+#[derive(Component)]
 pub(crate) struct Body;
 impl Widget for Body {
     fn names() -> &'static [&'static str] {
         &["body"]
     }
-
-    fn build(ctx: &mut ElementContext) {
+}
+impl WidgetBuilder for Body {
+    fn construct(ctx: &mut ElementContext) {
         let content = ctx.content();
         ctx.insert(ElementBundle {
             node: NodeBundle {
@@ -71,21 +76,29 @@ impl Widget for Body {
 pub struct Label {
     value: String,
 }
-
 impl Widget for Label {
     fn names() -> &'static [&'static str] {
         &["Label", "label"]
     }
 
-    fn build(ctx: &mut ElementContext) {
+    fn construct_component(world: &mut World) -> Option<Self> {
+        Some(Label {
+            value: "".to_string(),
+        })
+    }
+
+    fn bind_component(&mut self, ctx: &mut ElementContext) {
+        if let Some(value) = bindattr!(ctx, value:String => Self.value) {
+            self.value = value;
+        }
         let entity = ctx.entity();
-        let value = bindattr!(ctx, value:String => Self.value);
         ctx.commands()
             .add(bind!(entity, Label.value => entity, Text.sections[0].value));
-        let label = Label {
-            value: value.unwrap_or_default(),
-        };
+    }
+}
+
+impl WidgetBuilder for Label {
+    fn setup(&mut self, ctx: &mut ElementContext) {
         ctx.insert(TextElementBundle::default());
-        ctx.insert(label);
     }
 }

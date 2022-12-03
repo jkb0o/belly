@@ -151,25 +151,34 @@ impl Widget for TextInput {
         &["TextInput"]
     }
 
-    fn build(ctx: &mut ElementContext) {
-        let entity = ctx.entity();
-        let value = bindattr!(ctx, value:String => Self.value);
-        let cursor = ctx.empty();
-        let text = ctx.empty();
-        let container = ctx.empty();
-        let selection = ctx.empty();
-        // let block_input = FocusPolicy::Block;
-        let widget = TextInput {
-            cursor,
-            text,
-            container,
-            selection,
+    fn construct_component(world: &mut World) -> Option<Self> {
+        Some(TextInput {
+            value: "".to_string(),
             index: 0,
             selected: Selection::new(),
-            value: value.unwrap_or("".to_string()),
-        };
+            cursor: world.spawn_empty().id(),
+            text: world.spawn_empty().id(),
+            container: world.spawn_empty().id(),
+            selection: world.spawn_empty().id(),
+        })
+    }
+
+    fn bind_component(&mut self, ctx: &mut ElementContext) {
+        if let Some(value) = bindattr!(ctx, value:String => Self.value) {
+            self.value = value;
+        }
+    }
+}
+
+impl WidgetBuilder for TextInput {
+    fn setup(&mut self, ctx: &mut ElementContext) {
+        let entity = ctx.entity();
+        let cursor = self.cursor;
+        let text = self.text;
+        let container = self.container;
+        let selection = self.selection;
         ctx.render(eml! {
-            <div with=widget
+            <div
                 interactable="block"
                 c:text-input
                 c:text-input-border

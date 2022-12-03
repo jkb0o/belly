@@ -23,13 +23,13 @@ pub mod tags;
 
 pub struct ElementsCorePlugin;
 
-pub use crate::eml::build::build_element;
 pub use crate::eml::build::ElementBuilder;
 pub use crate::eml::build::ElementBuilderRegistry;
 pub use crate::eml::build::ElementContext;
 pub use crate::eml::build::ElementsBuilder;
 pub use crate::eml::build::RegisterWidgetExtension;
 pub use crate::eml::build::Widget;
+pub use crate::eml::build::WidgetBuilder;
 pub use crate::eml::content::ExpandElements;
 pub use crate::eml::content::ExpandElementsExt;
 pub use crate::eml::content::IntoContent;

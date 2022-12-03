@@ -11,7 +11,7 @@ use bevy::{
 };
 use tagstr::*;
 
-use self::build::{build_element, ElementContextData};
+use self::build::ElementContextData;
 pub mod build;
 pub mod content;
 mod parse;
@@ -117,7 +117,7 @@ fn walk(node: &EmlElement, world: &mut World, parent: Option<Entity>) -> Option<
             }
         };
     }
-    build_element(world, context, builder);
+    builder.build(world, context);
     Some(entity)
 }
 

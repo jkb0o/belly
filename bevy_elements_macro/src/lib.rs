@@ -178,11 +178,7 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
 
                 #children
                 let __builder = ::bevy_elements_core::Elements::#tag();
-                ::bevy_elements_core::build_element(
-                    __world,
-                    __ctx,
-                    __builder,
-                );
+                __builder.build(__world, __ctx);
                 __parent
             }
         }
