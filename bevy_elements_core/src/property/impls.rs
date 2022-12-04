@@ -118,7 +118,7 @@ mod style {
     impl_style_single_value!("max-width", MaxWidthProperty, Val, val, max_size.width);
     impl_style_single_value!("max-height", MaxHeightProperty, Val, val, max_size.height);
 
-    impl_style_single_value!("flex-basis", FlexBasisProperty, Val, val, max_size.height);
+    impl_style_single_value!("flex-basis", FlexBasisProperty, Val, val, flex_basis);
 
     impl_style_single_value!("flex-grow", FlexGrowProperty, f32, f32, flex_grow);
     impl_style_single_value!("flex-shrink", FlexShrinkProperty, f32, f32, flex_shrink);

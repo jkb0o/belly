@@ -7,6 +7,8 @@ pub(crate) struct CommonsPlugin;
 impl Plugin for CommonsPlugin {
     fn build(&self, app: &mut App) {
         app.register_widget::<body>();
+        app.register_widget::<br>();
+        app.register_widget::<brl>();
         app.register_widget::<div>();
         app.register_widget::<Label>();
         app.register_widget::<strong>();
@@ -17,7 +19,8 @@ impl Plugin for CommonsPlugin {
     "width: 100%",
     "height: 100%",
     "align-content: flex-start",
-    "align-items: flex-start"
+    "align-items: flex-start",
+    "flex-wrap: wrap"
 )]
 /// The `<body>` tag defines a ui content (text, images, links, inputs, etc.).
 /// It occupies the entire space of the window and should be treated as root
@@ -34,7 +37,23 @@ fn body(ctx: &mut ElementContext) {
         .push_children(&content);
 }
 
-#[widget]
+#[widget("flex-basis: 100%")]
+/// The `<br/>` tag inserts single line break. `<br/> height is
+/// zero, so combining multiple `<br/>` tags has no effect. Use
+/// [`<brl/>`](brl) if you want to insert extra empty line.
+fn br(ctx: &mut ElementContext) {
+    ctx.insert(ElementBundle::default());
+}
+
+#[widget("flex-basis: 100%")]
+/// The `<brl/>` tag inserts line break **and** extra empty line
+/// with the height of the current font-size. If you only need
+/// to insert single line break use [`<br/>`](br) tag instead.
+fn brl(ctx: &mut ElementContext) {
+    ctx.insert(TextElementBundle::default());
+}
+
+#[widget("flex-wrap: wrap")]
 /// The `<div>` tag is an empty container that is used to define
 /// a division or a section. It does not affect the content or layout
 /// and is used to group `eml` elements to be styled with `ess`.
@@ -45,7 +64,7 @@ fn div(ctx: &mut ElementContext) {
 
 #[derive(Component, Widget)]
 #[alias(label)]
-/// The `<label>` tag is a binable single line line of text. It consumes
+/// The `<label>` tag is a binable single line of text. It consumes
 /// the children and renders the content of bindable `value` param:
 /// ```rust
 /// let input = commands.spawn_empty().id();
