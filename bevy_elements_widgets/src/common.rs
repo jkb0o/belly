@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_elements_core::*;
+use bevy_elements_macro::*;
 
 pub struct CommonsPlugin;
 
@@ -18,14 +19,6 @@ pub trait CommonWidgetsExtension {
 
     fn body() -> ElementBuilder {
         Body::as_builder()
-    }
-
-    fn label() -> ElementBuilder {
-        Label::as_builder()
-    }
-
-    fn Label() -> ElementBuilder {
-        Label::as_builder()
     }
 }
 impl CommonWidgetsExtension for Elements {}
@@ -72,30 +65,32 @@ impl WidgetBuilder for Body {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Widget)]
+#[alias(label)]
 pub struct Label {
-    value: String,
+    #[param( => this, Text.sections[0].value)]
+    pub value: String,
 }
-impl Widget for Label {
-    fn names() -> &'static [&'static str] {
-        &["Label", "label"]
-    }
+// impl Widget for Label {
+//     fn names() -> &'static [&'static str] {
+//         &["Label", "label"]
+//     }
 
-    fn construct_component(world: &mut World) -> Option<Self> {
-        Some(Label {
-            value: "".to_string(),
-        })
-    }
+//     fn construct_component(world: &mut World) -> Option<Self> {
+//         Some(Label {
+//             value: "".to_string(),
+//         })
+//     }
 
-    fn bind_component(&mut self, ctx: &mut ElementContext) {
-        if let Some(value) = bindattr!(ctx, value:String => Self.value) {
-            self.value = value;
-        }
-        let entity = ctx.entity();
-        ctx.commands()
-            .add(bind!(entity, Label.value => entity, Text.sections[0].value));
-    }
-}
+//     fn bind_component(&mut self, ctx: &mut ElementContext) {
+//         if let Some(value) = bindattr!(ctx, value:String => Self.value) {
+//             self.value = value;
+//         }
+//         let entity = ctx.entity();
+//         ctx.commands()
+//             .add(bind!(entity, Label.value => entity, Text.sections[0].value));
+//     }
+// }
 
 impl WidgetBuilder for Label {
     fn setup(&mut self, ctx: &mut ElementContext) {

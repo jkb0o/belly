@@ -1,4 +1,4 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::*;
 extern crate proc_macro;
 use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Error, Expr, ExprPath, ItemFn};
@@ -208,9 +208,14 @@ pub fn eml(tree: proc_macro::TokenStream) -> proc_macro::TokenStream {
     }
 }
 
+fn err(span: Span, message: &str) -> proc_macro::TokenStream {
+    proc_macro::TokenStream::from(syn::Error::new(span, message).to_compile_error())
+}
+
 #[proc_macro_derive(Widget, attributes(alias, param))]
 pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
+    let span = ast.span();
 
     let component = ast.ident;
     let component_str = format!("{component}");
@@ -219,9 +224,11 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
     let mut docs = quote! {};
     let mut construct_body = quote! {};
-    let mut bind_body = quote! {};
-    // TODO: use `doclines` to generate XSD docs as well as extension docs
+    // TODO: use `doclines` to generate XSD docs like extension docs
     let mut doclines: Vec<String> = vec![];
+    let mut bind_body = quote! {
+        let this = ctx.entity();
+    };
     let mut extension_body = quote! {
         #[doc = " This is realy cool thing"]
         #[allow(non_snake_case)]
@@ -231,8 +238,46 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
     };
 
     let syn::Data::Struct(data) = ast.data else {
-        panic!("Widget could be derived only for structs");
+        return err(span, "Widget could be derived only for structs");
     };
+
+    for field in data.fields.iter() {
+        let Some(field_ident) = field.ident.as_ref() else {
+            return err(span, "Tuple Structs not yet supported by Widget derive.")
+        };
+        let field_str = format!("{field_ident}");
+
+        if let syn::Type::Path(path) = &field.ty {
+            let type_repr = path.clone().into_token_stream().to_string();
+            if &type_repr == "Entity" {
+                if &field_str == "ctx" {
+                    return err(
+                        field.span(),
+                        "Using `ctx` as field name may lead to Widget's unexpected behaviour.",
+                    );
+                }
+                if &field_str == "this" {
+                    return err(
+                        field.span(),
+                        "Using `this` as field name may lead to Widget's unexpected behaviour.",
+                    );
+                }
+                construct_body = quote! {
+                    #construct_body
+                    #field_ident: world.spawn_empty().id(),
+                };
+                bind_body = quote! {
+                    #bind_body
+                    let #field_ident = self.#field_ident;
+                };
+                continue;
+            }
+        }
+        construct_body = quote! {
+            #construct_body
+            #field_ident: ::std::default::Default::default(),
+        }
+    }
 
     for field in data.fields.iter() {
         let field_ident = &field.ident;
@@ -248,21 +293,16 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 {
                     self.#field_ident = value;
                 }
+            };
+            if !attr.tokens.is_empty() {
+                let bind_target = attr.parse_args::<TokenStream>().unwrap();
+                bind_body = quote! {
+                    #bind_body
+                    ctx.commands().add(
+                        ::bevy_elements_core::bind!(this, #component.#field_ident #bind_target)
+                    );
+                }
             }
-        }
-        if let syn::Type::Path(path) = &field.ty {
-            let type_repr = path.clone().into_token_stream().to_string();
-            if &type_repr == "Entity" {
-                construct_body = quote! {
-                    #construct_body
-                    #field_ident: world.spawn_empty().id(),
-                };
-                continue;
-            }
-        }
-        construct_body = quote! {
-            #construct_body
-            #field_ident: ::std::default::Default::default(),
         }
     }
 
@@ -279,9 +319,9 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
     for attr in ast.attrs.iter() {
         if attr.path.is_ident("alias") {
-            let alias = attr
-                .parse_args::<syn::Ident>()
-                .expect("Awaited token for alias");
+            let Ok(alias) = attr.parse_args::<syn::Ident>() else {
+                return err(attr.span(), "Alias should be defined using tokens: `#[alias(alias_name)]");
+            };
             let alias_str = format!("{alias}");
             alias_expr = quote! { #alias_expr, #alias_str };
             extension_body = quote! {

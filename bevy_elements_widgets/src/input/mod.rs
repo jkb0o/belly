@@ -51,7 +51,7 @@ impl Plugin for InputPlugins {
 /// The `<inputtext>` tag specifies a text input field
 /// where the user can enter data.
 pub struct TextInput {
-    #[param]
+    #[param( => text, Label.value)]
     pub value: String,
     index: usize,
     selected: Selection,
@@ -63,7 +63,6 @@ pub struct TextInput {
 
 impl WidgetBuilder for TextInput {
     fn setup(&mut self, ctx: &mut ElementContext) {
-        let entity = ctx.entity();
         let cursor = self.cursor;
         let text = self.text;
         let container = self.container;
@@ -73,7 +72,7 @@ impl WidgetBuilder for TextInput {
                 <div c:text-input-background>
                     <div {container} c:text-input-container>
                         <div {selection} c:text-input-selection s:display="none"/>
-                        <label {text} c:text-input-value value=bind!(<= entity, Self.value)/>
+                        <label {text} c:text-input-value/>
                         <div {cursor} c:text-input-cursor
                             s:position-type="absolute"
                             s:width=format!("{:.0}px", CURSOR_WIDTH)
