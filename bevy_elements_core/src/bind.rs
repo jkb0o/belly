@@ -387,6 +387,13 @@ impl BindToUntyped {
     pub fn write(&self, world: &mut World) -> UntypedWriteDescriptor {
         (self.0)(world)
     }
+
+    pub fn from<R: Component, T: BindValue>(self, bind: BindFrom<R, T>) -> BindUntyped {
+        BindUntyped {
+            bind_from: bind.to_untyped(),
+            bind_to: self,
+        }
+    }
 }
 
 pub struct BindUntyped {

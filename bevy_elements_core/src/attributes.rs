@@ -7,7 +7,7 @@ use std::{
 use crate::eml::build::ElementsBuilder;
 use crate::tags;
 use crate::{
-    bind::{BindFrom, BindFromUntyped, BindValue},
+    bind::{BindFrom, BindFromUntyped, BindTo, BindToUntyped, BindValue},
     property::*,
 };
 use bevy::{
@@ -30,6 +30,7 @@ pub enum AttributeValue {
     Elements(ElementsBuilder),
     Attributes(Attributes),
     BindFrom(BindFromUntyped),
+    BindTo(BindToUntyped),
 }
 
 impl Debug for AttributeValue {
@@ -43,6 +44,7 @@ impl Debug for AttributeValue {
             AttributeValue::Commands(_) => write!(f, "AttributeValue::Commands"),
             AttributeValue::Elements(_) => write!(f, "AttributeValue::Elements"),
             AttributeValue::BindFrom(_) => write!(f, "AttributeValue::BindFrom"),
+            AttributeValue::BindTo(_) => write!(f, "AttributeValue::BindTo"),
         }
     }
 }
@@ -101,6 +103,7 @@ impl AttributeValue {
             AttributeValue::Elements(_) => TypeId::of::<T>() == TypeId::of::<ElementsBuilder>(),
             AttributeValue::Attributes(_) => TypeId::of::<T>() == TypeId::of::<Attributes>(),
             AttributeValue::BindFrom(_) => TypeId::of::<T>() == TypeId::of::<BindFromUntyped>(),
+            AttributeValue::BindTo(_) => TypeId::of::<T>() == TypeId::of::<BindToUntyped>(),
         }
     }
 
@@ -114,6 +117,7 @@ impl AttributeValue {
             AttributeValue::Elements(v) => try_cast::<T, ElementsBuilder>(v),
             AttributeValue::Attributes(v) => try_cast::<T, Attributes>(v),
             AttributeValue::BindFrom(v) => try_cast::<T, BindFromUntyped>(v),
+            AttributeValue::BindTo(v) => try_cast::<T, BindToUntyped>(v),
         }
     }
     pub fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
@@ -126,6 +130,7 @@ impl AttributeValue {
             AttributeValue::Elements(v) => try_cast_mut::<T, ElementsBuilder>(v),
             AttributeValue::Attributes(v) => try_cast_mut::<T, Attributes>(v),
             AttributeValue::BindFrom(v) => try_cast_mut::<T, BindFromUntyped>(v),
+            AttributeValue::BindTo(v) => try_cast_mut::<T, BindToUntyped>(v),
         }
     }
 
@@ -139,6 +144,7 @@ impl AttributeValue {
             AttributeValue::Elements(v) => try_take::<T, ElementsBuilder>(v),
             AttributeValue::Attributes(v) => try_take::<T, Attributes>(v),
             AttributeValue::BindFrom(v) => try_take::<T, BindFromUntyped>(v),
+            AttributeValue::BindTo(v) => try_take::<T, BindToUntyped>(v),
         }
     }
 
@@ -452,6 +458,12 @@ impl<W: Component, T: BindValue> From<BindFrom<W, T>> for AttributeValue {
     }
 }
 
+impl<R: Component, T: BindValue> From<BindTo<R, T>> for AttributeValue {
+    fn from(bind: BindTo<R, T>) -> Self {
+        AttributeValue::BindTo(bind.to_untyped())
+    }
+}
+
 #[macro_export]
 macro_rules! bindattr {
     ($ctx:ident, $key:ident:$typ:ident => $($target:tt)*) => {
@@ -462,6 +474,7 @@ macro_rules! bindattr {
             let mut __value = Default::default();
             match __attr {
                 Some($crate::AttributeValue::BindFrom(__b)) => $ctx.commands().add(__b.to($crate::bind!(=> __elem, $($target)*))),
+                Some($crate::AttributeValue::BindTo(__b)) => $ctx.commands().add(__b.from($crate::bind!(<= __elem, $($target)*))),
                 Some($crate::AttributeValue::$typ(__v)) => __value = Some(__v),
                 Some(__attr) => error!("Unsupported value for '{}' attribute: {:?}", __key, __attr),
                 _ => ()
