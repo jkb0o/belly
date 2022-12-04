@@ -517,7 +517,9 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
             let mut branch = ElementsBranch::new();
             let mut tail = entity;
             while let Ok(element) = elements.get(tail) {
-                branch.insert(element);
+                if !element.is_virtual() {
+                    branch.insert(element);
+                }
                 if let Ok(parent) = parents.get(tail) {
                     tail = parent.get();
                 } else {

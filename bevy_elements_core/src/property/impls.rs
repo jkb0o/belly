@@ -261,6 +261,7 @@ mod text {
         Regular,
         Bold,
         Italic,
+        BoldItalic,
         Custom(String),
     }
 
@@ -327,9 +328,10 @@ mod text {
                 Ok(FontPath::Custom(path))
             } else if let Some(ident) = values.identifier() {
                 match ident {
-                    "default-regular" => Ok(FontPath::Regular),
-                    "default-bold" => Ok(FontPath::Bold),
-                    "default-italic" => Ok(FontPath::Italic),
+                    "regular" => Ok(FontPath::Regular),
+                    "bold" => Ok(FontPath::Bold),
+                    "italic" => Ok(FontPath::Italic),
+                    "bold-italic" => Ok(FontPath::BoldItalic),
                     _ => Err(ElementsError::InvalidPropertyValue(
                         Self::name().to_string(),
                     )),
@@ -359,8 +361,9 @@ mod text {
                     let defaults = world.resource::<Defaults>();
                     let font = match path {
                         FontPath::Regular => defaults.regular_font.clone(),
-                        FontPath::Italic => defaults.regular_font.clone(),
-                        FontPath::Bold => defaults.regular_font.clone(),
+                        FontPath::Italic => defaults.italic_font.clone(),
+                        FontPath::Bold => defaults.bold_font.clone(),
+                        FontPath::BoldItalic => defaults.bold_italic_font.clone(),
                         _ => defaults.regular_font.clone(),
                     };
                     world

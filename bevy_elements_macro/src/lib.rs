@@ -388,7 +388,7 @@ pub fn widget(
     let (_doclines, docs) = parse_docs(&ast.attrs);
     if !args.is_empty() {
         let Ok(styles) = syn::punctuated::Punctuated::<syn::LitStr, syn::Token![,]>::parse_terminated.parse(args) else {
-            return err(span, "#[widget] macro attributes should string literals: #[widget(\"font: default-bold\")]");
+            return err(span, "#[widget] macro attributes should string literals: #[widget(\"font: bold\")]");
         };
         let mut styles_value = format!("{alias} {{ ");
         for style in styles {

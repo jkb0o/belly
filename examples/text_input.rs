@@ -29,6 +29,7 @@ fn setup(mut commands: Commands) {
     commands.add(eml! {
         <body s:padding="20px">
             <div c:vertical>
+                <div>"Hello, "<strong>"fella"</strong>"!"</div>
                 <textinput {input} value=bind!(=> label, Label.value) s:margin-right="10px" s:width="100px"/>
                 <div>
                     "Bind by to-label:   Hello, "<label {label}/>"!"

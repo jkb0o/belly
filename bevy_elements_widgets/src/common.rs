@@ -69,7 +69,7 @@ impl WidgetBuilder for Label {
     }
 }
 
-#[widget("font: default-bold")]
+#[widget("font: bold")]
 /// The `<strong>` tag highlights an important part of a text. It can be used
 /// for such important contents, as warnings. This can be one sentence that gives
 /// importance to the whole page, or it may be needed if you want to highlight

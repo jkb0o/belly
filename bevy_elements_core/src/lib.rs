@@ -281,6 +281,9 @@ impl RegisterProperty for bevy::prelude::App {
 #[derive(Default, Resource)]
 pub struct Defaults {
     pub regular_font: Handle<Font>,
+    pub italic_font: Handle<Font>,
+    pub bold_font: Handle<Font>,
+    pub bold_italic_font: Handle<Font>,
     pub style_sheet: Handle<StyleSheet>,
 }
 
@@ -292,15 +295,28 @@ pub fn setup_defaults(
     extractor: Res<PropertyExtractor>,
     validator: Res<PropertyValidator>,
 ) {
-    let default_font_bytes = include_bytes!("SourceCodePro-Light.ttf").to_vec();
-    let default_font_asset = Font::try_from_bytes(default_font_bytes).unwrap();
-    let default_font_handle = fonts.add(default_font_asset);
-    defaults.regular_font = default_font_handle;
+    let font_bytes = include_bytes!("Exo2-ExtraLight.ttf").to_vec();
+    let font_asset = Font::try_from_bytes(font_bytes).unwrap();
+    let font_handle = fonts.add(font_asset);
+    defaults.regular_font = font_handle;
+    let font_bytes = include_bytes!("Exo2-ExtraLightItalic.ttf").to_vec();
+    let font_asset = Font::try_from_bytes(font_bytes).unwrap();
+    let font_handle = fonts.add(font_asset);
+    defaults.italic_font = font_handle;
+    let font_bytes = include_bytes!("Exo2-SemiBold.ttf").to_vec();
+    let font_asset = Font::try_from_bytes(font_bytes).unwrap();
+    let font_handle = fonts.add(font_asset);
+    defaults.bold_font = font_handle;
+    let font_bytes = include_bytes!("Exo2-SemiBoldItalic.ttf").to_vec();
+    let font_asset = Font::try_from_bytes(font_bytes).unwrap();
+    let font_handle = fonts.add(font_asset);
+    defaults.bold_italic_font = font_handle;
+
     let parser = StyleSheetParser::new(validator.clone(), extractor.clone());
     let mut rules = parser.parse(
         r#"
             * {
-                font: default-regular;
+                font: regular;
                 color: #cfcfcf;
                 font-size: 22px;
             }
