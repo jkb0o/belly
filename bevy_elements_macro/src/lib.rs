@@ -1,7 +1,9 @@
 use proc_macro2::{Span, TokenStream};
 use quote::*;
 extern crate proc_macro;
-use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Error, Expr, ExprPath, ItemFn};
+use syn::{
+    parse::Parser, parse_macro_input, spanned::Spanned, DeriveInput, Error, Expr, ExprPath, ItemFn,
+};
 use syn_rsx::{parse, Node, NodeAttribute};
 
 fn create_single_command_stmt(expr: &ExprPath) -> TokenStream {
@@ -345,7 +347,6 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
     })
 }
 
-
 fn capitalize(s: &str) -> String {
     let mut c = s.chars();
     match c.next() {
@@ -355,7 +356,7 @@ fn capitalize(s: &str) -> String {
 }
 
 fn parse_docs(attrs: &Vec<syn::Attribute>) -> (Vec<String>, TokenStream) {
-    let mut docs = quote! { };
+    let mut docs = quote! {};
     let mut doclines = vec![];
 
     for attr in attrs.iter().filter(|a| a.path.is_ident("doc")) {
@@ -372,16 +373,36 @@ fn parse_docs(attrs: &Vec<syn::Attribute>) -> (Vec<String>, TokenStream) {
 }
 
 #[proc_macro_attribute]
-pub fn widget(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn widget(
+    args: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
     let ast = parse_macro_input!(input as syn::ItemFn);
+    let span = ast.span();
     let fn_ident = ast.sig.ident;
     let fn_args = ast.sig.inputs;
     let fn_body = ast.block;
     let alias = fn_ident.to_string();
     let extension = format_ident!("{}WidgetExtension", capitalize(&alias));
+    let mut styles_impl = quote! {};
     let (_doclines, docs) = parse_docs(&ast.attrs);
-    
+    if !args.is_empty() {
+        let Ok(styles) = syn::punctuated::Punctuated::<syn::LitStr, syn::Token![,]>::parse_terminated.parse(args) else {
+            return err(span, "#[widget] macro attributes should string literals: #[widget(\"font: default-bold\")]");
+        };
+        let mut styles_value = format!("{alias} {{ ");
+        for style in styles {
+            styles_value += &style.value();
+            styles_value += "; ";
+        }
+        styles_value += "}";
 
+        styles_impl = quote! {
+            fn styles() -> &'static str {
+                #styles_value
+            }
+        }
+    }
 
     proc_macro::TokenStream::from(quote! {
         #[derive(Component)]
@@ -395,6 +416,7 @@ pub fn widget(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) ->
         }
 
         impl ::bevy_elements_core::WidgetBuilder for #fn_ident {
+            #styles_impl
             fn construct(#fn_args) {
                 #fn_body
             }
@@ -409,5 +431,4 @@ pub fn widget(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) ->
 
         impl #extension for ::bevy_elements_core::Elements { }
     })
-    
 }

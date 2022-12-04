@@ -531,8 +531,8 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
             let property = rules
                 .iter()
                 .filter_map(|r|
-                    // use default values for zero-weighted selectors
-                    if r.selector.weight.is_zero() && default.is_some() {
+                    // use default values for zero-weighted or from-default-style-sheet selectors
+                    if r.selector.overridable_by_props() && default.is_some() {
                         default
                     } else if r.selector.matches(&branch) {
                         Some(r.properties.get(&Self::name()).unwrap())

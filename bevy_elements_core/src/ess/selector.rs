@@ -253,6 +253,10 @@ impl Selector {
         }
         result
     }
+
+    pub fn overridable_by_props(&self) -> bool {
+        return self.weight.0 == 0 || self.weight.1 == 0;
+    }
 }
 
 pub trait EmlBranch {

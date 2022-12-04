@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_elements_core::*;
 use bevy_elements_macro::*;
 
-pub (crate) struct CommonsPlugin;
+pub(crate) struct CommonsPlugin;
 
 impl Plugin for CommonsPlugin {
     fn build(&self, app: &mut App) {
@@ -13,41 +13,35 @@ impl Plugin for CommonsPlugin {
     }
 }
 
-
-#[widget]
+#[widget(
+    "width: 100%",
+    "height: 100%",
+    "align-content: flex-start",
+    "align-items: flex-start"
+)]
 /// The `<body>` tag defines a ui content (text, images, links, inputs, etc.).
 /// It occupies the entire space of the window and should be treated as root
 /// container for other elements.
-/// 
-/// > **_NOTE:_** in the future releases it is possible the only single `<body>` 
+///
+/// > **_NOTE:_** in the future releases it is possible the only single `<body>`
 /// > element on the page would be allowed.
+///
+/// <!-- widget-category: common -->
 fn body(ctx: &mut ElementContext) {
     let content = ctx.content();
-    ctx.insert(ElementBundle {
-        node: NodeBundle {
-            style: Style {
-                size: Size::new(Val::Percent(100.), Val::Percent(100.)),
-                align_content: AlignContent::FlexStart,
-                align_items: AlignItems::FlexStart,
-                ..default()
-            },
-            ..default()
-        },
-        ..default()
-    })
-    .insert(Interaction::None)
-    .push_children(&content);
+    ctx.insert(ElementBundle::default())
+        .insert(Interaction::None)
+        .push_children(&content);
 }
 
 #[widget]
-/// The `<div>` tag is an empty container that is used to define 
+/// The `<div>` tag is an empty container that is used to define
 /// a division or a section. It does not affect the content or layout
 /// and is used to group `eml` elements to be styled with `ess`.
 fn div(ctx: &mut ElementContext) {
     let content = ctx.content();
     ctx.insert(ElementBundle::default()).push_children(&content);
 }
-
 
 #[derive(Component, Widget)]
 #[alias(label)]
@@ -58,7 +52,7 @@ fn div(ctx: &mut ElementContext) {
 /// commands.add(eml! {
 ///     // just a single line of text
 ///     <label value="Hello world!"/>
-/// 
+///
 ///     // bind textinput.value to label.value
 ///     <textinput {input}/>
 ///     <label value=bind!(<= input, TextInput.value)/>
@@ -75,7 +69,7 @@ impl WidgetBuilder for Label {
     }
 }
 
-#[widget]
+#[widget("font: default-bold")]
 /// The `<strong>` tag highlights an important part of a text. It can be used
 /// for such important contents, as warnings. This can be one sentence that gives
 /// importance to the whole page, or it may be needed if you want to highlight
