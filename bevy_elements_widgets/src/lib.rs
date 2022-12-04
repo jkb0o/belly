@@ -13,9 +13,7 @@ impl Plugin for WidgetsPlugin {
 }
 
 pub mod prelude {
-    pub use crate::common::CommonWidgetsExtension;
-    pub use crate::common::Label;
-    pub use crate::common::LabelWidgetExtension;
+    pub use crate::common::*;
     pub use crate::input::TextInput;
     pub use crate::input::TextInputWidgetExtension;
 }

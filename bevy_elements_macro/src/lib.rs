@@ -221,11 +221,10 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
     let component_str = format!("{component}");
     let mut alias_expr = quote! { #component_str };
     let extension_ident = format_ident!("{component}WidgetExtension");
-
-    let mut docs = quote! {};
     let mut construct_body = quote! {};
+
     // TODO: use `doclines` to generate XSD docs like extension docs
-    let mut doclines: Vec<String> = vec![];
+    let (_doclines, docs) = parse_docs(&ast.attrs);
     let mut bind_body = quote! {
         let this = ctx.entity();
     };
@@ -306,17 +305,6 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
         }
     }
 
-    for attr in ast.attrs.iter().filter(|a| a.path.is_ident("doc")) {
-        let docline = attr.tokens.to_string();
-        if docline.starts_with("= ") {
-            doclines.push(docline[2..].to_string());
-        }
-        docs = quote! {
-            #docs
-            #attr
-        }
-    }
-
     for attr in ast.attrs.iter() {
         if attr.path.is_ident("alias") {
             let Ok(alias) = attr.parse_args::<syn::Ident>() else {
@@ -355,4 +343,71 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
         impl #extension_ident for ::bevy_elements_core::Elements { }
     })
+}
+
+
+fn capitalize(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        None => String::new(),
+        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+    }
+}
+
+fn parse_docs(attrs: &Vec<syn::Attribute>) -> (Vec<String>, TokenStream) {
+    let mut docs = quote! { };
+    let mut doclines = vec![];
+
+    for attr in attrs.iter().filter(|a| a.path.is_ident("doc")) {
+        let docline = attr.tokens.to_string();
+        if docline.starts_with("= ") {
+            doclines.push(docline[2..].to_string());
+        }
+        docs = quote! {
+            #docs
+            #attr
+        }
+    }
+    (doclines, docs)
+}
+
+#[proc_macro_attribute]
+pub fn widget(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let ast = parse_macro_input!(input as syn::ItemFn);
+    let fn_ident = ast.sig.ident;
+    let fn_args = ast.sig.inputs;
+    let fn_body = ast.block;
+    let alias = fn_ident.to_string();
+    let extension = format_ident!("{}WidgetExtension", capitalize(&alias));
+    let (_doclines, docs) = parse_docs(&ast.attrs);
+    
+
+
+    proc_macro::TokenStream::from(quote! {
+        #[derive(Component)]
+        #[allow(non_camel_case_types)]
+        struct #fn_ident;
+
+        impl ::bevy_elements_core::Widget for #fn_ident {
+            fn names() -> &'static [&'static str] {
+                &[#alias]
+            }
+        }
+
+        impl ::bevy_elements_core::WidgetBuilder for #fn_ident {
+            fn construct(#fn_args) {
+                #fn_body
+            }
+        }
+
+        pub trait #extension {
+            #docs
+            fn #fn_ident() -> ::bevy_elements_core::ElementBuilder {
+                #fn_ident::as_builder()
+            }
+        }
+
+        impl #extension for ::bevy_elements_core::Elements { }
+    })
+    
 }

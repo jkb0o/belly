@@ -456,17 +456,17 @@ impl<W: Component, T: BindValue> From<BindFrom<W, T>> for AttributeValue {
 macro_rules! bindattr {
     ($ctx:ident, $key:ident:$typ:ident => $($target:tt)*) => {
         {
-            let elem = $ctx.entity();
-            let key = stringify!($key).as_tag();
-            let attr = $ctx.param(key);
-            let mut value = Default::default();
-            match attr {
-                Some($crate::AttributeValue::BindFrom(b)) => $ctx.commands().add(b.to($crate::bind!(=> elem, $($target)*))),
-                Some($crate::AttributeValue::$typ(v)) => value = Some(v),
-                Some(attr) => error!("Unsupported value for '{}' attribute: {:?}", key, attr),
+            let __elem = $ctx.entity();
+            let __key = stringify!($key).as_tag();
+            let __attr = $ctx.param(__key);
+            let mut __value = Default::default();
+            match __attr {
+                Some($crate::AttributeValue::BindFrom(__b)) => $ctx.commands().add(__b.to($crate::bind!(=> __elem, $($target)*))),
+                Some($crate::AttributeValue::$typ(__v)) => __value = Some(__v),
+                Some(__attr) => error!("Unsupported value for '{}' attribute: {:?}", __key, __attr),
                 _ => ()
             };
-            value
+            __value
         }
     };
 }

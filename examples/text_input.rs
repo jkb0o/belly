@@ -28,6 +28,7 @@ fn setup(mut commands: Commands) {
     let input = commands.spawn_empty().id();
     commands.add(eml! {
         <body s:padding="20px">
+        <label/>
             <div c:center-left>
                 <textinput {input} value="world" s:margin-right="10px" s:width="100px"/>
                 "Hello, "{bind!(<=input, TextInput.value)}"!"
