@@ -19,19 +19,26 @@ fn setup(mut commands: Commands) {
         .text-input-border:focus {
             background-color: #2f2f2f;
         }
-        .center-left {
-            align-content: space-around;
-            align-items: center;
+        .vertical {
+            flex-direction: column
         }
     "#,
     ));
     let input = commands.spawn_empty().id();
+    let label = commands.spawn_empty().id();
     commands.add(eml! {
         <body s:padding="20px">
-        <label/>
-            <div c:center-left>
-                <textinput {input} value="world" s:margin-right="10px" s:width="100px"/>
-                "Hello, "{bind!(<=input, TextInput.value)}"!"
+            <div c:vertical>
+                <textinput {input} value=bind!(=> label, Label.value) s:margin-right="10px" s:width="100px"/>
+                <div>
+                    "Bind by to-label:   Hello, "<label {label}/>"!"
+                </div>
+                <div>
+                    "Bind by from-label: Hello, "<label value=bind!(<= input, TextInput.value)/>"!"
+                </div>
+                <div>
+                    "Bind by content:    Hello, "{bind!(<= input, TextInput.value)}"!"
+                </div>
             </div>
         </body>
     });
