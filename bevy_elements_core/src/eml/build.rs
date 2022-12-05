@@ -13,8 +13,8 @@ use bevy::{
 use tagstr::*;
 
 use crate::{
-    attributes::Attributes, ess::StyleRule, ess::StyleSheetParser, property::PropertyValues, tags,
-    AttributeValue, Element,
+    ess::StyleRule, ess::StyleSheetParser, params::Params, property::PropertyValues, tags, Element,
+    Variant,
 };
 
 pub trait Widget: Sized + Component + 'static {
@@ -68,9 +68,9 @@ pub trait WidgetBuilder: Widget {
         let tag = Self::names().iter().next().unwrap().as_tag();
         ctx.apply_commands();
         let focus_policy = match ctx.param(tag!("interactable")) {
-            Some(AttributeValue::Empty) => Some(FocusPolicy::Pass),
-            Some(AttributeValue::String(s)) if &s == "block" => Some(FocusPolicy::Block),
-            Some(AttributeValue::String(s)) if &s == "pass" => Some(FocusPolicy::Pass),
+            Some(Variant::Empty) => Some(FocusPolicy::Pass),
+            Some(Variant::String(s)) if &s == "block" => Some(FocusPolicy::Block),
+            Some(Variant::String(s)) if &s == "pass" => Some(FocusPolicy::Pass),
             _ => None,
         };
         if let Some(policy) = focus_policy {
@@ -101,7 +101,7 @@ pub struct ElementContextData {
     pub entity: Entity,
     pub names: Names,
     pub children: Vec<Entity>,
-    pub attributes: Attributes,
+    pub params: Params,
 }
 
 impl ElementContextData {
@@ -110,7 +110,7 @@ impl ElementContextData {
             entity,
             names: || &[],
             children: vec![],
-            attributes: Default::default(),
+            params: Default::default(),
         }
     }
 }
@@ -156,24 +156,24 @@ impl<'w, 's> ElementContext<'w, 's> {
         (self.data.names)().iter().map(|n| n.as_tag())
     }
 
-    pub fn param(&mut self, key: Tag) -> Option<AttributeValue> {
-        self.data.attributes.drop_variant(key)
+    pub fn param(&mut self, key: Tag) -> Option<Variant> {
+        self.data.params.drop_variant(key)
     }
 
     pub fn id(&mut self) -> Option<Tag> {
-        self.data.attributes.id()
+        self.data.params.id()
     }
 
     pub fn classes(&mut self) -> HashSet<Tag> {
-        self.data.attributes.classes()
+        self.data.params.classes()
     }
 
     pub fn styles(&mut self) -> HashMap<Tag, PropertyValues> {
-        self.data.attributes.styles()
+        self.data.params.styles()
     }
 
     pub fn apply_commands(&mut self) {
-        if let Some(attr_commands) = self.data.attributes.commands(tags::with()) {
+        if let Some(attr_commands) = self.data.params.commands(tags::with()) {
             attr_commands(&mut self.commands.entity(self.entity()));
         }
     }

@@ -49,7 +49,7 @@ fn create_command_stmts(expr: &Expr) -> TokenStream {
     };
     let expr_span = expr.span();
     quote_spanned! {expr_span=>
-        __ctx.attributes.add(::bevy_elements_core::attributes::Attribute::from_commands("with", ::std::boxed::Box::new(move |c| {
+        __ctx.params.add(::bevy_elements_core::params::Variant::from_commands("with", ::std::boxed::Box::new(move |c| {
             #with_body
         })));
     }
@@ -60,9 +60,9 @@ fn create_attr_stmt(attr: &NodeAttribute) -> TokenStream {
     match &attr.value {
         None => {
             return quote! {
-                __ctx.attributes.add(::bevy_elements_core::attributes::Attribute::new(
+                __ctx.params.add(::bevy_elements_core::params::Param::new(
                     #attr_name.into(),
-                    ::bevy_elements_core::attributes::AttributeValue::Empty
+                    ::bevy_elements_core::params::Variant::Empty
                 ));
             };
         }
@@ -73,7 +73,7 @@ fn create_attr_stmt(attr: &NodeAttribute) -> TokenStream {
                 return create_command_stmts(attr_value);
             } else {
                 return quote_spanned! {attr_span=>
-                    __ctx.attributes.add(::bevy_elements_core::attributes::Attribute::new(
+                    __ctx.params.add(::bevy_elements_core::params::Param::new(
                         #attr_name.into(),
                         (#attr_value).into()
                     ));

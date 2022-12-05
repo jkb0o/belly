@@ -173,7 +173,7 @@ fn walk(node: roxmltree::Node, loader: &EmlLoader) -> Result<EmlElement, Error> 
         } else {
             attr.name().to_string()
         };
-        elem.attributes.insert(name, attr.value().to_string());
+        elem.params.insert(name, attr.value().to_string());
     }
     for ch in node.children() {
         if ch.is_text() {

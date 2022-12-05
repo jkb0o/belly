@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use crate::{
-    attributes::Attribute, Element, ElementBuilderRegistry, PropertyExtractor, PropertyValidator,
-};
+use crate::{params::Param, Element, ElementBuilderRegistry, PropertyExtractor, PropertyValidator};
 use bevy::{
     asset::{AssetLoader, LoadedAsset},
     prelude::*,
@@ -51,7 +49,7 @@ pub enum EmlNode {
 #[derive(Default)]
 pub struct EmlElement {
     name: Tag,
-    attributes: HashMap<String, String>,
+    params: HashMap<String, String>,
     children: Vec<EmlNode>,
 }
 
@@ -94,9 +92,9 @@ fn walk(node: &EmlElement, world: &mut World, parent: Option<Entity>) -> Option<
     };
     let entity = parent.unwrap_or_else(|| world.spawn_empty().id());
     let mut context = ElementContextData::new(entity);
-    for (name, value) in node.attributes.iter() {
-        let attr = Attribute::new(name, value.clone().into());
-        context.attributes.add(attr);
+    for (name, value) in node.params.iter() {
+        let attr = Param::new(name, value.clone().into());
+        context.params.add(attr);
     }
     for child in node.children.iter() {
         match child {

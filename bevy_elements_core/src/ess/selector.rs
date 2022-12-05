@@ -475,7 +475,7 @@ mod test {
         id: Option<Tag>,
         tag: Tag,
         classes: HashSet<Tag>,
-        attributes: HashSet<Tag>,
+        params: HashSet<Tag>,
     }
 
     struct TestNode<'a> {
@@ -491,7 +491,7 @@ mod test {
             self.branch.0[self.index].tag == *tag
         }
         fn has_state(&self, tag: &Tag) -> bool {
-            self.branch.0[self.index].attributes.contains(tag)
+            self.branch.0[self.index].params.contains(tag)
         }
         fn has_class(&self, class: &Tag) -> bool {
             self.branch.0[self.index].classes.contains(class)
@@ -528,7 +528,7 @@ mod test {
                         has_values = false;
                         continue;
                     }
-                    SelectorElement::State(attr) => void(node.attributes.insert(attr)),
+                    SelectorElement::State(attr) => void(node.params.insert(attr)),
                     SelectorElement::Class(class) => void(node.classes.insert(class)),
                     SelectorElement::Id(id) => node.id = Some(id),
                     SelectorElement::Tag(tag) => node.tag = tag,
@@ -564,7 +564,7 @@ mod test {
         // attribute
         let branch: TestBranch = " div:attr ".into();
         assert_eq!(branch.0.len(), 1);
-        assert!(branch.0[0].attributes.contains(&"attr".as_tag()));
+        assert!(branch.0[0].params.contains(&"attr".as_tag()));
 
         // class
         let branch: TestBranch = " div.cls ".into();
@@ -583,7 +583,7 @@ mod test {
         assert_eq!(branch.0[0].tag, "span".as_tag());
         assert_eq!(branch.0[1].id, Some("id".as_tag()));
         assert_eq!(branch.0[1].classes.contains(&"cls".as_tag()), true);
-        assert_eq!(branch.0[0].attributes.contains(&"attr".as_tag()), true);
+        assert_eq!(branch.0[0].params.contains(&"attr".as_tag()), true);
     }
 
     #[test]
