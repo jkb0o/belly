@@ -1,3 +1,5 @@
+*There is no way to feel the happiness without understanding the pain.*
+
 About
 -----
 
