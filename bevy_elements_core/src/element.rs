@@ -1,5 +1,6 @@
 use bevy::utils::HashMap;
 use bevy::utils::HashSet;
+use smallvec::SmallVec;
 
 use crate::property::*;
 use crate::tags;
@@ -17,7 +18,7 @@ pub enum DisplayElement {
 
 #[derive(Component, Default)]
 pub struct Element {
-    pub name: Option<Tag>,
+    pub names: SmallVec<[Tag; 4]>,
     pub id: Option<Tag>,
     pub classes: HashSet<Tag>,
     pub state: HashSet<Tag>,
@@ -28,7 +29,7 @@ pub struct Element {
 
 impl Element {
     pub fn is_virtual(&self) -> bool {
-        self.name.is_none()
+        self.names.len() == 0
     }
     pub fn inline() -> Element {
         Element {

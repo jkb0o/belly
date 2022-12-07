@@ -1,4 +1,5 @@
 use std::{
+    marker::PhantomData,
     mem,
     sync::{Arc, RwLock},
 };
@@ -13,8 +14,8 @@ use bevy::{
 use tagstr::*;
 
 use crate::{
-    ess::StyleRule, ess::StyleSheetParser, params::Params, property::PropertyValues, tags, Element,
-    Variant,
+    bind::ConnectionTo, ess::StyleRule, ess::StyleSheetParser, params::Params,
+    property::PropertyValues, tags, Element, Variant,
 };
 
 pub trait Widget: Sized + Component + 'static {
@@ -65,7 +66,8 @@ pub trait WidgetBuilder: Widget {
     }
 
     fn post_process(ctx: &mut ElementContext) {
-        let tag = Self::names().iter().next().unwrap().as_tag();
+        let names = Self::names().iter().map(|n| n.as_tag()).collect();
+        // println!("adding tag {}", names.ite
         ctx.apply_commands();
         let focus_policy = match ctx.param(tag!("interactable")) {
             Some(Variant::Empty) => Some(FocusPolicy::Pass),
@@ -81,7 +83,7 @@ pub trait WidgetBuilder: Widget {
         let classes = ctx.classes();
         let styles = ctx.styles();
         ctx.update_element(move |element| {
-            element.name = Some(tag);
+            element.names = names;
             element.id = id;
             element.classes.extend(classes);
             element.styles.extend(styles);
@@ -190,10 +192,6 @@ impl<'w, 's> ElementContext<'w, 's> {
             }
         });
     }
-
-    fn release(self) -> ElementContextData {
-        self.data
-    }
 }
 
 type Names = fn() -> &'static [&'static str];
@@ -275,16 +273,17 @@ impl ElementBuilderRegistry {
 }
 
 pub trait RegisterWidgetExtension {
-    fn register_widget<W: WidgetBuilder>(&mut self);
+    fn register_widget<W: WidgetBuilder>(&mut self) -> &mut Self;
 }
 
 impl RegisterWidgetExtension for App {
-    fn register_widget<W: WidgetBuilder>(&mut self) {
+    fn register_widget<W: WidgetBuilder>(&mut self) -> &mut Self {
         let registry = self
             .world
             .get_resource_or_insert_with(ElementBuilderRegistry::default);
         for name in W::names().iter().map(|n| n.as_tag()) {
             registry.add_builder(name, W::as_builder());
         }
+        self
     }
 }

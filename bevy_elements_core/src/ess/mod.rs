@@ -4,10 +4,7 @@ mod selector;
 use bevy::{
     asset::{AssetLoader, LoadedAsset},
     ecs::system::Command,
-    prelude::{
-        AddAsset, AssetEvent, AssetServer, Assets, EventReader, Handle, Plugin, Res, ResMut,
-        Resource,
-    },
+    prelude::*,
     reflect::TypeUuid,
     utils::{hashbrown::hash_map::Keys, HashMap},
 };
@@ -15,7 +12,10 @@ pub use selector::*;
 use smallvec::SmallVec;
 use tagstr::Tag;
 
-use crate::{property::PropertyValues, Defaults, PropertyExtractor, PropertyValidator};
+use crate::{
+    input::invalidate_elements, property::PropertyValues, Defaults, Element, PropertyExtractor,
+    PropertyValidator,
+};
 
 pub use self::parser::StyleSheetParser;
 use std::ops::Deref;
@@ -39,7 +39,7 @@ impl Plugin for EssPlugin {
             validator,
             extractor,
         });
-        app.add_system(update_weights);
+        app.add_system(process_styles_system);
     }
 }
 
@@ -76,6 +76,7 @@ impl AssetLoader for EssLoader {
 #[derive(Default, TypeUuid)]
 #[uuid = "93767098-caca-4f2b-b1d3-cdc91919be75"]
 pub struct StyleSheet {
+    weight: usize,
     rules: Vec<StyleRule>,
 }
 
@@ -93,6 +94,7 @@ pub struct ParseCommand {
 
 impl Command for ParseCommand {
     fn write(self, world: &mut bevy::prelude::World) {
+        info!("wriging ParseCommand");
         let world = world.cell();
         let extractor = world.resource::<PropertyExtractor>().clone();
         let validator = world.resource::<PropertyValidator>().clone();
@@ -116,6 +118,7 @@ pub struct AddCommand {
 
 impl Command for AddCommand {
     fn write(self, world: &mut bevy::prelude::World) {
+        info!("wriging AddCommand");
         let world = world.cell();
         let stylesheet = StyleSheet::new(self.rules);
         let mut styles = world.resource_mut::<Styles>();
@@ -130,6 +133,7 @@ impl Command for AddCommand {
 
 impl Command for LoadCommand {
     fn write(self, world: &mut bevy::prelude::World) {
+        info!("wriging LoadCommand");
         let world = world.cell();
         let mut styles = world.resource_mut::<Styles>();
         let handle = world.resource::<AssetServer>().load(&self.path);
@@ -179,7 +183,12 @@ impl StyleSheet {
         self.rules.push(rule);
     }
 
+    pub(crate) fn extra_weight(&self) -> usize {
+        self.weight
+    }
+
     pub(crate) fn set_extra_weight(&mut self, weight: usize) {
+        self.weight = weight;
         self.rules
             .iter_mut()
             .for_each(|r| r.selector.weight.1 = weight as i32);
@@ -225,24 +234,35 @@ impl Styles {
     }
 }
 
-fn update_weights(
+fn process_styles_system(
     mut styles: ResMut<Styles>,
     mut assets: ResMut<Assets<StyleSheet>>,
     mut events: EventReader<AssetEvent<StyleSheet>>,
     defaults: Res<Defaults>,
+    roots: Query<Entity, (With<Element>, Without<Parent>)>,
+    mut elements: Query<(Entity, &mut Element)>,
+    children: Query<&Children>,
 ) {
+    let mut styles_changed = false;
     for event in events.iter() {
+        styles_changed = true;
         match event {
+            AssetEvent::Removed { handle: _ } => styles_changed = true,
             AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                let stylesheet = assets.get_mut(handle).unwrap();
                 if handle == &defaults.style_sheet {
-                    stylesheet.set_extra_weight(0);
+                    if assets.get(handle).unwrap().extra_weight() != 0 {
+                        assets.get_mut(handle).unwrap().set_extra_weight(0);
+                    }
                 } else {
                     let weight = styles.insert(handle.clone());
-                    stylesheet.set_extra_weight(weight);
+                    if assets.get(handle).unwrap().extra_weight() != weight {
+                        assets.get_mut(handle).unwrap().set_extra_weight(weight);
+                    }
                 }
             }
-            _ => {}
         }
+    }
+    if styles_changed {
+        invalidate_elements(&roots, &mut elements, &children);
     }
 }

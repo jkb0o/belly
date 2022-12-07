@@ -11,6 +11,7 @@ pub use bevy_elements_core::ess::StyleSheet;
 
 // macros
 pub use bevy_elements_core::bind;
+pub use bevy_elements_core::connect;
 pub use bevy_elements_macro::eml;
 
 // traits
@@ -36,4 +37,5 @@ pub mod build {
     pub use bevy_elements_core::ElementContext;
     pub use bevy_elements_core::Elements;
     pub use bevy_elements_core::RegisterWidgetExtension;
+    pub use bevy_elements_macro::widget;
 }

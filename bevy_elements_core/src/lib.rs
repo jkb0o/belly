@@ -23,6 +23,8 @@ pub mod tags;
 
 pub struct ElementsCorePlugin;
 
+pub use crate::bind::Connect;
+pub use crate::bind::ConnectionTo;
 pub use crate::eml::build::ElementBuilder;
 pub use crate::eml::build::ElementBuilderRegistry;
 pub use crate::eml::build::ElementContext;

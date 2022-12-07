@@ -494,6 +494,7 @@ mod text {
             _entity: Entity,
         ) {
             components.alignment.horizontal = cache.expect("Should always have a inner value");
+            info!("applying aligment = {:?}", components.alignment.horizontal);
         }
     }
 

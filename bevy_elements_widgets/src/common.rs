@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy_elements_core::*;
 use bevy_elements_macro::*;
 
+#[doc(hidden)]
 pub(crate) struct CommonsPlugin;
 
 impl Plugin for CommonsPlugin {
@@ -15,13 +16,13 @@ impl Plugin for CommonsPlugin {
     }
 }
 
-#[widget(
-    "width: 100%",
-    "height: 100%",
-    "align-content: flex-start",
-    "align-items: flex-start",
-    "flex-wrap: wrap"
-)]
+#[widget]
+#[style("width: 100%")]
+#[style("width: 100%")]
+#[style("height: 100%")]
+#[style("align-content: flex-start")]
+#[style("align-items: flex-start")]
+#[style("flex-wrap: wrap")]
 /// The `<body>` tag defines a ui content (text, images, links, inputs, etc.).
 /// It occupies the entire space of the window and should be treated as root
 /// container for other elements.
@@ -37,15 +38,17 @@ fn body(ctx: &mut ElementContext) {
         .push_children(&content);
 }
 
-#[widget("flex-basis: 100%")]
-/// The `<br/>` tag inserts single line break. `<br/> height is
+#[widget]
+#[style("flex-basis: 100%")]
+/// The `<br/>` tag inserts single line break. `<br/>` height is
 /// zero, so combining multiple `<br/>` tags has no effect. Use
 /// [`<brl/>`](brl) if you want to insert extra empty line.
 fn br(ctx: &mut ElementContext) {
     ctx.insert(ElementBundle::default());
 }
 
-#[widget("flex-basis: 100%")]
+#[widget]
+#[style("flex-basis: 100%")]
 /// The `<brl/>` tag inserts line break **and** extra empty line
 /// with the height of the current font-size. If you only need
 /// to insert single line break use [`<br/>`](br) tag instead.
@@ -53,7 +56,9 @@ fn brl(ctx: &mut ElementContext) {
     ctx.insert(TextElementBundle::default());
 }
 
-#[widget("flex-wrap: wrap")]
+#[widget]
+#[style("flex-wrap: wrap")]
+#[style("flex-basis: 100%")]
 /// The `<div>` tag is an empty container that is used to define
 /// a division or a section. It does not affect the content or layout
 /// and is used to group `eml` elements to be styled with `ess`.
@@ -86,9 +91,27 @@ impl WidgetBuilder for Label {
     fn setup(&mut self, ctx: &mut ElementContext) {
         ctx.insert(TextElementBundle::default());
     }
+
+    // fn connect<C:Component>(
+    //     world: &mut World,
+    //     signal: &'static str,
+    //     source: Entity,
+    //     target: ConnectionTo<C>
+    // ) {
+    //     match signal {
+    //         "press" => {
+    //             target
+    //                 .filter(|e: &PointerInput| e.pressed())
+    //                 .from(source)
+    //                 .write(world);
+    //         },
+    //         _ => error!("Don't know how to connect '{signal}' signal")
+    //     };
+    // }
 }
 
-#[widget("font: bold")]
+#[widget]
+#[style("font: bold")]
 /// The `<strong>` tag highlights an important part of a text. It can be used
 /// for such important contents, as warnings. This can be one sentence that gives
 /// importance to the whole page, or it may be needed if you want to highlight

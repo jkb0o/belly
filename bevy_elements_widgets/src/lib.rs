@@ -13,7 +13,8 @@ impl Plugin for WidgetsPlugin {
 }
 
 pub mod prelude {
+    #[doc(inline)]
     pub use crate::common::*;
-    pub use crate::input::TextInput;
-    pub use crate::input::TextInputWidgetExtension;
+    #[doc(inline)]
+    pub use crate::input::*;
 }

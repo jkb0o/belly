@@ -314,7 +314,9 @@ impl<'e> ElementsBranch<'e> {
             if node.is_virtual() {
                 continue;
             }
-            result.push_str(&format!("{}", node.name.unwrap()));
+            for name in node.names.iter() {
+                result.push_str(&format!("{name}"));
+            }
             if let Some(id) = node.id {
                 result.push_str(&format!("#{}", id));
             }
@@ -341,7 +343,12 @@ impl<'b, 'e> EmlNode for ElementNode<'b, 'e> {
         self.branch.0[self.idx].id
     }
     fn has_tag(&self, tag: &Tag) -> bool {
-        self.branch.0[self.idx].name == Some(*tag)
+        self.branch.0[self.idx]
+            .names
+            .iter()
+            .filter(|t| *t == tag)
+            .next()
+            .is_some()
     }
 
     fn has_class(&self, class: &Tag) -> bool {

@@ -299,6 +299,7 @@ pub fn pointer_input_system(
 
     let Some(pos) = cursor_position else { return };
     if down_entities.len() > 0 {
+        info!("Down at {}", time.elapsed_seconds());
         if time.elapsed_seconds() - state.was_down_at < 0.3 && down_entities == state.was_down {
             state.presses += 1;
         } else {
@@ -315,6 +316,7 @@ pub fn pointer_input_system(
         });
     }
     if up_entities.len() > 0 {
+        info!("Up at {}", time.elapsed_seconds());
         let presses = state.presses;
         events.send(PointerInput {
             pos,
@@ -388,12 +390,13 @@ pub fn focus_system(
     mut elements: Query<(Entity, &mut Element)>,
     mut signals: EventReader<PointerInput>,
     children: Query<&Children>,
+    // time: Res<Time>,
 ) {
     let mut target_focus = None;
     let mut update_required = false;
     for signal in signals.iter().filter(|s| s.down()) {
         for entity in interactable.iter_many(&signal.entities) {
-            info!("Cliccked: {:?}", entity);
+            // info!("Cliccked: {:?} at {}", entity, time.elapsed_seconds());
             update_required = true;
             if target_focus.is_none() {
                 target_focus = Some(entity);
@@ -413,13 +416,13 @@ pub fn focus_system(
         if let Some(was_focused) = focused.0 {
             if let Ok((_, mut element)) = elements.get_mut(was_focused) {
                 element.state.remove(&tags::focus());
-                invalidate_tree(was_focused, &mut elements, &children);
+                invalidate_subtree(was_focused, &mut elements, &children);
             }
         }
         if let Some(target_focus) = target_focus {
             if let Ok((_, mut element)) = elements.get_mut(target_focus) {
                 element.state.insert(tags::focus());
-                invalidate_tree(target_focus, &mut elements, &children);
+                invalidate_subtree(target_focus, &mut elements, &children);
             }
         }
         focused.0 = target_focus;
@@ -439,7 +442,18 @@ pub fn tab_focus_system(
     }
 }
 
-fn invalidate_tree(
+pub fn invalidate_elements(
+    roots: &Query<Entity, (With<Element>, Without<Parent>)>,
+    elements: &mut Query<(Entity, &mut Element)>,
+    children: &Query<&Children>,
+) {
+    info!("Invalidating elements");
+    for root in roots.iter() {
+        invalidate_subtree(root, elements, children);
+    }
+}
+
+pub fn invalidate_subtree(
     node: Entity,
     q_elements: &mut Query<(Entity, &mut Element)>,
     q_children: &Query<&Children>,
@@ -449,7 +463,7 @@ fn invalidate_tree(
     }
     if let Ok(children) = q_children.get(node) {
         for child in children.iter() {
-            invalidate_tree(*child, q_elements, q_children);
+            invalidate_subtree(*child, q_elements, q_children);
         }
     }
 }

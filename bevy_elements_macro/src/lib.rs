@@ -1,10 +1,10 @@
+use std::fs::File;
+
 use proc_macro2::{Span, TokenStream};
 use quote::*;
 extern crate proc_macro;
-use syn::{
-    parse::Parser, parse_macro_input, spanned::Spanned, DeriveInput, Error, Expr, ExprPath, ItemFn,
-};
-use syn_rsx::{parse, Node, NodeAttribute};
+use syn::{parse::Parser, parse_macro_input, spanned::Spanned, DeriveInput, Error, Expr, ExprPath};
+use syn_rsx::{parse, parse_with_config, Node, NodeAttribute, ParserConfig};
 
 fn create_single_command_stmt(expr: &ExprPath) -> TokenStream {
     let component_span = expr.span();
@@ -85,6 +85,7 @@ fn create_attr_stmt(attr: &NodeAttribute) -> TokenStream {
 
 fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
     let mut children = quote! {};
+    let mut connections = quote! {};
     let mut parent = if create_entity {
         quote! { let __parent = __world.spawn_empty().id(); }
     } else {
@@ -106,8 +107,19 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                 };
             } else if let Node::Attribute(attr) = attr {
                 let attr_name = attr.key.to_string();
-                if &attr_name == "entity" {
-                    let attr_span = attr.key.span();
+                let attr_span = attr.span();
+                if let Some(signal) = attr_name.strip_prefix("on:") {
+                    let Some(connection) = attr.value.as_ref() else {
+                        return Error::new(attr_span, format!("on:{signal} param should provide connection"))
+                            .into_compile_error();
+                    };
+                    let connection = connection.as_ref();
+                    let signal_ident = syn::Ident::new(signal, connection.span());
+                    connections = quote_spanned! {attr_span=>
+                        #connections
+                        __builder.#signal_ident(__world, __parent, #connection);
+                    }
+                } else if &attr_name == "entity" {
                     if parent_defined {
                         return Error::new(attr_span, "Entity already provided by braced block")
                             .into_compile_error();
@@ -180,7 +192,8 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
 
                 #children
                 let __builder = ::bevy_elements_core::Elements::#tag();
-                __builder.build(__world, __ctx);
+                __builder.get_builder().build(__world, __ctx);
+                #connections
                 __parent
             }
         }
@@ -214,7 +227,7 @@ fn err(span: Span, message: &str) -> proc_macro::TokenStream {
     proc_macro::TokenStream::from(syn::Error::new(span, message).to_compile_error())
 }
 
-#[proc_macro_derive(Widget, attributes(alias, param))]
+#[proc_macro_derive(Widget, attributes(alias, param, signal))]
 pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let span = ast.span();
@@ -222,6 +235,7 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
     let component = ast.ident;
     let component_str = format!("{component}");
     let mut alias_expr = quote! { #component_str };
+    let mod_descriptor = format_ident!("{}_widget_descriptor", component_str.to_lowercase());
     let extension_ident = format_ident!("{component}WidgetExtension");
     let mut construct_body = quote! {};
 
@@ -231,10 +245,9 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
         let this = ctx.entity();
     };
     let mut extension_body = quote! {
-        #[doc = " This is realy cool thing"]
         #[allow(non_snake_case)]
-        fn #component() -> ::bevy_elements_core::ElementBuilder {
-            #component::as_builder()
+        fn #component() -> #mod_descriptor::Descriptor {
+            #mod_descriptor::Descriptor
         }
     };
 
@@ -317,14 +330,33 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
             extension_body = quote! {
                 #extension_body
                 #docs
-                fn #alias() -> ::bevy_elements_core::ElementBuilder {
-                    #component::as_builder()
+                fn #alias() -> #mod_descriptor::Descriptor {
+                    #mod_descriptor::Descriptor
                 }
             }
         }
     }
 
+    let connect_signals = match parse_signals(&ast.attrs) {
+        Ok(tokens) => tokens,
+        Err(e) => return proc_macro::TokenStream::from(e.to_compile_error()),
+    };
+
     proc_macro::TokenStream::from(quote! {
+        mod #mod_descriptor {
+            use super::*;
+            pub struct Descriptor;
+            impl Descriptor {
+                pub fn get_instance() -> &'static Descriptor {
+                    &&Descriptor
+                }
+
+                pub fn get_builder(&self) -> ::bevy_elements_core::ElementBuilder {
+                    #component::as_builder()
+                }
+                #connect_signals
+            }
+        }
         impl ::bevy_elements_core::Widget for #component {
             fn names() -> &'static [&'static str] {
                 &[#alias_expr]
@@ -334,16 +366,24 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                     #construct_body
                 })
             }
+            #[allow(unused_variables)]
             fn bind_component(&mut self, ctx: &mut ::bevy_elements_core::ElementContext) {
                 #bind_body
             }
         }
 
         pub trait #extension_ident {
+            type Descriptor;
+            fn descriptor() -> Self::Descriptor;
             #extension_body
         }
 
-        impl #extension_ident for ::bevy_elements_core::Elements { }
+        impl #extension_ident for ::bevy_elements_core::Elements {
+            type Descriptor = #mod_descriptor::Descriptor;
+            fn descriptor() -> Self::Descriptor {
+                #mod_descriptor::Descriptor
+            }
+        }
     })
 }
 
@@ -372,6 +412,114 @@ fn parse_docs(attrs: &Vec<syn::Attribute>) -> (Vec<String>, TokenStream) {
     (doclines, docs)
 }
 
+fn parse_signals(attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStream> {
+    let mut connect_body = quote! {};
+    for attr in attrs.iter() {
+        if attr.path.is_ident("signal") {
+            let span = attr.span();
+            // let signal_decl = attr.tokens.clone();
+            let Ok(meta) = attr.parse_meta() else {
+                return Err(syn::Error::new(span,  "Invalid syntax fo #[signal(name, Event, filter)] attribute."));
+            };
+            let syn::Meta::List(signal_cfg) = meta else {
+                return Err(syn::Error::new(span, "Invalid syntax fo #[signal(name, Event, filter)] attribute."));    
+            };
+            let signal_cfg: Vec<_> = signal_cfg.nested.iter().collect();
+            if signal_cfg.len() != 3 {
+                return Err(syn::Error::new(
+                    span,
+                    "Invalid syntax fo #[signal(name, Event, filter)] attribute.",
+                ));
+            }
+            let syn::NestedMeta::Meta(name) = signal_cfg[0] else {
+                let span = signal_cfg[0].span();
+                return Err(syn::Error::new(span, "Expected ident as first argument to #[signal(name, Event, filter)] attribute."));
+            };
+            let Some(name) = name.path().get_ident() else {
+                let span = name.span();
+                return Err(syn::Error::new(span, "Expected ident as first argument to #[signal(name, Event, filter)] attribute."));
+            };
+            let syn::NestedMeta::Meta(event) = signal_cfg[1] else {
+                let span = signal_cfg[1].span();
+                return Err(syn::Error::new(span, "Expected type path as second argument to #[signal(name, Event, filter)] attribute."));
+            };
+            let syn::NestedMeta::Meta(filter) = signal_cfg[2] else {
+                let span = signal_cfg[2].span();
+                return Err(syn::Error::new(span, "Expected ident as third argument to #[signal(name, Event, filter)] attribute."));
+            };
+            let Some(filter) = filter.path().get_ident() else {
+                let span = filter.span();
+                return Err(syn::Error::new(span, "Expected ident as third argument to #[signal(name, Event, filter)] attribute."));
+            };
+            let event = event.path();
+            connect_body = quote! {
+                pub fn #name<C: ::bevy::prelude::Component>(
+                    &self,
+                    world: &mut ::bevy::prelude::World,
+                    source: ::bevy::prelude::Entity,
+                    target: ::bevy_elements_core::ConnectionTo<C, #event>
+                ) {
+                    target
+                        .filter(|e| e.#filter())
+                        .from(source)
+                        .write(world)
+                }
+            }
+        }
+    }
+    Ok(connect_body)
+}
+
+fn parse_extends(ident: &syn::Ident, attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStream> {
+    let Some(attr) = attrs.iter().filter(|a| a.path.is_ident("extends")).next() else {
+        return Ok(quote! {})
+    };
+    let Ok(extends) = attr.parse_args::<syn::Ident>() else {
+        return Err(syn::Error::new(attr.span(), "#[extends] should be defined using token: `#[extends(button)]"));
+    };
+    let this_str = ident.to_string();
+    let extends = extends.to_string();
+    let this_mod = format_ident!("{}_widget_descriptor", this_str.to_lowercase());
+    let extends = format_ident!("{}WidgetExtension", capitalize(&extends));
+    let derive = quote! {
+        impl ::std::ops::Deref for #this_mod::Descriptor {
+            type Target = <::bevy_elements_core::Elements as #extends>::Descriptor;
+            fn deref(&self) -> &<::bevy_elements_core::Elements as #extends>::Descriptor {
+                let instance = <::bevy_elements_core::Elements as #extends>::Descriptor::get_instance();
+                instance
+            }
+        }
+    };
+    Ok(derive)
+}
+
+fn parse_styles(ident: &syn::Ident, attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStream> {
+    let mut styles = "".to_string();
+    let element = ident.to_string();
+    for attr in attrs.iter().filter(|a| a.path.is_ident("style")) {
+        let Ok(style) = attr.parse_args::<syn::LitStr>() else {
+            return Err(syn::Error::new(attr.span(), "#[style] should be defined using string literal: `#[style(\"padding: 2px\")]"));
+        };
+        styles += &style.value();
+        styles += "; ";
+    }
+
+    if styles.len() > 0 {
+        let styles = format!("{element}: {{ {styles} }}");
+        return Ok(quote! {
+            fn styles() -> &'static str {
+                #styles
+            }
+        });
+    } else {
+        return Ok(quote! {
+            fn styles() -> &'static str {
+                ""
+            }
+        });
+    }
+}
+
 #[proc_macro_attribute]
 pub fn widget(
     args: proc_macro::TokenStream,
@@ -383,31 +531,44 @@ pub fn widget(
     let fn_args = ast.sig.inputs;
     let fn_body = ast.block;
     let alias = fn_ident.to_string();
+    let mod_descriptor = format_ident!("{}_widget_descriptor", &alias);
     let extension = format_ident!("{}WidgetExtension", capitalize(&alias));
-    let mut styles_impl = quote! {};
     let (_doclines, docs) = parse_docs(&ast.attrs);
-    if !args.is_empty() {
-        let Ok(styles) = syn::punctuated::Punctuated::<syn::LitStr, syn::Token![,]>::parse_terminated.parse(args) else {
-            return err(span, "#[widget] macro attributes should string literals: #[widget(\"font: bold\")]");
-        };
-        let mut styles_value = format!("{alias} {{ ");
-        for style in styles {
-            styles_value += &style.value();
-            styles_value += "; ";
-        }
-        styles_value += "}";
 
-        styles_impl = quote! {
-            fn styles() -> &'static str {
-                #styles_value
-            }
-        }
-    }
+    let connect_signals = match parse_signals(&ast.attrs) {
+        Ok(tokens) => tokens,
+        Err(e) => return proc_macro::TokenStream::from(e.to_compile_error()),
+    };
+    let extends_decl = match parse_extends(&fn_ident, &ast.attrs) {
+        Ok(tokens) => tokens,
+        Err(e) => return proc_macro::TokenStream::from(e.to_compile_error()),
+    };
+    let styles_decl = match parse_styles(&fn_ident, &ast.attrs) {
+        Ok(tokens) => tokens,
+        Err(e) => return proc_macro::TokenStream::from(e.to_compile_error()),
+    };
 
     proc_macro::TokenStream::from(quote! {
+
+        mod #mod_descriptor {
+        use super::*;
+
         #[derive(Component)]
         #[allow(non_camel_case_types)]
-        struct #fn_ident;
+        pub struct #fn_ident;
+
+        pub struct Descriptor;
+        impl Descriptor {
+            pub fn get_instance() -> &'static Descriptor {
+                &&Descriptor
+            }
+
+            pub fn get_builder(&self) -> ::bevy_elements_core::ElementBuilder {
+                #fn_ident::as_builder()
+            }
+            #styles_decl
+            #connect_signals
+        }
 
         impl ::bevy_elements_core::Widget for #fn_ident {
             fn names() -> &'static [&'static str] {
@@ -416,19 +577,36 @@ pub fn widget(
         }
 
         impl ::bevy_elements_core::WidgetBuilder for #fn_ident {
-            #styles_impl
+            #styles_decl
             fn construct(#fn_args) {
                 #fn_body
             }
         }
 
         pub trait #extension {
+            type Descriptor;
             #docs
-            fn #fn_ident() -> ::bevy_elements_core::ElementBuilder {
-                #fn_ident::as_builder()
+            fn #fn_ident() -> Descriptor {
+                Descriptor
             }
+
+            fn descriptor() -> Self::Descriptor;
         }
 
-        impl #extension for ::bevy_elements_core::Elements { }
+        impl #extension for ::bevy_elements_core::Elements {
+            type Descriptor = Descriptor;
+            fn descriptor() -> Self::Descriptor {
+                Descriptor
+            }
+        }
+        }
+        pub use #mod_descriptor::#extension;
+        #[allow(non_camel_case_types)]
+        pub (crate) type #fn_ident = #mod_descriptor::#fn_ident;
+
+        #extends_decl
+
+
+
     })
 }

@@ -1,8 +1,4 @@
-use bevy::{
-    prelude::*,
-    render::camera::ScalingMode,
-    text::{TextPipeline, TextSettings},
-};
+use bevy::{prelude::*, render::camera::ScalingMode, text::TextSettings};
 use bevy_elements::*;
 
 fn main() {

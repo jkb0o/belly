@@ -1,20 +1,27 @@
 use bevy::{
-    ecs::system::Command,
+    asset::Asset,
+    ecs::{
+        event::Event,
+        system::{Command, EntityCommands},
+    },
     prelude::*,
     utils::{HashMap, HashSet},
 };
 use std::{
     any::{type_name, TypeId},
     marker::PhantomData,
+    ops::{Deref, DerefMut},
     sync::{Arc, RwLock},
 };
+
+use crate::{ElementsBuilder, PointerInput, WithElements};
 
 pub struct BindPlugin;
 
 impl Plugin for BindPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ChangeCounter>()
-            .add_system(process_binds_system);
+            .add_system_to_stage(CoreStage::PreUpdate, process_binds_system);
     }
 }
 
@@ -52,6 +59,7 @@ impl<W: Component, T: BindValue> BindingTarget<W, T> {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum BindingStage {
+    Process,
     Collect,
     Apply,
     Custom,
@@ -121,12 +129,75 @@ pub fn report_changes_system<R: Component>(
     }
 }
 
+pub fn process_signals_system<C: Component, S: Signal>(
+    asset_server: Res<AssetServer>,
+    connections: Res<Connections<C, S>>,
+    time: Res<Time>,
+    mut commands: Commands,
+    mut events: EventReader<S>,
+    mut components: Query<&mut C>,
+) {
+    for signal in events.iter() {
+        for source in signal.sources().iter() {
+            if let Some(connections) = connections.map.get(&source) {
+                let mut context = ConnectionGeneralContext {
+                    source_event: signal,
+                    source: *source,
+                    time_resource: &time,
+                    asset_server: asset_server.clone(),
+                    commands: &mut commands,
+                };
+                for connection in connections.iter().filter(|c| c.handles(signal)) {
+                    match &connection.target {
+                        ConnectionTo::General { handler } => {
+                            handler(&mut context);
+                        }
+                        ConnectionTo::Entity { target, handler } => {
+                            let mut entity_context = ConnectionEntityContext {
+                                target: *target,
+                                ctx: &mut context,
+                            };
+                            handler(&mut entity_context);
+                        }
+                        ConnectionTo::Component { target, handler } => {
+                            if let Ok(mut component) = components.get_mut(*target) {
+                                let mut entity_context = ConnectionEntityContext {
+                                    target: *target,
+                                    ctx: &mut context,
+                                };
+                                handler(&mut entity_context, &mut component);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub fn cleanup_signals_system<C: Component, S: Signal>(
+    mut connections: ResMut<Connections<C, S>>,
+    mut commands: Commands,
+) {
+    let entities_to_remove = connections
+        .map
+        .keys()
+        .chain(connections.index.keys())
+        .filter(|e| commands.get_entity(**e).is_none())
+        .map(|e| *e)
+        .collect::<HashSet<_>>();
+    entities_to_remove
+        .iter()
+        .for_each(|e| connections.remove(e));
+}
+
 pub(crate) struct BindingSystemsInternal {
     last_writer: usize,
     schedule: Schedule,
     collectors: HashSet<(TypeId, TypeId)>,
     appliers: HashSet<(TypeId, TypeId)>,
     reporters: HashSet<TypeId>,
+    processors: HashSet<(TypeId, TypeId)>,
     custom: HashSet<TypeId>,
 }
 
@@ -167,7 +238,17 @@ impl BindingSystemsInternal {
         self.schedule
             .add_system_to_stage(BindingStage::Apply, apply_changes_system::<W, T>);
     }
-
+    pub fn add_signals_processor<C: Component, S: Signal>(&mut self) {
+        let entry = (TypeId::of::<C>(), TypeId::of::<S>());
+        if self.processors.contains(&entry) {
+            return;
+        }
+        self.processors.insert(entry);
+        self.schedule
+            .add_system_to_stage(BindingStage::Process, process_signals_system::<C, S>);
+        self.schedule
+            .add_system_to_stage(BindingStage::Process, cleanup_signals_system::<C, S>);
+    }
     pub fn add_custom_system<Params, S: IntoSystemDescriptor<Params>>(
         &mut self,
         system_id: TypeId,
@@ -199,9 +280,11 @@ impl Default for BindingSystemsInternal {
         let collectors = HashSet::default();
         let appliers = HashSet::default();
         let reporters = HashSet::default();
+        let processors = HashSet::default();
         let custom = HashSet::default();
         let mut schedule = Schedule::default();
         schedule
+            .add_stage(BindingStage::Process, SystemStage::parallel())
             .add_stage(BindingStage::Collect, SystemStage::parallel())
             .add_stage(BindingStage::Apply, SystemStage::parallel())
             .add_stage(BindingStage::Custom, SystemStage::parallel())
@@ -211,11 +294,223 @@ impl Default for BindingSystemsInternal {
             collectors,
             appliers,
             reporters,
+            processors,
             custom,
             last_writer: 0,
         }
     }
 }
+
+pub trait Signal: Event {
+    fn sources(&self) -> &[Entity];
+}
+
+pub struct ConnectionGeneralContext<'a, 'w, 's, S: Signal> {
+    source_event: &'a S,
+    source: Entity,
+    time_resource: &'a Time,
+    asset_server: AssetServer,
+    commands: &'a mut Commands<'w, 's>,
+}
+
+impl<'a, 'w, 's, S: Signal> ConnectionGeneralContext<'a, 'w, 's, S> {
+    pub fn event(&self) -> &S {
+        self.source_event
+    }
+    pub fn source<'x>(&'x mut self) -> EntityCommands<'w, 's, 'x> {
+        let source = self.source;
+        self.commands.entity(source)
+    }
+    pub fn load<T: Asset>(&self, path: &str) -> Handle<T> {
+        self.asset_server.load(path)
+    }
+    pub fn add<C: Command>(&mut self, command: C) {
+        self.commands.add(command);
+    }
+    pub fn commands(&mut self) -> &mut Commands<'w, 's> {
+        &mut self.commands
+    }
+    pub fn time(&self) -> &Time {
+        self.time_resource
+    }
+}
+
+pub struct ConnectionEntityContext<'a, 'w, 's, 'c, S: Signal> {
+    target: Entity,
+    ctx: &'c mut ConnectionGeneralContext<'a, 'w, 's, S>,
+}
+
+impl<'a, 'w, 's, 'c, S: Signal> ConnectionEntityContext<'a, 'w, 's, 'c, S> {
+    pub fn target<'x>(&'x mut self) -> EntityCommands<'w, 's, 'x> {
+        let target = self.target;
+        self.commands.entity(target)
+    }
+
+    pub fn render(&mut self, eml: ElementsBuilder) {
+        self.target().with_elements(eml);
+    }
+
+    pub fn replace(&mut self, eml: ElementsBuilder) {
+        self.target().despawn_descendants();
+        self.target().with_elements(eml);
+    }
+}
+
+impl<'a, 'w, 's, 'c, S: Signal> Deref for ConnectionEntityContext<'a, 'w, 's, 'c, S> {
+    type Target = ConnectionGeneralContext<'a, 'w, 's, S>;
+    fn deref(&self) -> &Self::Target {
+        self.ctx
+    }
+}
+
+impl<'a, 'w, 's, 'c, S: Signal> DerefMut for ConnectionEntityContext<'a, 'w, 's, 'c, S> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.ctx
+    }
+}
+
+pub enum ConnectionTo<C: Component, S: Signal> {
+    General {
+        handler: fn(&mut ConnectionGeneralContext<S>),
+    },
+    Entity {
+        target: Entity,
+        handler: fn(&mut ConnectionEntityContext<S>),
+    },
+    Component {
+        target: Entity,
+        handler: fn(&mut ConnectionEntityContext<S>, &mut Mut<C>),
+    },
+}
+
+#[derive(Component)]
+pub struct WithoutComponent;
+
+impl<C: Component, S: Signal> ConnectionTo<C, S> {
+    pub fn component(
+        target: Entity,
+        handler: fn(&mut ConnectionEntityContext<S>, &mut Mut<C>),
+    ) -> ConnectionTo<C, S> {
+        ConnectionTo::Component { target, handler }
+    }
+
+    pub fn filter(self, filter: fn(&S) -> bool) -> Connection<C, S> {
+        Connection {
+            target: self,
+            filter,
+        }
+    }
+
+    pub fn id(&self) -> Option<Entity> {
+        match self {
+            ConnectionTo::Component { target, handler: _ } => Some(*target),
+            ConnectionTo::Entity { target, handler: _ } => Some(*target),
+            _ => None,
+        }
+    }
+}
+
+impl<S: Signal> ConnectionTo<WithoutComponent, S> {
+    pub fn entity(
+        target: Entity,
+        handler: fn(&mut ConnectionEntityContext<S>),
+    ) -> ConnectionTo<WithoutComponent, S> {
+        ConnectionTo::Entity { target, handler }
+    }
+
+    pub fn general(
+        handler: fn(&mut ConnectionGeneralContext<S>),
+    ) -> ConnectionTo<WithoutComponent, S> {
+        ConnectionTo::General { handler }
+    }
+}
+
+pub struct Connection<C: Component, S: Signal> {
+    target: ConnectionTo<C, S>,
+    filter: fn(&S) -> bool,
+}
+
+impl<C: Component, S: Signal> Connection<C, S> {
+    fn handles(&self, signal: &S) -> bool {
+        (self.filter)(signal)
+    }
+
+    pub fn from(self, source: Entity) -> Connect<C, S> {
+        Connect {
+            source,
+            target: self,
+        }
+    }
+}
+
+impl Signal for PointerInput {
+    fn sources(&self) -> &[Entity] {
+        &self.entities
+    }
+}
+
+pub struct Connect<C: Component, S: Signal> {
+    source: Entity,
+    target: Connection<C, S>,
+}
+
+impl<C: Component, S: Signal> Connect<C, S> {
+    pub fn write(self, world: &mut World) {
+        {
+            let systems = world.get_resource_or_insert_with(BindingSystems::default);
+            systems.0.write().unwrap().add_signals_processor::<C, S>();
+        }
+        {
+            let mut connections = world.get_resource_or_insert_with(Connections::<C, S>::default);
+            connections.add(self);
+        }
+    }
+}
+
+// impl<C: Component, S: Signal> Command for Connect<C, S> { }
+
+#[derive(Resource)]
+pub struct Connections<C: Component, S: Signal> {
+    map: HashMap<Entity, Vec<Connection<C, S>>>,
+    index: HashMap<Entity, Vec<Entity>>,
+}
+
+impl<C: Component, S: Signal> Default for Connections<C, S> {
+    fn default() -> Self {
+        Connections {
+            map: Default::default(),
+            index: Default::default(),
+        }
+    }
+}
+
+impl<C: Component, S: Signal> Connections<C, S> {
+    pub fn add(&mut self, connection: Connect<C, S>) {
+        if let Some(target) = connection.target.target.id() {
+            self.index
+                .entry(target)
+                .or_default()
+                .push(connection.source)
+        }
+        self.map
+            .entry(connection.source)
+            .or_default()
+            .push(connection.target);
+    }
+    pub fn remove(&mut self, source: &Entity) {
+        if let Some(connections_to) = self.index.remove(source) {
+            for connection_to in connections_to.iter() {
+                self.map
+                    .entry(*connection_to)
+                    .and_modify(|e| e.retain(|c| c.target.id() != Some(*source)));
+            }
+        }
+        self.map.remove(&source);
+    }
+}
+
+#[derive(Component)]
+pub struct Handlers<C: Component>(Vec<fn(&mut C)>);
 
 pub struct BindFrom<R: Component, T: BindValue> {
     source: Entity,
@@ -536,6 +831,48 @@ macro_rules! bind {
             |t: &mut $t_class, v| { t$(.$t_prop)+.$t_setter(*v); }
         )
     };
+}
+
+#[macro_export]
+macro_rules! connect {
+    ($entity:expr, |$ctx:ident, $arg:ident: $typ:ty| $cb:expr) => {
+        $crate::bind::ConnectionTo::component(
+            $entity,
+            |$ctx, $arg: &mut ::bevy::prelude::Mut<$typ>| $cb,
+        )
+    };
+    ($entity:expr, |$ctx:ident, $arg:ident: $typ:ty| $cb:block) => {
+        $crate::bind::ConnectionTo::component(
+            $entity,
+            |$ctx, $arg: &mut ::bevy::prelude::Mut<$typ>| $cb,
+        )
+    };
+    ($entity:expr, |$arg:ident: $typ:ty| $cb:expr) => {
+        $crate::bind::ConnectionTo::component(
+            $entity,
+            |_, $arg: &mut ::bevy::prelude::Mut<$typ>| $cb,
+        )
+    };
+    ($entity:expr, |$arg:ident: $typ:ty| $cb:block) => {
+        $crate::bind::ConnectionTo::component($entity, |_, $arg| $cb)
+    };
+    ($entity:expr, |$ctx:ident| $cb:expr) => {
+        $crate::bind::ConnectionTo::entity($entity, |$ctx| $cb)
+    };
+    (|$ctx:ident| $cb:expr) => {
+        $crate::bind::ConnectionTo::general(|$ctx| $cb)
+    }; // ($entity: expr => $cb:expr) => {
+       //     {
+       //         let __cb: fn(&mut $crate::bind::EntitySignalContext) = $cb;
+       //         $crate::bind::ConnectionTo::entity($entity, __cb)
+       //     }
+       // };
+       // (=> $cb:expr) => {
+       //     {
+       //         let __cb: fn(&mut $crate::bind::SignalContext) = $cb;
+       //         $crate::bind::ConnectionTo::general(__cb)
+       //     }
+       // };
 }
 
 #[cfg(test)]
