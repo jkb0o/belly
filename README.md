@@ -87,22 +87,21 @@ Events
 Widgets
 -------
 
-
-Style properties
-----------------
 *I've made a few*
 
 *I've had my share of sand*
 
+Style properties
+----------------
 
-Examples
---------
 *Kicked in my face*
 
 *But I've come through*
 
-*And we mean to go on and on and on and on*
+Examples
+--------
 
+*And we mean to go on and on and on and on*
 
 Roadmap
 -------
