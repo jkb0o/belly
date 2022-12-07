@@ -86,17 +86,16 @@ Events
 
 Widgets
 -------
-
-*I've made a few*
-
 *I've had my share of sand*
+
+*Kicked in my face*
+
 
 Style properties
 ----------------
 
-*Kicked in my face*
-
 *But I've come through*
+
 
 Examples
 --------
@@ -107,6 +106,7 @@ Roadmap
 -------
 
 *We are the champions, my friends...*
+
 
 *And we'll keep on fighting till the end!!!*
 
