@@ -607,6 +607,7 @@ dependencies = [
  "bevy 0.9.0",
  "bevy-inspector-egui",
  "cssparser",
+ "itertools",
  "lazy_static",
  "roxmltree",
  "smallvec",

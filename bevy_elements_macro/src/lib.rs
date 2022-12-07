@@ -1,10 +1,8 @@
-use std::fs::File;
-
 use proc_macro2::{Span, TokenStream};
 use quote::*;
 extern crate proc_macro;
-use syn::{parse::Parser, parse_macro_input, spanned::Spanned, DeriveInput, Error, Expr, ExprPath};
-use syn_rsx::{parse, parse_with_config, Node, NodeAttribute, ParserConfig};
+use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Error, Expr, ExprPath};
+use syn_rsx::{parse, Node, NodeAttribute};
 
 fn create_single_command_stmt(expr: &ExprPath) -> TokenStream {
     let component_span = expr.span();
@@ -522,11 +520,10 @@ fn parse_styles(ident: &syn::Ident, attrs: &Vec<syn::Attribute>) -> syn::Result<
 
 #[proc_macro_attribute]
 pub fn widget(
-    args: proc_macro::TokenStream,
+    _args: proc_macro::TokenStream,
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     let ast = parse_macro_input!(input as syn::ItemFn);
-    let span = ast.span();
     let fn_ident = ast.sig.ident;
     let fn_args = ast.sig.inputs;
     let fn_body = ast.block;

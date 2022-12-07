@@ -12,19 +12,17 @@ use std::sync::Arc;
 // use focus::{Focused, update_focus};
 use property::PropertyValues;
 
-pub mod bind;
 pub mod element;
 pub mod eml;
 pub mod ess;
 pub mod input;
 pub mod params;
 pub mod property;
+pub mod relations;
 pub mod tags;
 
 pub struct ElementsCorePlugin;
 
-pub use crate::bind::Connect;
-pub use crate::bind::ConnectionTo;
 pub use crate::eml::build::ElementBuilder;
 pub use crate::eml::build::ElementBuilderRegistry;
 pub use crate::eml::build::ElementContext;
@@ -36,12 +34,14 @@ pub use crate::eml::content::ExpandElements;
 pub use crate::eml::content::ExpandElementsExt;
 pub use crate::eml::content::IntoContent;
 pub use crate::input::PointerInput;
+pub use crate::relations::Connect;
+pub use crate::relations::ConnectionTo;
 pub use element::Element;
 pub use params::Variant;
 pub use property::Property;
 pub use tagstr::*;
 
-use bind::BindPlugin;
+use relations::RelationsPlugin;
 
 impl Plugin for ElementsCorePlugin {
     fn build(&self, app: &mut App) {
@@ -68,7 +68,7 @@ impl Plugin for ElementsCorePlugin {
             .add_system(fix_text_height)
             .init_resource::<input::Focused>()
             .insert_resource(Defaults::default())
-            .add_plugin(BindPlugin)
+            .add_plugin(RelationsPlugin)
             .add_plugin(EssPlugin)
             .add_plugin(EmlPlugin);
 

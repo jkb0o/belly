@@ -1,5 +1,4 @@
 use std::{
-    marker::PhantomData,
     mem,
     sync::{Arc, RwLock},
 };
@@ -14,8 +13,8 @@ use bevy::{
 use tagstr::*;
 
 use crate::{
-    bind::ConnectionTo, ess::StyleRule, ess::StyleSheetParser, params::Params,
-    property::PropertyValues, tags, Element, Variant,
+    ess::StyleRule, ess::StyleSheetParser, params::Params, property::PropertyValues, tags, Element,
+    Variant,
 };
 
 pub trait Widget: Sized + Component + 'static {

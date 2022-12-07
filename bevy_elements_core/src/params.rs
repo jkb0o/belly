@@ -7,8 +7,8 @@ use std::{
 use crate::eml::build::ElementsBuilder;
 use crate::tags;
 use crate::{
-    bind::{BindFrom, BindFromUntyped, BindTo, BindToUntyped, BindValue},
     property::*,
+    relations::{BindFrom, BindFromUntyped, BindTo, BindToUntyped, BindValue},
 };
 use bevy::{
     ecs::system::EntityCommands,

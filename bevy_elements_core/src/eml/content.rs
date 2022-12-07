@@ -2,7 +2,7 @@ use bevy::ecs::system::Command;
 use bevy::prelude::*;
 use std::any::TypeId;
 
-use crate::{bind::*, Element, ElementsBuilder};
+use crate::{relations::*, Element, ElementsBuilder};
 
 pub trait IntoContent {
     fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity>;
@@ -42,7 +42,7 @@ impl<C: Component, T: BindValue + IntoContent + std::fmt::Debug> IntoContent for
         );
         let bind = Bind::new(self, target);
         bind.write(world);
-        let systems_ref = world.get_resource_or_insert_with(BindingSystems::default);
+        let systems_ref = world.get_resource_or_insert_with(RelationsSystems::default);
         let mut systems = systems_ref.0.write().unwrap();
         systems.add_custom_system(TypeId::of::<BindContent<T>>(), bind_component_system::<T>);
 

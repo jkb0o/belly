@@ -299,7 +299,6 @@ pub fn pointer_input_system(
 
     let Some(pos) = cursor_position else { return };
     if down_entities.len() > 0 {
-        info!("Down at {}", time.elapsed_seconds());
         if time.elapsed_seconds() - state.was_down_at < 0.3 && down_entities == state.was_down {
             state.presses += 1;
         } else {
@@ -316,7 +315,6 @@ pub fn pointer_input_system(
         });
     }
     if up_entities.len() > 0 {
-        info!("Up at {}", time.elapsed_seconds());
         let presses = state.presses;
         events.send(PointerInput {
             pos,
@@ -390,13 +388,11 @@ pub fn focus_system(
     mut elements: Query<(Entity, &mut Element)>,
     mut signals: EventReader<PointerInput>,
     children: Query<&Children>,
-    // time: Res<Time>,
 ) {
     let mut target_focus = None;
     let mut update_required = false;
     for signal in signals.iter().filter(|s| s.down()) {
         for entity in interactable.iter_many(&signal.entities) {
-            // info!("Cliccked: {:?} at {}", entity, time.elapsed_seconds());
             update_required = true;
             if target_focus.is_none() {
                 target_focus = Some(entity);
@@ -412,7 +408,6 @@ pub fn focus_system(
     }
 
     if update_required && target_focus != focused.0 {
-        info!("New focused node: {:?}", target_focus);
         if let Some(was_focused) = focused.0 {
             if let Ok((_, mut element)) = elements.get_mut(was_focused) {
                 element.state.remove(&tags::focus());
@@ -447,7 +442,6 @@ pub fn invalidate_elements(
     elements: &mut Query<(Entity, &mut Element)>,
     children: &Query<&Children>,
 ) {
-    info!("Invalidating elements");
     for root in roots.iter() {
         invalidate_subtree(root, elements, children);
     }
