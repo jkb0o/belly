@@ -11,13 +11,14 @@ use cssparser::Token;
 use smallvec::SmallVec;
 mod colors;
 pub(crate) mod impls;
+use itertools::Itertools;
 
-use crate::tags::*;
 use crate::{
     element::*,
     ess::{ElementsBranch, StyleSheet, Styles},
     ElementsError,
 };
+use crate::{ess::SelectorWeight, tags::*};
 
 // pub(crate) mod impls;
 
@@ -529,25 +530,31 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
 
             // info!("testing branch {}", branch.to_string());
 
-            // apply rules
-            let property = rules
+            let property = if let Some(properties) = rules
                 .iter()
                 .filter_map(|r|
                     // use default values for zero-weighted or from-default-style-sheet selectors
                     if r.selector.overridable_by_props() && default.is_some() {
-                        default
-                    } else if r.selector.matches(&branch) {
-                        Some(r.properties.get(&Self::name()).unwrap())
+                        Some((default.unwrap(), 0, SelectorWeight::zero()))
+                    } else if let Some(depth) = r.selector.match_depth(&branch) {
+                        Some((r.properties.get(&Self::name()).unwrap(), depth, r.selector.weight))
                     } else {
                         None
                     }
                 )
+                .group_by(|(_prop, _depth, weight)| *weight)
+                .into_iter()
+                .map(|(_, group)| group)
                 .next()
-                .or(default);
+            {
+                let mut variants = properties.collect::<Vec<_>>();
+                variants.sort_by_key(|(_prop, depth, _weight)| -(*depth as i16));
+                let (values, _depth, _weight) = variants.pop().unwrap();
+                Some(values)
+            } else {
+                default
+            };
 
-            // if let Some(rule) = rules.iter().filter(|r| r.selector.matches(&branch)).next() {
-            //     info!("matched selector: {:?} for branch {}", rule.selector.to_string(), branch.to_string());
-            // }
             if let Some(property) = property {
                 if let CacheState::Ok(property) = cached_properties.get_or_parse(property) {
                     Self::apply(property, components, &asset_server, &mut commands, entity);

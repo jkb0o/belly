@@ -13,6 +13,9 @@ impl SelectorWeight {
     pub fn is_zero(&self) -> bool {
         self.0 == 0
     }
+    pub fn zero() -> SelectorWeight {
+        SelectorWeight(0, 0)
+    }
 }
 
 impl PartialOrd for SelectorWeight {
@@ -241,9 +244,14 @@ impl Selector {
         entries
     }
 
-    pub fn matches(&self, branch: impl EmlBranch) -> bool {
+    pub fn match_depth(&self, branch: impl EmlBranch) -> Option<u8> {
         let slice = SelectorEntry::new(&self.elements);
         branch.tail().fits(&slice)
+    }
+
+    pub fn matches(&self, branch: impl EmlBranch) -> bool {
+        let slice = SelectorEntry::new(&self.elements);
+        branch.tail().fits(&slice).is_some()
     }
 
     pub fn to_string(&self) -> String {
@@ -272,26 +280,39 @@ pub trait EmlNode: Sized {
 
     fn next(&self) -> Option<Self>;
 
-    fn fits(&self, selector: &SelectorEntry) -> bool {
+    fn fits(&self, selector: &SelectorEntry) -> Option<u8> {
         if selector.is_any_child() {
             let next_selector = selector.next().unwrap();
-            if self.fits(&next_selector) {
-                return true;
+            if let Some(weight) = self.fits(&next_selector) {
+                return Some(weight);
             }
             if let Some(next_node) = self.next() {
-                next_node.fits(&next_selector) || next_node.fits(selector)
+                if let Some(weight) = next_node.fits(&next_selector) {
+                    Some(weight + 1)
+                } else if let Some(weight) = next_node.fits(selector) {
+                    Some(weight + 1)
+                } else {
+                    None
+                }
+                // next_node.fits(&next_selector) || next_node.fits(selector)
             } else {
-                false
+                None
             }
         } else if selector.describes_node(self) {
             match (self.next(), selector.next()) {
-                (None, None) => true,
-                (Some(next_node), Some(next_slice)) => next_node.fits(&next_slice),
-                (Some(_node), None) => true,
-                (None, Some(_slice)) => false,
+                (None, None) => Some(1),
+                (Some(_node), None) => Some(1),
+                (None, Some(_slice)) => None,
+                (Some(next_node), Some(next_slice)) => {
+                    if let Some(weight) = next_node.fits(&next_slice) {
+                        Some(weight + 1)
+                    } else {
+                        None
+                    }
+                }
             }
         } else {
-            false
+            None
         }
     }
 }
