@@ -47,7 +47,7 @@ fn create_command_stmts(expr: &Expr) -> TokenStream {
     };
     let expr_span = expr.span();
     quote_spanned! {expr_span=>
-        __ctx.params.add(::bevy_elements_core::params::Variant::from_commands("with", ::std::boxed::Box::new(move |c| {
+        __ctx.params.add(::bevy_elements_core::Variant::from_commands("with", ::std::boxed::Box::new(move |c| {
             #with_body
         })));
     }
@@ -60,7 +60,7 @@ fn create_attr_stmt(attr: &NodeAttribute) -> TokenStream {
             return quote! {
                 __ctx.params.add(::bevy_elements_core::params::Param::new(
                     #attr_name.into(),
-                    ::bevy_elements_core::params::Variant::Empty
+                    ::bevy_elements_core::Variant::Empty
                 ));
             };
         }

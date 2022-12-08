@@ -378,6 +378,7 @@ macro_rules! bind {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::*;
 
     #[derive(Component, Default)]
     struct Health {
@@ -394,7 +395,7 @@ mod test {
     #[test]
     fn single_property() {
         let mut app = App::new();
-        app.add_plugin(BindPlugin);
+        app.add_plugin(RelationsPlugin);
 
         let player = app.world.spawn_empty().id();
         let bar = app.world.spawn_empty().id();
@@ -460,7 +461,7 @@ mod test {
     #[test]
     fn self_bind() {
         let mut app = App::new();
-        app.add_plugin(BindPlugin);
+        app.add_plugin(RelationsPlugin);
 
         let player = app.world.spawn_empty().id();
 
@@ -489,7 +490,7 @@ mod test {
     #[test]
     fn chain_bind() {
         let mut app = App::new();
-        app.add_plugin(BindPlugin);
+        app.add_plugin(RelationsPlugin);
 
         let player = app.world.spawn_empty().id();
         let bar = app.world.spawn_empty().id();

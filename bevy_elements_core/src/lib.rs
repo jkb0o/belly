@@ -20,6 +20,7 @@ pub mod params;
 pub mod property;
 pub mod relations;
 pub mod tags;
+pub mod variant;
 
 pub struct ElementsCorePlugin;
 
@@ -38,9 +39,9 @@ pub use crate::relations::Connect;
 pub use crate::relations::ConnectionTo;
 pub use crate::relations::Signal;
 pub use element::Element;
-pub use params::Variant;
 pub use property::Property;
 pub use tagstr::*;
+pub use variant::Variant;
 
 use relations::RelationsPlugin;
 
