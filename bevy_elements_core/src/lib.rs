@@ -315,19 +315,19 @@ pub fn setup_defaults(
     extractor: Res<PropertyExtractor>,
     validator: Res<PropertyValidator>,
 ) {
-    let font_bytes = include_bytes!("Exo2-ExtraLight.ttf").to_vec();
+    let font_bytes = include_bytes!("fonts/Exo2-ExtraLight.ttf").to_vec();
     let font_asset = Font::try_from_bytes(font_bytes).unwrap();
     let font_handle = fonts.add(font_asset);
     defaults.regular_font = font_handle;
-    let font_bytes = include_bytes!("Exo2-ExtraLightItalic.ttf").to_vec();
+    let font_bytes = include_bytes!("fonts/Exo2-ExtraLightItalic.ttf").to_vec();
     let font_asset = Font::try_from_bytes(font_bytes).unwrap();
     let font_handle = fonts.add(font_asset);
     defaults.italic_font = font_handle;
-    let font_bytes = include_bytes!("Exo2-SemiBold.ttf").to_vec();
+    let font_bytes = include_bytes!("fonts/Exo2-SemiBold.ttf").to_vec();
     let font_asset = Font::try_from_bytes(font_bytes).unwrap();
     let font_handle = fonts.add(font_asset);
     defaults.bold_font = font_handle;
-    let font_bytes = include_bytes!("Exo2-SemiBoldItalic.ttf").to_vec();
+    let font_bytes = include_bytes!("fonts/Exo2-SemiBoldItalic.ttf").to_vec();
     let font_asset = Font::try_from_bytes(font_bytes).unwrap();
     let font_handle = fonts.add(font_asset);
     defaults.bold_italic_font = font_handle;
