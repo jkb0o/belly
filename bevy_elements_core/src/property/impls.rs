@@ -253,7 +253,7 @@ mod style {
 /// Impls for `bevy_text` [`Text`] component
 mod text {
     use super::*;
-    use crate::{Defaults, ManualTextProperties};
+    use crate::Defaults;
 
     #[derive(Default, Clone)]
     pub enum FontPath {
@@ -272,7 +272,7 @@ mod text {
     impl Property for FontColorProperty {
         type Cache = Color;
         type Components = &'static mut Text;
-        type Filters = (With<Node>, Without<ManualTextProperties>);
+        type Filters = With<Node>;
 
         fn name() -> Tag {
             tag!("color")
@@ -313,7 +313,7 @@ mod text {
     impl Property for FontProperty {
         type Cache = FontPath;
         type Components = &'static mut Text;
-        type Filters = (With<Node>, Without<ManualTextProperties>);
+        type Filters = With<Node>;
 
         fn name() -> Tag {
             tag!("font")
@@ -385,7 +385,7 @@ mod text {
     impl Property for FontSizeProperty {
         type Cache = f32;
         type Components = &'static mut Text;
-        type Filters = (With<Node>, Without<ManualTextProperties>);
+        type Filters = With<Node>;
 
         fn name() -> Tag {
             tag!("font-size")

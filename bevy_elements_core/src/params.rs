@@ -1,5 +1,5 @@
 use std::{
-    any::{Any, TypeId},
+    any::{type_name, Any, TypeId},
     fmt::Debug,
     mem,
 };
@@ -31,6 +31,7 @@ pub enum Variant {
     Params(Params),
     BindFrom(BindFromUntyped),
     BindTo(BindToUntyped),
+    Any(Box<dyn Any>),
 }
 
 impl Debug for Variant {
@@ -45,6 +46,7 @@ impl Debug for Variant {
             Variant::Elements(_) => write!(f, "Variant::Elements"),
             Variant::BindFrom(_) => write!(f, "Variant::BindFrom"),
             Variant::BindTo(_) => write!(f, "Variant::BindTo"),
+            Variant::Any(_) => write!(f, "Variant::Any"),
         }
     }
 }
@@ -91,6 +93,7 @@ impl Variant {
             Variant::Params(_) => TypeId::of::<T>() == TypeId::of::<Params>(),
             Variant::BindFrom(_) => TypeId::of::<T>() == TypeId::of::<BindFromUntyped>(),
             Variant::BindTo(_) => TypeId::of::<T>() == TypeId::of::<BindToUntyped>(),
+            Variant::Any(v) => v.is::<T>(),
         }
     }
 
@@ -105,6 +108,7 @@ impl Variant {
             Variant::Params(v) => try_cast::<T, Params>(v),
             Variant::BindFrom(v) => try_cast::<T, BindFromUntyped>(v),
             Variant::BindTo(v) => try_cast::<T, BindToUntyped>(v),
+            Variant::Any(v) => v.downcast_ref::<T>(),
         }
     }
     pub fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
@@ -118,6 +122,7 @@ impl Variant {
             Variant::Params(v) => try_cast_mut::<T, Params>(v),
             Variant::BindFrom(v) => try_cast_mut::<T, BindFromUntyped>(v),
             Variant::BindTo(v) => try_cast_mut::<T, BindToUntyped>(v),
+            Variant::Any(v) => v.downcast_mut::<T>(),
         }
     }
 
@@ -132,6 +137,13 @@ impl Variant {
             Variant::Params(v) => try_take::<T, Params>(v),
             Variant::BindFrom(v) => try_take::<T, BindFromUntyped>(v),
             Variant::BindTo(v) => try_take::<T, BindToUntyped>(v),
+            Variant::Any(v) => match v.downcast::<T>() {
+                Ok(v) => Some(*v),
+                Err(v) => {
+                    error!("Can't cast {:?} to {}", v, type_name::<T>());
+                    None
+                }
+            },
         }
     }
 
@@ -409,6 +421,15 @@ impl From<String> for Variant {
     }
 }
 
+impl TryFrom<Variant> for String {
+    type Error = String;
+    fn try_from(variant: Variant) -> Result<Self, Self::Error> {
+        variant
+            .take::<String>()
+            .ok_or("Can't cast variant to String".to_string())
+    }
+}
+
 impl From<&str> for Variant {
     fn from(v: &str) -> Self {
         Variant::String(v.to_string())
@@ -456,8 +477,10 @@ macro_rules! bindattr {
             match __attr {
                 Some($crate::Variant::BindFrom(__b)) => $ctx.commands().add(__b.to($crate::bind!(=> __elem, $($target)*))),
                 Some($crate::Variant::BindTo(__b)) => $ctx.commands().add(__b.from($crate::bind!(<= __elem, $($target)*))),
-                Some($crate::Variant::$typ(__v)) => __value = Some(__v),
-                Some(__attr) => error!("Unsupported value for '{}' param: {:?}", __key, __attr),
+                Some(__attr) => match $typ::try_from(__attr) {
+                    Ok(__v) => __value = Some(__v),
+                    Err(__err) => error!("Invalid value for '{}' param: {}", __key, __err)
+                },
                 _ => ()
             };
             __value

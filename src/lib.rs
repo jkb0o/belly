@@ -4,6 +4,11 @@ use bevy::prelude::*;
 use bevy_elements_core::ElementsCorePlugin;
 use bevy_elements_widgets::WidgetsPlugin;
 
+// bundles
+pub use bevy_elements_core::ElementBundle;
+pub use bevy_elements_core::ImageElementBundle;
+pub use bevy_elements_core::TextElementBundle;
+
 // structs
 pub use bevy_elements_core::eml::EmlAsset;
 pub use bevy_elements_core::eml::EmlScene;

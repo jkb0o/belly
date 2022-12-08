@@ -167,8 +167,25 @@ impl Default for TextElementBundle {
     }
 }
 
-#[derive(Component, Default)]
-pub struct ManualTextProperties;
+#[derive(Bundle)]
+pub struct ImageElementBundle {
+    pub element: Element,
+    #[bundle]
+    pub image: ImageBundle,
+}
+
+impl Default for ImageElementBundle {
+    fn default() -> Self {
+        ImageElementBundle {
+            element: Element::inline(),
+            image: ImageBundle {
+                background_color: BackgroundColor(Color::WHITE),
+                ..Default::default()
+            },
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum ElementsError {
     /// An unsupported selector was found on a style sheet rule.
