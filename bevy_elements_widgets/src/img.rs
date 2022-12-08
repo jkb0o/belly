@@ -1,4 +1,7 @@
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{
+    prelude::*,
+    utils::{HashMap, HashSet},
+};
 use bevy_elements_core::*;
 use bevy_elements_macro::*;
 
@@ -11,11 +14,43 @@ impl Plugin for ImgPlugin {
         app.add_system(load_img);
         app.add_system(update_img_size);
         app.add_system(update_img_layout);
+        app.add_event::<ImgEvent>();
     }
 }
 
 #[derive(Resource, Deref, DerefMut, Default)]
-struct ImageRegistry(HashMap<Handle<Image>, Entity>);
+struct ImageRegistry(HashMap<Handle<Image>, HashSet<Entity>>);
+
+// #[derive(Even)]
+pub enum ImgEvent {
+    Loaded(Vec<Entity>),
+    Unloaded(Vec<Entity>),
+}
+
+impl ImgEvent {
+    pub fn loaded(&self) -> bool {
+        match self {
+            ImgEvent::Loaded(_) => true,
+            ImgEvent::Unloaded(_) => false,
+        }
+    }
+
+    pub fn unloaded(&self) -> bool {
+        match self {
+            ImgEvent::Loaded(_) => false,
+            ImgEvent::Unloaded(_) => true,
+        }
+    }
+}
+
+impl Signal for ImgEvent {
+    fn sources(&self) -> &[Entity] {
+        match self {
+            ImgEvent::Loaded(entities) => &entities,
+            ImgEvent::Unloaded(entities) => &entities,
+        }
+    }
+}
 
 #[derive(Default, Clone, Copy, PartialEq, Debug)]
 pub enum ImgMode {
@@ -54,6 +89,8 @@ impl From<ImgMode> for Variant {
 
 #[derive(Component, Widget)]
 #[alias(img)]
+#[signal(load, ImgEvent, loaded)]
+#[signal(unload, ImgEvent, unloaded)]
 /// The `<img>` tag is used to load image and show it content on the UI screen.
 /// The `<img>` tag has two properties:
 /// - `src`: Specifies the path to the image
@@ -67,6 +104,7 @@ pub struct Img {
     pub src: String,
     #[param]
     pub mode: ImgMode,
+    handle: Handle<Image>,
     entity: Entity,
     size: Vec2,
 }
@@ -92,10 +130,23 @@ fn load_img(
     mut registry: ResMut<ImageRegistry>,
     assets: Res<Assets<Image>>,
     mut events: EventWriter<AssetEvent<Image>>,
+    mut signals: EventWriter<ImgEvent>,
 ) {
     for (entity, mut img) in elements.iter_mut() {
         let handle = asset_server.load(&img.src);
-        registry.insert(handle.clone_weak(), entity);
+        if handle != img.handle {
+            if assets.contains(&img.handle) {
+                signals.send(ImgEvent::Unloaded(vec![entity]));
+            }
+            registry
+                .entry(img.handle.clone_weak())
+                .or_default()
+                .remove(&entity);
+            registry
+                .entry(handle.clone_weak())
+                .or_default()
+                .insert(entity);
+        }
         let (mut image, mut style) = images.get_mut(img.entity).unwrap();
         image.0 = handle.clone();
 
@@ -105,6 +156,7 @@ fn load_img(
             events.send(AssetEvent::Modified {
                 handle: handle.clone_weak(),
             });
+            signals.send(ImgEvent::Loaded(vec![entity]));
         } else {
             if img.size != Vec2::ZERO {
                 img.size = Vec2::ZERO;
@@ -123,16 +175,21 @@ fn update_img_size(
     for event in asset_events.iter() {
         match event {
             AssetEvent::Removed { handle } => {
-                let Some(entity) = registry.remove(&handle) else { continue };
-                let Ok(mut element) = elements.get_mut(entity) else { continue };
-                element.size = Vec2::ZERO;
+                let Some(entities) = registry.remove(&handle) else { continue };
+                for entity in entities.iter() {
+                    let Ok(mut element) = elements.get_mut(*entity) else { continue };
+                    element.size = Vec2::ZERO;
+                }
             }
             AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                let Some(entity) = registry.get(&handle) else { continue };
-                let Ok(mut element) = elements.get_mut(*entity) else { continue };
-                let Some(asset) = assets.get(handle) else { continue };
-                if element.size != asset.size() {
-                    element.size = asset.size();
+                let Some(entities) = registry.get(&handle) else { continue };
+                // signals.send(ImgEvent::Loaded(entities.iter().map(|e| *e).collect::<Vec<_>>()));
+                for entity in entities.iter() {
+                    let Ok(mut element) = elements.get_mut(*entity) else { continue };
+                    let Some(asset) = assets.get(handle) else { continue };
+                    if element.size != asset.size() {
+                        element.size = asset.size();
+                    }
                 }
             }
         }

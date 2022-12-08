@@ -36,6 +36,7 @@ pub use crate::eml::content::IntoContent;
 pub use crate::input::PointerInput;
 pub use crate::relations::Connect;
 pub use crate::relations::ConnectionTo;
+pub use crate::relations::Signal;
 pub use element::Element;
 pub use params::Variant;
 pub use property::Property;

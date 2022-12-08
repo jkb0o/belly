@@ -451,6 +451,7 @@ fn parse_signals(attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStream> {
             };
             let event = event.path();
             connect_body = quote! {
+                #connect_body
                 pub fn #name<C: ::bevy::prelude::Component>(
                     &self,
                     world: &mut ::bevy::prelude::World,
