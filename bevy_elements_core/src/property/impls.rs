@@ -3,7 +3,7 @@ use bevy::{ecs::query::QueryItem, prelude::*};
 use crate::ElementsError;
 use tagstr::*;
 
-use super::{Property, PropertyValues};
+use super::{Property, StyleProperty};
 
 pub(crate) use style::*;
 pub(crate) use text::*;
@@ -32,7 +32,7 @@ mod style {
                     tag!($name)
                 }
 
-                fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
+                fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
                     if let Some(val) = values.rect() {
                         Ok(val)
                     } else {
@@ -78,7 +78,7 @@ mod style {
                     tag!($name)
                 }
 
-                fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
+                fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
                     if let Some(val) = values.$parse_func() {
                         Ok(val)
                     } else {
@@ -153,7 +153,7 @@ mod style {
                     tag!($name)
                 }
 
-                fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
+                fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
                     if let Some(identifier) = values.identifier() {
                         use $cache::*;
                         // Chain if-let when `cargofmt` supports it
@@ -282,7 +282,7 @@ mod text {
             true
         }
 
-        fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
+        fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
             if let Some(color) = values.color() {
                 Ok(color)
             } else {
@@ -323,7 +323,7 @@ mod text {
             true
         }
 
-        fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
+        fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
             if let Some(path) = values.string() {
                 Ok(FontPath::Custom(path))
             } else if let Some(ident) = values.identifier() {
@@ -395,7 +395,7 @@ mod text {
             true
         }
 
-        fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
+        fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
             if let Some(size) = values.f32() {
                 Ok(size)
             } else {
@@ -433,7 +433,7 @@ mod text {
             tag!("vertical-align")
         }
 
-        fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
+        fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
             if let Some(ident) = values.identifier() {
                 match ident {
                     "top" => return Ok(Some(VerticalAlign::Top)),
@@ -472,7 +472,7 @@ mod text {
             tag!("text-align")
         }
 
-        fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
+        fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
             if let Some(ident) = values.identifier() {
                 match ident {
                     "left" => return Ok(Some(HorizontalAlign::Left)),
@@ -511,7 +511,7 @@ mod text {
             tag!("text-content")
         }
 
-        fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
+        fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
             if let Some(content) = values.string() {
                 Ok(content)
             } else {
@@ -550,7 +550,7 @@ impl Property for BackgroundColorProperty {
         tag!("background-color")
     }
 
-    fn parse<'a>(values: &PropertyValues) -> Result<Self::Cache, ElementsError> {
+    fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
         if let Some(color) = values.color() {
             Ok(color)
         } else {

@@ -8,13 +8,14 @@ use bevy::{
     reflect::TypeUuid,
     utils::{hashbrown::hash_map::Keys, HashMap},
 };
+use itertools::Itertools;
 pub use selector::*;
 use smallvec::SmallVec;
 use tagstr::Tag;
 
 use crate::{
-    input::invalidate_elements, property::PropertyValues, Defaults, Element, PropertyExtractor,
-    PropertyValidator,
+    input::invalidate_elements, property::StyleProperty, Defaults, Element, PropertyExtractor,
+    PropertyTransformer, Variant,
 };
 
 pub use self::parser::StyleSheetParser;
@@ -33,7 +34,7 @@ impl Plugin for EssPlugin {
             .clone();
         let validator = app
             .world
-            .get_resource_or_insert_with(PropertyValidator::default)
+            .get_resource_or_insert_with(PropertyTransformer::default)
             .clone();
         app.add_asset_loader(EssLoader {
             validator,
@@ -45,7 +46,7 @@ impl Plugin for EssPlugin {
 
 #[derive(Default)]
 struct EssLoader {
-    validator: PropertyValidator,
+    validator: PropertyTransformer,
     extractor: PropertyExtractor,
 }
 
@@ -97,7 +98,7 @@ impl Command for ParseCommand {
         info!("wriging ParseCommand");
         let world = world.cell();
         let extractor = world.resource::<PropertyExtractor>().clone();
-        let validator = world.resource::<PropertyValidator>().clone();
+        let validator = world.resource::<PropertyTransformer>().clone();
         let parser = StyleSheetParser::new(validator, extractor);
         let rules = parser.parse(&self.source);
         let stylesheet = StyleSheet::new(rules);
@@ -195,6 +196,7 @@ impl StyleSheet {
     }
 }
 
+
 impl Deref for StyleSheet {
     type Target = Vec<StyleRule>;
 
@@ -206,7 +208,8 @@ impl Deref for StyleSheet {
 #[derive(Debug)]
 pub struct StyleRule {
     pub selector: Selector,
-    pub properties: HashMap<Tag, PropertyValues>,
+    // pub properties: HashMap<Tag, StyleProperty>,
+    pub properties: HashMap<Tag, Variant>,
 }
 
 #[derive(Default, Resource)]

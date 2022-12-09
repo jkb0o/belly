@@ -3,7 +3,7 @@ use std::fmt::Display;
 use roxmltree;
 use tagstr::AsTag;
 
-use crate::property::PropertyValues;
+use crate::{property::StyleProperty, Variant};
 
 use super::{EmlElement, EmlLoader, EmlNode};
 
@@ -145,7 +145,7 @@ fn walk(node: roxmltree::Node, loader: &EmlLoader) -> Result<EmlElement, Error> 
         let pos = doc.text_pos_at(attr.position());
         let name = if let Some(ns) = attr.namespace() {
             if ns == NS_STYLE {
-                let props = TryInto::<PropertyValues>::try_into(attr.value()).map_err(|e| {
+                let props = TryInto::<StyleProperty>::try_into(attr.value()).map_err(|e| {
                     Error::InvalidStyleValue(
                         format!(
                             "Invalid value for {NS_STYLE}:{} attribute: {}",
@@ -156,8 +156,8 @@ fn walk(node: roxmltree::Node, loader: &EmlLoader) -> Result<EmlElement, Error> 
                     )
                 })?;
                 loader
-                    .validator
-                    .validate(attr.name().as_tag(), &props)
+                    .transformer
+                    .transform(attr.name().as_tag(), Variant::property(props))
                     .map_err(|e| {
                         Error::ValidationError(
                             format!(

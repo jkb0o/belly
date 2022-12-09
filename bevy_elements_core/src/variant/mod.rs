@@ -9,6 +9,7 @@ use bevy::{ecs::system::EntityCommands, prelude::*};
 
 use crate::{
     params::Params,
+    property::StyleProperty,
     relations::{BindFromUntyped, BindToUntyped},
     ElementsBuilder,
 };
@@ -24,6 +25,7 @@ pub enum Variant {
     Int(isize),
     String(String),
     Entity(Entity),
+    Property(StyleProperty),
     Commands(ApplyCommands),
     Elements(ElementsBuilder),
     Params(Params),
@@ -40,6 +42,7 @@ impl Debug for Variant {
             Variant::Real(v) => write!(f, "Variant::Int({:?})", v),
             Variant::String(v) => write!(f, "Variant::String({:?})", v),
             Variant::Entity(v) => write!(f, "Variant::Entity({:?})", v),
+            Variant::Property(v) => write!(f, "Variant::Property({})", v.to_string()),
             Variant::Params(v) => write!(f, "Variant::Params({:?})", v),
             Variant::Commands(_) => write!(f, "Variant::Commands"),
             Variant::Elements(_) => write!(f, "Variant::Elements"),
@@ -76,6 +79,15 @@ fn try_take<T: 'static, F: 'static>(v: F) -> Option<T> {
 }
 
 impl Variant {
+    pub fn string<T: ToString>(value: T) -> Variant {
+        Variant::String(value.to_string())
+    }
+    pub fn boxed<T: 'static>(value: T) -> Variant {
+        Variant::Any(Box::new(value))
+    }
+    pub fn property(value: StyleProperty) -> Variant {
+        Variant::Property(value)
+    }
     pub fn is<T: 'static>(&self) -> bool {
         match self {
             Variant::Empty => false,
@@ -83,6 +95,7 @@ impl Variant {
             Variant::Real(_) => num::is_real::<T>(),
             Variant::String(_) => TypeId::of::<T>() == TypeId::of::<String>(),
             Variant::Entity(_) => TypeId::of::<T>() == TypeId::of::<Entity>(),
+            Variant::Property(_) => TypeId::of::<T>() == TypeId::of::<StyleProperty>(),
             Variant::Commands(_) => TypeId::of::<T>() == TypeId::of::<ApplyCommands>(),
             Variant::Elements(_) => TypeId::of::<T>() == TypeId::of::<ElementsBuilder>(),
             Variant::Params(_) => TypeId::of::<T>() == TypeId::of::<Params>(),
@@ -99,6 +112,7 @@ impl Variant {
             Variant::Real(v) => num::get_real_ref(v),
             Variant::String(v) => try_cast::<T, String>(v),
             Variant::Entity(v) => try_cast::<T, Entity>(v),
+            Variant::Property(v) => try_cast::<T, StyleProperty>(v),
             Variant::Commands(v) => try_cast::<T, ApplyCommands>(v),
             Variant::Elements(v) => try_cast::<T, ElementsBuilder>(v),
             Variant::Params(v) => try_cast::<T, Params>(v),
@@ -114,6 +128,7 @@ impl Variant {
             Variant::Real(v) => num::get_real_mut(v),
             Variant::String(v) => try_cast_mut::<T, String>(v),
             Variant::Entity(v) => try_cast_mut::<T, Entity>(v),
+            Variant::Property(v) => try_cast_mut::<T, StyleProperty>(v),
             Variant::Commands(v) => try_cast_mut::<T, ApplyCommands>(v),
             Variant::Elements(v) => try_cast_mut::<T, ElementsBuilder>(v),
             Variant::Params(v) => try_cast_mut::<T, Params>(v),
@@ -130,6 +145,7 @@ impl Variant {
             Variant::Real(v) => num::get_real(v),
             Variant::String(v) => try_take::<T, String>(v),
             Variant::Entity(v) => try_take::<T, Entity>(v),
+            Variant::Property(v) => try_take::<T, StyleProperty>(v),
             Variant::Commands(v) => try_take::<T, ApplyCommands>(v),
             Variant::Elements(v) => try_take::<T, ElementsBuilder>(v),
             Variant::Params(v) => try_take::<T, Params>(v),

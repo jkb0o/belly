@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use crate::{params::Param, Element, ElementBuilderRegistry, PropertyExtractor, PropertyValidator};
+use crate::{
+    params::Param, Element, ElementBuilderRegistry, PropertyExtractor, PropertyTransformer,
+};
 use bevy::{
     asset::{AssetLoader, LoadedAsset},
     prelude::*,
@@ -26,14 +28,14 @@ impl Plugin for EmlPlugin {
             .clone();
         let validator = app
             .world
-            .get_resource_or_insert_with(PropertyValidator::default)
+            .get_resource_or_insert_with(PropertyTransformer::default)
             .clone();
         let registry = app
             .world
             .get_resource_or_insert_with(ElementBuilderRegistry::default)
             .clone();
         app.add_asset_loader(EmlLoader {
-            validator,
+            transformer: validator,
             extractor,
             registry,
         });
@@ -122,7 +124,7 @@ fn walk(node: &EmlElement, world: &mut World, parent: Option<Entity>) -> Option<
 #[derive(Default)]
 pub(crate) struct EmlLoader {
     pub(crate) registry: ElementBuilderRegistry,
-    pub(crate) validator: PropertyValidator,
+    pub(crate) transformer: PropertyTransformer,
     pub(crate) extractor: PropertyExtractor,
 }
 

@@ -61,3 +61,51 @@ impl<R: Component, T: BindValue> From<BindTo<R, T>> for Variant {
         Variant::BindTo(bind.to_untyped())
     }
 }
+
+impl From<JustifyContent> for Variant {
+    fn from(value: JustifyContent) -> Self {
+        Variant::Any(Box::new(value))
+    }
+}
+
+pub trait TryParse: Sized {
+    type Error;
+    fn try_parse(value: &str) -> Result<Self, Self::Error>;
+}
+
+impl TryParse for JustifyContent {
+    type Error = String;
+    fn try_parse(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "flex-start" => Ok(JustifyContent::FlexStart),
+            "flex-end" => Ok(JustifyContent::FlexEnd),
+            "center" => Ok(JustifyContent::Center),
+            "space-between" => Ok(JustifyContent::SpaceBetween),
+            "space-around" => Ok(JustifyContent::SpaceAround),
+            "space-evenly" => Ok(JustifyContent::SpaceEvenly),
+            invalid => Err(format!("Can't parse `{}` as JustifyContent", invalid)),
+        }
+    }
+}
+
+impl TryFrom<&Variant> for JustifyContent {
+    type Error = String;
+    fn try_from(value: &Variant) -> Result<Self, Self::Error> {
+        match value {
+            Variant::String(s) => JustifyContent::try_parse(s),
+            variant => {
+                if let Some(value) = variant.get::<JustifyContent>() {
+                    Ok(value.clone())
+                } else {
+                    Err("Invalid value for JustifyContent".to_string())
+                }
+            }
+        }
+    }
+}
+
+impl From<AlignContent> for Variant {
+    fn from(value: AlignContent) -> Self {
+        Variant::Any(Box::new(value))
+    }
+}

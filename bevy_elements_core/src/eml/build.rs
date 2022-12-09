@@ -6,14 +6,16 @@ use std::{
 use bevy::{
     asset::Asset,
     ecs::system::{Command, CommandQueue, EntityCommands},
-    prelude::{App, AssetServer, Bundle, Commands, Component, Entity, Handle, Resource, World},
+    prelude::{
+        error, App, AssetServer, Bundle, Commands, Component, Entity, Handle, Resource, World,
+    },
     ui::{FocusPolicy, Interaction},
     utils::{HashMap, HashSet},
 };
 use tagstr::*;
 
 use crate::{
-    ess::StyleRule, ess::StyleSheetParser, params::Params, property::PropertyValues, tags, Element,
+    ess::StyleRule, ess::StyleSheetParser, params::Params, tags, Element, PropertyTransformer,
     Variant,
 };
 
@@ -48,10 +50,12 @@ pub trait WidgetBuilder: Widget {
         let mut queue = CommandQueue::default();
         let commands = Commands::new(&mut queue, world);
         let asset_server = world.resource::<AssetServer>().clone();
+        let transformer = world.resource::<PropertyTransformer>().clone();
         let mut ctx = ElementContext {
             commands,
             data,
             asset_server,
+            transformer,
         };
         if let Some(mut component) = component {
             component.bind_component(&mut ctx);
@@ -80,12 +84,21 @@ pub trait WidgetBuilder: Widget {
         }
         let id = ctx.id();
         let classes = ctx.classes();
-        let styles = ctx.styles();
+        let styles =
+            ctx.styles().transform(
+                |tag, variant| match ctx.transformer.transform(tag, variant) {
+                    Ok(variant) => vec![(tag, variant)],
+                    Err(e) => {
+                        error!("Ignoring property {}: {}", tag, e);
+                        vec![]
+                    }
+                },
+            );
         ctx.update_element(move |element| {
             element.names = names;
             element.id = id;
             element.classes.extend(classes);
-            element.styles.extend(styles);
+            element.styles.merge(styles);
         });
     }
 
@@ -120,6 +133,8 @@ pub struct ElementContext<'w, 's> {
     data: ElementContextData,
     commands: Commands<'w, 's>,
     asset_server: AssetServer,
+    transformer: PropertyTransformer,
+    // extractors
 }
 
 impl<'w, 's> ElementContext<'w, 's> {
@@ -169,7 +184,7 @@ impl<'w, 's> ElementContext<'w, 's> {
         self.data.params.classes()
     }
 
-    pub fn styles(&mut self) -> HashMap<Tag, PropertyValues> {
+    pub fn styles(&mut self) -> Params {
         self.data.params.styles()
     }
 

@@ -7,20 +7,20 @@ use tagstr::{AsTag, Tag};
 use crate::{
     ess::selector::{Selector, SelectorElement},
     ess::StyleRule,
-    property::PropertyValues,
-    ElementsError, PropertyExtractor, PropertyValidator,
+    property::StyleProperty,
+    ElementsError, PropertyExtractor, PropertyTransformer, Variant,
 };
 
 pub struct StyleSheetParser {
-    validator: PropertyValidator,
+    transformer: PropertyTransformer,
     extractor: PropertyExtractor,
 }
 
 impl StyleSheetParser {
-    pub fn new(validator: PropertyValidator, extractor: PropertyExtractor) -> StyleSheetParser {
+    pub fn new(transformer: PropertyTransformer, extractor: PropertyExtractor) -> StyleSheetParser {
         StyleSheetParser {
             extractor,
-            validator,
+            transformer,
         }
     }
     pub fn parse(&self, content: &str) -> SmallVec<[StyleRule; 8]> {
@@ -163,16 +163,26 @@ impl<'i> QualifiedRuleParser<'i> for &StyleSheetParser {
                             Ok(extracted) => extracted,
                         };
                         for (name, property) in extracted {
-                            if let Err(e) = self.validator.validate(name, &property) {
-                                return Err(input.new_custom_error(e));
+                            match self
+                                .transformer
+                                .transform(name, Variant::property(property))
+                            {
+                                Ok(variant) => {
+                                    rule.properties.insert(name, variant);
+                                }
+                                Err(e) => return Err(input.new_custom_error(e)),
                             }
-                            rule.properties.insert(name, property);
                         }
                     } else {
-                        if let Err(e) = self.validator.validate(name, &property) {
-                            return Err(input.new_custom_error(e));
+                        match self
+                            .transformer
+                            .transform(name, Variant::property(property))
+                        {
+                            Ok(variant) => {
+                                rule.properties.insert(name, variant);
+                            }
+                            Err(e) => return Err(input.new_custom_error(e)),
                         }
-                        rule.properties.insert(name, property);
                     }
                 }
                 Err((err, a)) => println!("Failed: {:?} ({})", err, a),
@@ -192,7 +202,7 @@ impl<'i> AtRuleParser<'i> for &StyleSheetParser {
 struct PropertyParser;
 
 impl<'i> DeclarationParser<'i> for PropertyParser {
-    type Declaration = (Tag, PropertyValues);
+    type Declaration = (Tag, StyleProperty);
 
     type Error = ElementsError;
 
@@ -209,13 +219,13 @@ impl<'i> DeclarationParser<'i> for PropertyParser {
             }
         }
 
-        Ok((name.to_string().as_tag(), PropertyValues(tokens)))
+        Ok((name.to_string().as_tag(), StyleProperty(tokens)))
     }
 }
 
 impl<'i> AtRuleParser<'i> for PropertyParser {
     type Prelude = ();
-    type AtRule = (Tag, PropertyValues);
+    type AtRule = (Tag, StyleProperty);
     type Error = ElementsError;
 }
 
@@ -234,7 +244,7 @@ fn parse_values<'i, 'tt>(
 #[cfg(test)]
 mod tests {
     use crate::{
-        ess::selector::EmlNode, property::PropertyToken, ExtractProperty, ValidateProperty,
+        ess::selector::EmlNode, property::StylePropertyToken, ExtractProperty, TransformProperty,
     };
 
     use super::*;
@@ -243,15 +253,15 @@ mod tests {
 
     struct TestParser {
         extractor: PropertyExtractor,
-        validator: PropertyValidator,
+        transformer: PropertyTransformer,
     }
 
     impl TestParser {
         fn new() -> TestParser {
-            let mut validators: HashMap<Tag, ValidateProperty> = Default::default();
+            let mut transformers: HashMap<Tag, TransformProperty> = Default::default();
             for tag in "a b c d e f g h i j k l".split(" ") {
-                validators.insert(tag.as_tag(), Box::new(|v| Ok(())));
-                validators.insert(format!("{}-{}", tag, tag).as_tag(), Box::new(|v| Ok(())));
+                transformers.insert(tag.as_tag(), |v| Ok(v));
+                transformers.insert(format!("{}-{}", tag, tag).as_tag(), |v| Ok(v));
             }
             let mut extractors: HashMap<Tag, ExtractProperty> = Default::default();
             extractors.insert(
@@ -260,26 +270,26 @@ mod tests {
                     let mut map = HashMap::default();
                     map.insert(
                         "a".as_tag(),
-                        PropertyValues(smallvec![PropertyToken::Identifier("a".to_string())]),
+                        StyleProperty(smallvec![StylePropertyToken::Identifier("a".to_string())]),
                     );
                     map.insert(
                         "b".as_tag(),
-                        PropertyValues(smallvec![PropertyToken::Identifier("b".to_string())]),
+                        StyleProperty(smallvec![StylePropertyToken::Identifier("b".to_string())]),
                     );
                     Ok(map)
                 }),
             );
 
-            let validator = PropertyValidator::new(validators);
+            let validator = PropertyTransformer::new(transformers);
             let extractor = PropertyExtractor::new(extractors);
             TestParser {
-                validator,
+                transformer: validator,
                 extractor,
             }
         }
 
         fn parse(&self, content: &str) -> SmallVec<[StyleRule; 8]> {
-            let parser = StyleSheetParser::new(self.validator.clone(), self.extractor.clone());
+            let parser = StyleSheetParser::new(self.transformer.clone(), self.extractor.clone());
             parser.parse(content)
             // StyleSheetParser::parse(content, self.validator.clone(), self.extractor.clone())
         }
@@ -444,12 +454,16 @@ mod tests {
             "Should have a property named \"b\""
         );
 
-        let values = properties.get(&"b".as_tag()).unwrap();
+        let values = properties
+            .get(&"b".as_tag())
+            .unwrap()
+            .get::<StyleProperty>()
+            .unwrap();
 
         assert_eq!(values.len(), 1, "Should have a single property value");
 
         match &values[0] {
-            PropertyToken::Identifier(ident) => assert_eq!(ident, "c"),
+            StylePropertyToken::Identifier(ident) => assert_eq!(ident, "c"),
             _ => panic!("Should have a property value of type identifier token"),
         }
     }
@@ -474,7 +488,7 @@ mod tests {
 
         let properties = &rules[0].properties;
 
-        use PropertyToken::*;
+        use StylePropertyToken::*;
         let expected = [
             ("a", vec![Identifier("a".to_string())]),
             ("b", vec![Dimension(0.0.into())]),
@@ -511,7 +525,14 @@ mod tests {
             assert!(properties.contains_key(&name.as_tag()));
             values
                 .iter()
-                .zip(properties.get(&name.as_tag()).unwrap().iter())
+                .zip(
+                    properties
+                        .get(&name.as_tag())
+                        .unwrap()
+                        .get::<StyleProperty>()
+                        .unwrap()
+                        .iter(),
+                )
                 .for_each(|(expected, token)| {
                     assert_eq!(token, expected);
                 })
@@ -539,11 +560,13 @@ mod tests {
                 .properties
                 .get(&"a".as_tag())
                 .expect("Should have a single property named \"a\"")
+                .get::<StyleProperty>()
+                .unwrap()
                 .iter()
                 .next()
                 .expect("Should have a single property value")
             {
-                PropertyToken::Identifier(a) => assert_eq!(a, "a"),
+                StylePropertyToken::Identifier(a) => assert_eq!(a, "a"),
                 _ => panic!("Should have only a single property value of type identifier"),
             }
         }
@@ -566,7 +589,7 @@ mod tests {
 
         let properties = &rule.properties;
 
-        use PropertyToken::*;
+        use StylePropertyToken::*;
         let expected = [
             ("a", vec![Identifier("a".to_string())]),
             ("b", vec![Identifier("b".to_string())]),
@@ -576,7 +599,14 @@ mod tests {
             assert!(properties.contains_key(&name.as_tag()));
             values
                 .iter()
-                .zip(properties.get(&name.as_tag()).unwrap().iter())
+                .zip(
+                    properties
+                        .get(&name.as_tag())
+                        .unwrap()
+                        .get::<StyleProperty>()
+                        .unwrap()
+                        .iter(),
+                )
                 .for_each(|(expected, token)| {
                     assert_eq!(token, expected);
                 })

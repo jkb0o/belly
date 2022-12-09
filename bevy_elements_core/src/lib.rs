@@ -10,7 +10,7 @@ use std::error::Error;
 use std::fmt::Display;
 use std::sync::Arc;
 // use focus::{Focused, update_focus};
-use property::PropertyValues;
+use property::StyleProperty;
 
 pub mod element;
 pub mod eml;
@@ -230,27 +230,28 @@ impl<'w, 's, 'a> WithElements for EntityCommands<'w, 's, 'a> {
     }
 }
 
-pub(crate) type ValidateProperty = Box<dyn Fn(&PropertyValues) -> Result<(), ElementsError>>;
+// pub(crate) type TransformProperty = Box<dyn Fn(&StyleProperty) -> Result<(), ElementsError>>;
+pub(crate) type TransformProperty = fn(Variant) -> Result<Variant, ElementsError>;
 #[derive(Default, Clone, Resource)]
-pub struct PropertyValidator(Arc<RwLock<HashMap<Tag, ValidateProperty>>>);
-unsafe impl Send for PropertyValidator {}
-unsafe impl Sync for PropertyValidator {}
-impl PropertyValidator {
+pub struct PropertyTransformer(Arc<RwLock<HashMap<Tag, TransformProperty>>>);
+unsafe impl Send for PropertyTransformer {}
+unsafe impl Sync for PropertyTransformer {}
+impl PropertyTransformer {
     #[cfg(test)]
-    pub(crate) fn new(rules: HashMap<Tag, ValidateProperty>) -> PropertyValidator {
-        PropertyValidator(Arc::new(RwLock::new(rules)))
+    pub(crate) fn new(rules: HashMap<Tag, TransformProperty>) -> PropertyTransformer {
+        PropertyTransformer(Arc::new(RwLock::new(rules)))
     }
-    pub(crate) fn validate(&self, name: Tag, value: &PropertyValues) -> Result<(), ElementsError> {
+    pub(crate) fn transform(&self, name: Tag, value: Variant) -> Result<Variant, ElementsError> {
         self.0
             .read()
             .get(&name)
             .ok_or(ElementsError::UnsupportedProperty(name.to_string()))
-            .and_then(|validator| validator(value))
+            .and_then(|transform| transform(value))
     }
 }
 
 pub(crate) type ExtractProperty =
-    Box<dyn Fn(PropertyValues) -> Result<HashMap<Tag, PropertyValues>, ElementsError>>;
+    Box<dyn Fn(StyleProperty) -> Result<HashMap<Tag, StyleProperty>, ElementsError>>;
 #[derive(Default, Clone, Resource)]
 pub struct PropertyExtractor(Arc<RwLock<HashMap<Tag, ExtractProperty>>>);
 unsafe impl Send for PropertyExtractor {}
@@ -267,8 +268,8 @@ impl PropertyExtractor {
     pub(crate) fn extract(
         &self,
         name: Tag,
-        value: PropertyValues,
-    ) -> Result<HashMap<Tag, PropertyValues>, ElementsError> {
+        value: StyleProperty,
+    ) -> Result<HashMap<Tag, StyleProperty>, ElementsError> {
         self.0
             .read()
             .get(&name)
@@ -289,10 +290,10 @@ impl RegisterProperty for bevy::prelude::App {
         T: Property + 'static,
     {
         self.world
-            .get_resource_or_insert_with(PropertyValidator::default)
+            .get_resource_or_insert_with(PropertyTransformer::default)
             .0
             .write()
-            .insert(T::name(), Box::new(|props| T::validate(props)));
+            .insert(T::name(), T::transform);
         self.add_system(T::apply_defaults /* .label(EcssSystem::Apply) */);
 
         self
@@ -314,7 +315,7 @@ pub fn setup_defaults(
     mut defaults: ResMut<Defaults>,
     elements_registry: Res<ElementBuilderRegistry>,
     extractor: Res<PropertyExtractor>,
-    validator: Res<PropertyValidator>,
+    validator: Res<PropertyTransformer>,
 ) {
     let font_bytes = include_bytes!("fonts/Exo2-ExtraLight.ttf").to_vec();
     let font_asset = Font::try_from_bytes(font_bytes).unwrap();

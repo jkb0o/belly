@@ -15,8 +15,8 @@ use itertools::Itertools;
 
 use crate::{
     element::*,
-    ess::{ElementsBranch, StyleSheet, Styles},
-    ElementsError,
+    ess::{ElementsBranch, StyleRule, StyleSheet, Styles},
+    ElementsError, Variant,
 };
 use crate::{ess::SelectorWeight, tags::*};
 
@@ -59,7 +59,7 @@ impl From<&Number> for f32 {
 
 /// A property value token which was parsed from a CSS rule.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Hash)]
-pub enum PropertyToken {
+pub enum StylePropertyToken {
     /// A value which was parsed percent value, like `100%` or `73.23%`.
     Percentage(Number),
     /// A value which was parsed dimension value, like `10px` or `35em.
@@ -76,20 +76,20 @@ pub enum PropertyToken {
     String(String),
 }
 
-impl PropertyToken {
+impl StylePropertyToken {
     fn to_string(&self) -> String {
         match self {
-            PropertyToken::Percentage(v) => format!("{}%", v.to_float()),
-            PropertyToken::Dimension(v) => format!("{}px", v.to_float()),
-            PropertyToken::Number(v) => format!("{}", v.to_float()),
-            PropertyToken::Identifier(v) => format!("{}", v),
-            PropertyToken::Hash(v) => format!("#{}", v),
-            PropertyToken::String(v) => format!("\"{}\"", v),
+            StylePropertyToken::Percentage(v) => format!("{}%", v.to_float()),
+            StylePropertyToken::Dimension(v) => format!("{}px", v.to_float()),
+            StylePropertyToken::Number(v) => format!("{}", v.to_float()),
+            StylePropertyToken::Identifier(v) => format!("{}", v),
+            StylePropertyToken::Hash(v) => format!("#{}", v),
+            StylePropertyToken::String(v) => format!("\"{}\"", v),
         }
     }
 }
 
-impl<'i> TryFrom<Token<'i>> for PropertyToken {
+impl<'i> TryFrom<Token<'i>> for StylePropertyToken {
     type Error = String;
 
     fn try_from(token: Token<'i>) -> Result<Self, Self::Error> {
@@ -110,19 +110,19 @@ impl<'i> TryFrom<Token<'i>> for PropertyToken {
 
 /// A list of [`PropertyToken`] which was parsed from a single property.
 #[derive(Debug, Default, Clone, Deref, PartialEq, Eq, Hash)]
-pub struct PropertyValues(pub(crate) SmallVec<[PropertyToken; 8]>);
+pub struct StyleProperty(pub(crate) SmallVec<[StylePropertyToken; 8]>);
 
-impl From<&PropertyValues> for PropertyValues {
-    fn from(v: &PropertyValues) -> Self {
+impl From<&StyleProperty> for StyleProperty {
+    fn from(v: &StyleProperty) -> Self {
         v.clone()
     }
 }
 
-impl PropertyValues {
+impl StyleProperty {
     /// Tries to parses the current values as a single [`String`].
     pub fn string(&self) -> Option<String> {
         self.0.iter().find_map(|token| match token {
-            PropertyToken::String(id) => {
+            StylePropertyToken::String(id) => {
                 if id.is_empty() {
                     None
                 } else {
@@ -140,8 +140,8 @@ impl PropertyValues {
     pub fn color(&self) -> Option<Color> {
         if self.0.len() == 1 {
             match &self.0[0] {
-                PropertyToken::Identifier(name) => colors::parse_named_color(name.as_str()),
-                PropertyToken::Hash(hash) => colors::parse_hex_color(hash.as_str()),
+                StylePropertyToken::Identifier(name) => colors::parse_named_color(name.as_str()),
+                StylePropertyToken::Hash(hash) => colors::parse_hex_color(hash.as_str()),
                 _ => None,
             }
         } else {
@@ -154,7 +154,7 @@ impl PropertyValues {
     /// Tries to parses the current values as a single identifier.
     pub fn identifier(&self) -> Option<&str> {
         self.0.iter().find_map(|token| match token {
-            PropertyToken::Identifier(id) => {
+            StylePropertyToken::Identifier(id) => {
                 if id.is_empty() {
                     None
                 } else {
@@ -171,10 +171,12 @@ impl PropertyValues {
     /// where former is converted to [`Val::Percent`] and latter is converted to [`Val::Px`].
     pub fn val(&self) -> Option<Val> {
         self.0.iter().find_map(|token| match token {
-            PropertyToken::Percentage(val) => Some(Val::Percent(val.into())),
-            PropertyToken::Dimension(val) => Some(Val::Px(val.into())),
-            PropertyToken::Identifier(val) if val.as_str() == "auto" => Some(Val::Auto),
-            PropertyToken::Identifier(val) if val.as_str() == "undefined" => Some(Val::Undefined),
+            StylePropertyToken::Percentage(val) => Some(Val::Percent(val.into())),
+            StylePropertyToken::Dimension(val) => Some(Val::Px(val.into())),
+            StylePropertyToken::Identifier(val) if val.as_str() == "auto" => Some(Val::Auto),
+            StylePropertyToken::Identifier(val) if val.as_str() == "undefined" => {
+                Some(Val::Undefined)
+            }
             _ => None,
         })
     }
@@ -185,9 +187,9 @@ impl PropertyValues {
     /// are considered valid values.
     pub fn f32(&self) -> Option<f32> {
         self.0.iter().find_map(|token| match token {
-            PropertyToken::Percentage(val)
-            | PropertyToken::Dimension(val)
-            | PropertyToken::Number(val) => Some(val.into()),
+            StylePropertyToken::Percentage(val)
+            | StylePropertyToken::Dimension(val)
+            | StylePropertyToken::Number(val) => Some(val.into()),
             _ => None,
         })
     }
@@ -203,10 +205,10 @@ impl PropertyValues {
     /// If there is a identifier with a `none` value, then [`Option::Some`] with [`None`] is returned.
     pub fn option_f32(&self) -> Option<Option<f32>> {
         self.0.iter().find_map(|token| match token {
-            PropertyToken::Percentage(val)
-            | PropertyToken::Dimension(val)
-            | PropertyToken::Number(val) => Some(Some(val.into())),
-            PropertyToken::Identifier(ident) => match ident.as_str() {
+            StylePropertyToken::Percentage(val)
+            | StylePropertyToken::Dimension(val)
+            | StylePropertyToken::Number(val) => Some(Some(val.into())),
+            StylePropertyToken::Identifier(ident) => match ident.as_str() {
                 "none" => Some(None),
                 _ => None,
             },
@@ -228,8 +230,8 @@ impl PropertyValues {
                 .iter()
                 .fold((None, 0), |(rect, idx), token| {
                     let val = match token {
-                        PropertyToken::Percentage(val) => Val::Percent(val.into()),
-                        PropertyToken::Dimension(val) => Val::Px(val.into()),
+                        StylePropertyToken::Percentage(val) => Val::Percent(val.into()),
+                        StylePropertyToken::Dimension(val) => Val::Px(val.into()),
                         _ => return (rect, idx),
                     };
                     let mut rect: UiRect = rect.unwrap_or_default();
@@ -256,35 +258,36 @@ impl PropertyValues {
     }
 }
 
-impl TryFrom<&str> for PropertyValues {
+fn parse_style_propery_value(value: &str) -> Result<StyleProperty, String> {
+    let mut input = cssparser::ParserInput::new(value);
+    let mut parser = cssparser::Parser::new(&mut input);
+    let mut values: SmallVec<[StylePropertyToken; 8]> = SmallVec::new();
+    while let Ok(token) = parser.next() {
+        values.push(token.clone().try_into()?)
+    }
+    Ok(StyleProperty(values))
+}
+
+impl TryFrom<&str> for StyleProperty {
     type Error = String;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let mut input = cssparser::ParserInput::new(value);
-        let mut parser = cssparser::Parser::new(&mut input);
-        let mut values: SmallVec<[PropertyToken; 8]> = SmallVec::new();
-        while let Ok(token) = parser.next() {
-            values.push(token.clone().try_into()?)
-        }
-        Ok(PropertyValues(values))
+        parse_style_propery_value(value)
     }
 }
 
-// impl<'i> TryFrom<Token<'i>> for PropertyToken {
-//     type Error = ();
+impl TryFrom<String> for StyleProperty {
+    type Error = String;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        parse_style_propery_value(&value)
+    }
+}
 
-//     fn try_from(token: Token<'i>) -> Result<Self, Self::Error> {
-//         match token {
-//             Token::Ident(val) => Ok(Self::Identifier(val.to_string())),
-//             Token::Hash(val) => Ok(Self::Hash(val.to_string())),
-//             Token::IDHash(val) => Ok(Self::Hash(val.to_string())),
-//             Token::QuotedString(val) => Ok(Self::String(val.to_string())),
-//             Token::Number { value, .. } => Ok(Self::Number(value)),
-//             Token::Percentage { unit_value, .. } => Ok(Self::Percentage(unit_value * 100.0)),
-//             Token::Dimension { value, .. } => Ok(Self::Dimension(value)),
-//             _ => Err(()),
-//         }
-//     }
-// }
+impl TryFrom<&String> for StyleProperty {
+    type Error = String;
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        parse_style_propery_value(value.as_str())
+    }
+}
 
 /// Internal cache state. Used by [`CachedProperties`] to avoid parsing properties of the same rule on same sheet.
 #[derive(Default, Debug, Clone)]
@@ -307,9 +310,9 @@ pub enum CacheState<T> {
 // pub struct PropertyMeta<T: Property>(HashMap<u64, CachedProperties<T::Cache>>);
 
 #[derive(Default)]
-pub struct CachedProperties<T: Property>(HashMap<PropertyValues, CacheState<T::Cache>>);
+pub struct CachedProperties<T: Property>(HashMap<StyleProperty, CacheState<T::Cache>>);
 impl<T: Property> CachedProperties<T> {
-    fn get_or_parse(&mut self, value: &PropertyValues) -> &CacheState<T::Cache> {
+    fn get_or_parse(&mut self, value: &StyleProperty) -> &CacheState<T::Cache> {
         self.0
             .entry_ref(value)
             .or_insert_with(|| match T::parse(value) {
@@ -326,39 +329,6 @@ impl<T: Property> CachedProperties<T> {
             })
     }
 }
-
-// impl<T: Property> PropertyMeta<T> {
-//     /// Gets a cached property value or try to parse.
-//     ///
-//     /// If there are some error while parsing, a [`CacheState::Error`] is stored to avoid trying to parse again on next try.
-//     fn get_or_parse(
-//         &mut self,
-//         rules: &StyleSheetAsset,
-//         selector: &Selector,
-//     ) -> &CacheState<T::Cache> {
-//         let cached_properties = self.entry(rules.hash()).or_default();
-
-//         // Avoid using HashMap::entry since it requires ownership of key
-//         if cached_properties.contains_key(selector) {
-//             cached_properties.get(selector).unwrap()
-//         } else {
-//             let new_cache = rules
-//                 .get_properties(selector, T::name())
-//                 .map(|values| match T::parse(values) {
-//                     Ok(cache) => CacheState::Ok(cache),
-//                     Err(err) => {
-//                         error!("Failed to parse property {}. Error: {}", T::name(), err);
-//                         // TODO: Clear cache state when the asset is reloaded, since values may be changed.
-//                         CacheState::Error
-//                     }
-//                 })
-//                 .unwrap_or(CacheState::None);
-
-//             cached_properties.insert(selector.clone(), new_cache);
-//             cached_properties.get(selector).unwrap()
-//         }
-//     }
-// }
 
 /// Maps which entities was selected by a [`Selector`]
 // #[derive(Debug, Clone, Default, Deref, DerefMut)]
@@ -395,7 +365,7 @@ impl<T: Property> CachedProperties<T> {
 /// [ecs world](`bevy::prelude::World`) and call the [`apply`](Property::apply) function on every matched entity.
 pub trait Property: Default + Sized + Send + Sync + 'static {
     /// The cached value type to be applied by property.
-    type Cache: Default + Any + Send + Sync;
+    type Cache: Default + Any + Send + Sync; // + for <'a> TryFrom<&'a Variant>;
     /// Which components should be queried when applying the modification. Check [`WorldQuery`] for more.
     type Components: WorldQuery;
     /// Filters conditions to be applied when querying entities by this property. Check [`WorldQuery`] for more.
@@ -414,10 +384,27 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
     ///
     /// This function is called only once, on the first time a matching property is found while applying style rule.
     /// If an error is returned, it is also cached so no more attempt are made.
-    fn parse(values: &PropertyValues) -> Result<Self::Cache, ElementsError>;
+    fn parse(values: &StyleProperty) -> Result<Self::Cache, ElementsError>;
 
-    fn validate(values: &PropertyValues) -> Result<(), ElementsError> {
+    fn validate(values: &StyleProperty) -> Result<(), ElementsError> {
         Self::parse(values).map(|_| ())
+    }
+
+    fn transform(variant: Variant) -> Result<Variant, ElementsError> {
+        match variant {
+            Variant::Property(p) => Self::parse(&p).map(|p| Variant::boxed(p)),
+            Variant::String(s) => StyleProperty::try_from(s)
+                .map_err(|e| ElementsError::InvalidPropertyValue(e))
+                .and_then(|p| Self::parse(&p))
+                .map(|v| Variant::boxed(v)),
+            variant => variant
+                .take::<Self::Cache>()
+                .ok_or(ElementsError::InvalidPropertyValue(format!(
+                    "Invalid value for {} property",
+                    Self::name()
+                )))
+                .map(|v| Variant::Any(Box::new(v))), // Self::parse(s.into()).map(|v| Variant::Any(Box::new(v)))
+        }
     }
 
     /// Applies on the given [`Components`](Property::Components) the [`Cache`](Property::Cache) value.
@@ -466,7 +453,7 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
     // }
 
     fn apply_defaults(
-        mut cached_properties: Local<CachedProperties<Self>>,
+        // mut cached_properties: Local<CachedProperties<Self>>,
         mut components: Query<(Entity, Self::Components), (Changed<Element>, Self::Filters)>,
         mut commands: Commands,
         asset_server: Res<AssetServer>,
@@ -499,7 +486,7 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
             let mut default = None;
             loop {
                 if !element_with_default.is_virtual() {
-                    default = element_with_default.styles.get(&Self::name());
+                    default = element_with_default.styles.get_variant(Self::name());
                     break;
                 }
                 if let Ok(parent) = parents.get(entity_with_default) {
@@ -527,37 +514,41 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
                     break;
                 }
             }
-
-            // info!("testing branch {}", branch.to_string());
-
-            let property = if let Some(properties) = rules
-                .iter()
-                .filter_map(|r|
-                    // use default values for zero-weighted or from-default-style-sheet selectors
-                    if r.selector.overridable_by_props() && default.is_some() {
-                        Some((default.unwrap(), 0, SelectorWeight::zero()))
-                    } else if let Some(depth) = r.selector.match_depth(&branch) {
-                        Some((r.properties.get(&Self::name()).unwrap(), depth, r.selector.weight))
-                    } else {
-                        None
-                    }
-                )
-                .group_by(|(_prop, _depth, weight)| *weight)
-                .into_iter()
-                .map(|(_, group)| group)
-                .next()
-            {
-                let mut variants = properties.collect::<Vec<_>>();
-                variants.sort_by_key(|(_prop, depth, _weight)| -(*depth as i16));
-                let (values, _depth, _weight) = variants.pop().unwrap();
-                Some(values)
-            } else {
-                default
-            };
+            let property = default.or_else(|| {
+                rules
+                    .iter()
+                    .filter_map(|r| {
+                        if let Some(depth) = r.selector.match_depth(&branch) {
+                            Some((
+                                r.properties.get(&Self::name()).unwrap(),
+                                depth,
+                                r.selector.weight,
+                            ))
+                        } else {
+                            None
+                        }
+                    })
+                    .group_by(|(_prop, _depth, weight)| *weight)
+                    .into_iter()
+                    .map(|(_, group)| group)
+                    .next()
+                    .map(|properties| {
+                        let mut variants = properties.collect::<Vec<_>>();
+                        variants.sort_by_key(|(_prop, depth, _weight)| -(*depth as i16));
+                        let (value, _depth, _weight) = variants.pop().unwrap();
+                        value
+                    })
+            });
 
             if let Some(property) = property {
-                if let CacheState::Ok(property) = cached_properties.get_or_parse(property) {
+                if let Some(property) = property.get::<Self::Cache>() {
                     Self::apply(property, components, &asset_server, &mut commands, entity);
+                } else {
+                    error!(
+                        "Unable to apply {} property: inconsistent Variant {:?}",
+                        Self::name(),
+                        property
+                    );
                 }
             }
         }
@@ -566,7 +557,7 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
 
 pub trait CompoundProperty: Default + Sized + Send + Sync + 'static {
     fn name() -> Tag;
-    fn parse(values: PropertyValues) -> Result<HashMap<Tag, PropertyValues>, ElementsError>;
+    fn extract(value: Variant) -> Result<HashMap<Tag, Variant>, ElementsError>;
 }
 
 #[cfg(test)]
@@ -575,9 +566,9 @@ mod test {
 
     #[test]
     fn parse_value() {
-        let expected = PropertyValues(SmallVec::from_vec(vec![
-            PropertyToken::Percentage(21f32.into()),
-            PropertyToken::Dimension(22f32.into()),
+        let expected = StyleProperty(SmallVec::from_vec(vec![
+            StylePropertyToken::Percentage(21f32.into()),
+            StylePropertyToken::Dimension(22f32.into()),
         ]));
         let value = "21% 22px";
         assert_eq!(Ok(expected), value.try_into());

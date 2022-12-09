@@ -2,15 +2,18 @@ use std::{fmt::Debug, mem};
 
 use crate::property::*;
 use crate::tags;
+use crate::variant;
 use crate::variant::ApplyCommands;
+use crate::ElementsError;
 use crate::Variant;
+use bevy::prelude::error;
 use bevy::{
     ecs::system::EntityCommands,
     utils::{hashbrown::hash_map::Drain, HashMap, HashSet},
 };
 use tagstr::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum ParamTarget {
     Param,
     Style,
@@ -178,28 +181,8 @@ impl Params {
         self.drop::<ApplyCommands>(name)
     }
 
-    pub fn styles(&mut self) -> HashMap<Tag, PropertyValues> {
-        if let Some(mut styles) = self.drop::<Params>(tags::styles()) {
-            let mut result: HashMap<Tag, PropertyValues> = Default::default();
-            for (tag, attr) in styles.drain() {
-                if let Some(value) = attr.value.get::<String>() {
-                    match value.as_str().try_into() {
-                        Ok(parsed) => result.insert(tag, parsed),
-                        Err(err) => {
-                            panic!("Unable to parse style {} for key {}: {}", value, tag, err)
-                        }
-                    };
-                } else {
-                    panic!(
-                        "For now only String supported as style values, {} got {:?}",
-                        tag, attr
-                    );
-                }
-            }
-            result
-        } else {
-            Default::default()
-        }
+    pub fn styles(&mut self) -> Params {
+        self.drop::<Params>(tags::styles()).unwrap_or_default()
     }
     pub fn classes(&mut self) -> HashSet<Tag> {
         self.drop::<String>(tags::class())
@@ -242,6 +225,23 @@ impl Params {
 
     pub fn contains(&self, tag: Tag) -> bool {
         self.0.contains_key(&tag)
+    }
+
+    pub fn transform<I: IntoIterator<Item = (Tag, Variant)>, F: Fn(Tag, Variant) -> I>(
+        mut self,
+        transform: F,
+    ) -> Params {
+        let mut this = Params::default();
+        for (tag, mut param) in self.0.drain() {
+            for (tag, variant) in transform(tag, param.take_varint()) {
+                this.add(Param {
+                    name: tag,
+                    value: variant,
+                    target: param.target,
+                })
+            }
+        }
+        this
     }
 }
 
