@@ -1,9 +1,9 @@
 use std::fmt::Display;
 
 use roxmltree;
-use tagstr::AsTag;
+use tagstr::{AsTag, Tag};
 
-use crate::{property::StyleProperty, Variant};
+use crate::{property::StyleProperty, ElementsError, Variant};
 
 use super::{EmlElement, EmlLoader, EmlNode};
 
@@ -18,7 +18,6 @@ enum Error {
     InvalidElement(String, roxmltree::TextPos),
     InvalidStyleValue(String, roxmltree::TextPos),
     InvalidDocumentStructure(String, roxmltree::TextPos),
-    ValidationError(String, roxmltree::TextPos),
     Internal(roxmltree::Error),
 }
 
@@ -28,7 +27,6 @@ impl Error {
             Error::InvalidElement(_, pos) => *pos,
             Error::InvalidDocumentStructure(_, pos) => *pos,
             Error::InvalidStyleValue(_, pos) => *pos,
-            Error::ValidationError(_, pos) => *pos,
             Error::Internal(e) => e.pos(),
         }
     }
@@ -53,7 +51,6 @@ impl ParseError {
                 format!("Invalid document structure: {} at {}", msg, pos)
             }
             Error::InvalidStyleValue(msg, pos) => format!("{} at {}", msg, pos),
-            Error::ValidationError(msg, pos) => format!("{} at {}", msg, pos),
         };
 
         let pos = err.pos();
@@ -145,7 +142,7 @@ fn walk(node: roxmltree::Node, loader: &EmlLoader) -> Result<EmlElement, Error> 
         let pos = doc.text_pos_at(attr.position());
         let name = if let Some(ns) = attr.namespace() {
             if ns == NS_STYLE {
-                let props = TryInto::<StyleProperty>::try_into(attr.value()).map_err(|e| {
+                validate_style(attr.name().as_tag(), attr.value(), loader).map_err(|e| {
                     Error::InvalidStyleValue(
                         format!(
                             "Invalid value for {NS_STYLE}:{} attribute: {}",
@@ -155,19 +152,6 @@ fn walk(node: roxmltree::Node, loader: &EmlLoader) -> Result<EmlElement, Error> 
                         pos,
                     )
                 })?;
-                loader
-                    .transformer
-                    .transform(attr.name().as_tag(), Variant::property(props))
-                    .map_err(|e| {
-                        Error::ValidationError(
-                            format!(
-                                "Error validating value for {NS_STYLE}:{} attribute: {}",
-                                attr.name(),
-                                e
-                            ),
-                            pos,
-                        )
-                    })?;
             }
             format!("{}:{}", ns, attr.name())
         } else {
@@ -188,4 +172,14 @@ fn walk(node: roxmltree::Node, loader: &EmlLoader) -> Result<EmlElement, Error> 
         }
     }
     Ok(elem)
+}
+
+fn validate_style(name: Tag, value: &str, loader: &EmlLoader) -> Result<(), ElementsError> {
+    let props = Variant::style(TryInto::<StyleProperty>::try_into(value)?);
+    if loader.extractor.is_compound_property(name) {
+        loader.extractor.extract(name, props)?;
+    } else {
+        loader.transformer.transform(name, props)?;
+    }
+    Ok(())
 }

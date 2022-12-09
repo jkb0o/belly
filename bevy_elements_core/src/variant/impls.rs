@@ -5,11 +5,6 @@ use crate::{
 use bevy::prelude::*;
 
 use super::{ApplyCommands, Variant};
-impl From<i32> for Variant {
-    fn from(v: i32) -> Self {
-        Variant::Int(v as isize)
-    }
-}
 
 impl From<String> for Variant {
     fn from(v: String) -> Self {
@@ -64,7 +59,7 @@ impl<R: Component, T: BindValue> From<BindTo<R, T>> for Variant {
 
 impl From<JustifyContent> for Variant {
     fn from(value: JustifyContent) -> Self {
-        Variant::Any(Box::new(value))
+        Variant::Boxed(Box::new(value))
     }
 }
 
@@ -101,11 +96,5 @@ impl TryFrom<&Variant> for JustifyContent {
                 }
             }
         }
-    }
-}
-
-impl From<AlignContent> for Variant {
-    fn from(value: AlignContent) -> Self {
-        Variant::Any(Box::new(value))
     }
 }

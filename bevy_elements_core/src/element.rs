@@ -1,12 +1,9 @@
-use bevy::utils::HashMap;
-use bevy::utils::HashSet;
+use bevy::utils::{HashMap, HashSet};
 use smallvec::SmallVec;
 
-use crate::params::Params;
-use crate::property::*;
+use crate::property::PropertyValue;
 use crate::tags;
 use crate::tags::*;
-use crate::Variant;
 use bevy::prelude::*;
 
 #[derive(Default)]
@@ -26,7 +23,7 @@ pub struct Element {
     pub state: HashSet<Tag>,
     pub display: DisplayElement,
     pub content: Option<Entity>,
-    pub styles: Params,
+    pub styles: HashMap<Tag, PropertyValue>,
 }
 
 impl Element {

@@ -10,7 +10,7 @@ use std::error::Error;
 use std::fmt::Display;
 use std::sync::Arc;
 // use focus::{Focused, update_focus};
-use property::StyleProperty;
+use property::{CompoundProperty, PropertyValue};
 
 pub mod element;
 pub mod eml;
@@ -95,13 +95,6 @@ fn register_properties(app: &mut bevy::prelude::App) {
     app.register_property::<JustifyContentProperty>();
     app.register_property::<OverflowProperty>();
 
-    app.register_property::<LeftProperty>();
-    app.register_property::<RightProperty>();
-    app.register_property::<TopProperty>();
-    app.register_property::<BottomProperty>();
-    app.register_property::<MarginLeftProperty>();
-    app.register_property::<MarginRightProperty>();
-    app.register_property::<PaddingLeftProperty>();
     app.register_property::<WidthProperty>();
     app.register_property::<HeightProperty>();
     app.register_property::<MinWidthProperty>();
@@ -113,9 +106,29 @@ fn register_properties(app: &mut bevy::prelude::App) {
     app.register_property::<FlexShrinkProperty>();
     app.register_property::<AspectRatioProperty>();
 
-    app.register_property::<MarginProperty>();
-    app.register_property::<PaddingProperty>();
-    app.register_property::<BorderProperty>();
+    app.register_compound_property::<PositionProperty>();
+    app.register_property::<LeftProperty>();
+    app.register_property::<RightProperty>();
+    app.register_property::<TopProperty>();
+    app.register_property::<BottomProperty>();
+
+    app.register_compound_property::<PaddingProperty>();
+    app.register_property::<PaddingLeftProperty>();
+    app.register_property::<PaddingRightProperty>();
+    app.register_property::<PaddingTopProperty>();
+    app.register_property::<PaddingBottomProperty>();
+
+    app.register_compound_property::<MarginProperty>();
+    app.register_property::<MarginLeftProperty>();
+    app.register_property::<MarginRightProperty>();
+    app.register_property::<MarginTopProperty>();
+    app.register_property::<MarginBottomProperty>();
+
+    app.register_compound_property::<BorderProperty>();
+    app.register_property::<BorderLeftProperty>();
+    app.register_property::<BorderRightProperty>();
+    app.register_property::<BorderTopProperty>();
+    app.register_property::<BorderBottomProperty>();
 
     app.register_property::<FontColorProperty>();
     app.register_property::<FontProperty>();
@@ -188,7 +201,7 @@ impl Default for ImageElementBundle {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ElementsError {
     /// An unsupported selector was found on a style sheet rule.
     UnsupportedSelector,
@@ -231,7 +244,7 @@ impl<'w, 's, 'a> WithElements for EntityCommands<'w, 's, 'a> {
 }
 
 // pub(crate) type TransformProperty = Box<dyn Fn(&StyleProperty) -> Result<(), ElementsError>>;
-pub(crate) type TransformProperty = fn(Variant) -> Result<Variant, ElementsError>;
+pub(crate) type TransformProperty = fn(Variant) -> Result<PropertyValue, ElementsError>;
 #[derive(Default, Clone, Resource)]
 pub struct PropertyTransformer(Arc<RwLock<HashMap<Tag, TransformProperty>>>);
 unsafe impl Send for PropertyTransformer {}
@@ -241,7 +254,11 @@ impl PropertyTransformer {
     pub(crate) fn new(rules: HashMap<Tag, TransformProperty>) -> PropertyTransformer {
         PropertyTransformer(Arc::new(RwLock::new(rules)))
     }
-    pub(crate) fn transform(&self, name: Tag, value: Variant) -> Result<Variant, ElementsError> {
+    pub(crate) fn transform(
+        &self,
+        name: Tag,
+        value: Variant,
+    ) -> Result<PropertyValue, ElementsError> {
         self.0
             .read()
             .get(&name)
@@ -250,8 +267,7 @@ impl PropertyTransformer {
     }
 }
 
-pub(crate) type ExtractProperty =
-    Box<dyn Fn(StyleProperty) -> Result<HashMap<Tag, StyleProperty>, ElementsError>>;
+pub(crate) type ExtractProperty = fn(Variant) -> Result<HashMap<Tag, PropertyValue>, ElementsError>;
 #[derive(Default, Clone, Resource)]
 pub struct PropertyExtractor(Arc<RwLock<HashMap<Tag, ExtractProperty>>>);
 unsafe impl Send for PropertyExtractor {}
@@ -268,8 +284,8 @@ impl PropertyExtractor {
     pub(crate) fn extract(
         &self,
         name: Tag,
-        value: StyleProperty,
-    ) -> Result<HashMap<Tag, StyleProperty>, ElementsError> {
+        value: Variant,
+    ) -> Result<HashMap<Tag, PropertyValue>, ElementsError> {
         self.0
             .read()
             .get(&name)
@@ -279,23 +295,31 @@ impl PropertyExtractor {
 }
 
 pub trait RegisterProperty {
-    fn register_property<T>(&mut self) -> &mut Self
-    where
-        T: Property + 'static;
+    fn register_property<T: Property + 'static>(&mut self) -> &mut Self;
+    fn register_compound_property<T: CompoundProperty + 'static>(&mut self) -> &mut Self;
 }
 
 impl RegisterProperty for bevy::prelude::App {
-    fn register_property<T>(&mut self) -> &mut Self
-    where
-        T: Property + 'static,
-    {
+    fn register_property<T: Property + 'static>(&mut self) -> &mut Self {
         self.world
             .get_resource_or_insert_with(PropertyTransformer::default)
             .0
             .write()
-            .insert(T::name(), T::transform);
+            .entry(T::name())
+            .and_modify(|_| panic!("Property `{}` already registered.", T::name()))
+            .or_insert(T::transform);
         self.add_system(T::apply_defaults /* .label(EcssSystem::Apply) */);
+        self
+    }
 
+    fn register_compound_property<T: CompoundProperty + 'static>(&mut self) -> &mut Self {
+        self.world
+            .get_resource_or_insert_with(PropertyExtractor::default)
+            .0
+            .write()
+            .entry(T::name())
+            .and_modify(|_| panic!("CompoundProperty `{}` already registered", T::name()))
+            .insert(T::extract);
         self
     }
 }

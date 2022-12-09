@@ -83,7 +83,7 @@ impl TryFrom<Variant> for ImgMode {
 
 impl From<ImgMode> for Variant {
     fn from(mode: ImgMode) -> Self {
-        Variant::Any(Box::new(mode))
+        Variant::Boxed(Box::new(mode))
     }
 }
 

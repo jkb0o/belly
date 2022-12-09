@@ -156,28 +156,17 @@ impl<'i> QualifiedRuleParser<'i> for &StyleSheetParser {
         for property in DeclarationListParser::new(input, PropertyParser) {
             match property {
                 Ok((name, property)) => {
-                    // let e = input.new_custom_error(error)
                     if self.extractor.is_compound_property(name) {
-                        let extracted = match self.extractor.extract(name, property) {
+                        let extracted = match self.extractor.extract(name, Variant::style(property))
+                        {
                             Err(e) => return Err(input.new_custom_error(e)),
                             Ok(extracted) => extracted,
                         };
                         for (name, property) in extracted {
-                            match self
-                                .transformer
-                                .transform(name, Variant::property(property))
-                            {
-                                Ok(variant) => {
-                                    rule.properties.insert(name, variant);
-                                }
-                                Err(e) => return Err(input.new_custom_error(e)),
-                            }
+                            rule.properties.insert(name, property);
                         }
                     } else {
-                        match self
-                            .transformer
-                            .transform(name, Variant::property(property))
-                        {
+                        match self.transformer.transform(name, Variant::style(property)) {
                             Ok(variant) => {
                                 rule.properties.insert(name, variant);
                             }
@@ -244,12 +233,23 @@ fn parse_values<'i, 'tt>(
 #[cfg(test)]
 mod tests {
     use crate::{
-        ess::selector::EmlNode, property::StylePropertyToken, ExtractProperty, TransformProperty,
+        ess::selector::EmlNode,
+        property::{PropertyValue, StylePropertyToken},
+        ExtractProperty, TransformProperty,
     };
 
     use super::*;
     use bevy::utils::HashMap;
     use std::ops::Deref;
+
+    fn transform(v: Variant) -> Result<PropertyValue, ElementsError> {
+        match v {
+            Variant::Style(s) => Ok(PropertyValue::new(s)),
+            _ => Err(ElementsError::InvalidPropertyValue(format!(
+                "Smth wrong with tests"
+            ))),
+        }
+    }
 
     struct TestParser {
         extractor: PropertyExtractor,
@@ -260,25 +260,26 @@ mod tests {
         fn new() -> TestParser {
             let mut transformers: HashMap<Tag, TransformProperty> = Default::default();
             for tag in "a b c d e f g h i j k l".split(" ") {
-                transformers.insert(tag.as_tag(), |v| Ok(v));
-                transformers.insert(format!("{}-{}", tag, tag).as_tag(), |v| Ok(v));
+                transformers.insert(tag.as_tag(), transform);
+                transformers.insert(format!("{}-{}", tag, tag).as_tag(), transform);
             }
             let mut extractors: HashMap<Tag, ExtractProperty> = Default::default();
-            extractors.insert(
-                "compound".as_tag(),
-                Box::new(|p| {
-                    let mut map = HashMap::default();
-                    map.insert(
-                        "a".as_tag(),
-                        StyleProperty(smallvec![StylePropertyToken::Identifier("a".to_string())]),
-                    );
-                    map.insert(
-                        "b".as_tag(),
-                        StyleProperty(smallvec![StylePropertyToken::Identifier("b".to_string())]),
-                    );
-                    Ok(map)
-                }),
-            );
+            extractors.insert("compound".as_tag(), |p| {
+                let mut map = HashMap::default();
+                map.insert(
+                    "a".as_tag(),
+                    PropertyValue::new(StyleProperty(smallvec![StylePropertyToken::Identifier(
+                        "a".to_string()
+                    )])),
+                );
+                map.insert(
+                    "b".as_tag(),
+                    PropertyValue::new(StyleProperty(smallvec![StylePropertyToken::Identifier(
+                        "b".to_string()
+                    )])),
+                );
+                Ok(map)
+            });
 
             let validator = PropertyTransformer::new(transformers);
             let extractor = PropertyExtractor::new(extractors);
@@ -457,7 +458,7 @@ mod tests {
         let values = properties
             .get(&"b".as_tag())
             .unwrap()
-            .get::<StyleProperty>()
+            .downcast_ref::<StyleProperty>()
             .unwrap();
 
         assert_eq!(values.len(), 1, "Should have a single property value");
@@ -529,7 +530,7 @@ mod tests {
                     properties
                         .get(&name.as_tag())
                         .unwrap()
-                        .get::<StyleProperty>()
+                        .downcast_ref::<StyleProperty>()
                         .unwrap()
                         .iter(),
                 )
@@ -560,7 +561,7 @@ mod tests {
                 .properties
                 .get(&"a".as_tag())
                 .expect("Should have a single property named \"a\"")
-                .get::<StyleProperty>()
+                .downcast_ref::<StyleProperty>()
                 .unwrap()
                 .iter()
                 .next()
@@ -603,7 +604,7 @@ mod tests {
                     properties
                         .get(&name.as_tag())
                         .unwrap()
-                        .get::<StyleProperty>()
+                        .downcast_ref::<StyleProperty>()
                         .unwrap()
                         .iter(),
                 )

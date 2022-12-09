@@ -3,59 +3,94 @@ use bevy::{ecs::query::QueryItem, prelude::*};
 use crate::ElementsError;
 use tagstr::*;
 
-use super::{Property, StyleProperty};
+use super::{CompoundProperty, Property, StyleProperty};
 
 pub(crate) use style::*;
 pub(crate) use text::*;
 
 /// Impls for `bevy_ui` [`Style`] component
 mod style {
+
+    use bevy::utils::HashMap;
+
+    use crate::{property::PropertyValue, Variant};
+
     use super::*;
-    /// Implements a new property for [`Style`] component which expects a rect value.
+    // #[derive(Default)]
+    // pub(crate) struct PaddingProperty;
+    // impl CompoundProperty for PaddingProperty {
+    //     fn name() -> Tag {
+    //         tag!("padding")
+    //     }
+    //     fn extract(value: crate::Variant) -> Result<bevy::utils::HashMap<Tag, PropertyValue>, ElementsError> {
+    //         let rect = match value {
+    //             Variant::String(unparsed) => {
+    //                 StyleProperty::try_from(unparsed).and_then(|prop| prop.rect())?
+    //             },
+    //             Variant::Style(prop) => prop.rect()?,
+    //             variant => variant.take::<UiRect>().ok_or(ElementsError::InvalidPropertyValue(format!("Can't extract rect from variant")))?,
+
+    //         };
+    //         let mut props = HashMap::default();
+    //         props.insert("padding-left".as_tag(), PropertyValue::new(rect.left));
+    //         props.insert("padding-right".as_tag(), PropertyValue::new(rect.right));
+    //         props.insert("padding-top".as_tag(), PropertyValue::new(rect.top));
+    //         props.insert("padding-bottom".as_tag(), PropertyValue::new(rect.bottom));
+    //         Ok(props)
+    //     }
+    // }
+
+    /// Implements a new property property extractor for [`Style`] component which expects a rect value.
     macro_rules! impl_style_rect {
-        ($name:expr, $struct:ident, $style_prop:ident$(.$style_field:ident)*) => {
+        ($name:expr, $struct:ident) => {
             #[doc = "Applies the `"]
             #[doc = $name]
-            #[doc = "` property on [Style::"]
-            #[doc = stringify!($style_prop)]
-            $(#[doc = concat!("::",stringify!($style_field))])*
-            #[doc = "](`Style`) field of all sections on matched [`Style`] components."]
+            // #[doc = "` property on [Style::"]
             #[derive(Default)]
             pub(crate) struct $struct;
 
-            impl Property for $struct {
-                type Cache = UiRect;
-                type Components = &'static mut Style;
-                type Filters = With<Node>;
-
+            impl CompoundProperty for $struct {
                 fn name() -> Tag {
                     tag!($name)
                 }
 
-                fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
-                    if let Some(val) = values.rect() {
-                        Ok(val)
-                    } else {
-                        Err(ElementsError::InvalidPropertyValue(Self::name().to_string()))
-                    }
-                }
-
-                fn apply<'w>(
-                    cache: &Self::Cache,
-                    mut components: QueryItem<Self::Components>,
-                    _asset_server: &AssetServer,
-                    _commands: &mut Commands,
-                    _entity: Entity,
-                ) {
-                    components.$style_prop$(.$style_field)? = *cache;
+                fn extract(
+                    value: crate::Variant,
+                ) -> Result<bevy::utils::HashMap<Tag, PropertyValue>, ElementsError> {
+                    let rect =
+                        match value {
+                            Variant::String(unparsed) => {
+                                StyleProperty::try_from(unparsed).and_then(|prop| prop.rect())?
+                            }
+                            Variant::Style(prop) => prop.rect()?,
+                            variant => variant.take::<UiRect>().ok_or(
+                                ElementsError::InvalidPropertyValue(format!(
+                                    "Can't extract rect from variant"
+                                )),
+                            )?,
+                        };
+                    let mut props = HashMap::default();
+                    props.insert(
+                        concat!($name, "-left").as_tag(),
+                        PropertyValue::new(rect.left),
+                    );
+                    props.insert(
+                        concat!($name, "-right").as_tag(),
+                        PropertyValue::new(rect.right),
+                    );
+                    props.insert(
+                        concat!($name, "-top").as_tag(),
+                        PropertyValue::new(rect.top),
+                    );
+                    props.insert(
+                        concat!($name, "-bottom").as_tag(),
+                        PropertyValue::new(rect.bottom),
+                    );
+                    Ok(props)
                 }
             }
         };
     }
-
-    impl_style_rect!("margin", MarginProperty, margin);
-    impl_style_rect!("padding", PaddingProperty, padding);
-    impl_style_rect!("border", BorderProperty, border);
 
     /// Implements a new property for [`Style`] component which expects a single value.
     macro_rules! impl_style_single_value {
@@ -70,7 +105,7 @@ mod style {
             pub(crate) struct $struct;
 
             impl Property for $struct {
-                type Cache = $cache;
+                type Item = $cache;
                 type Components = &'static mut Style;
                 type Filters = With<Node>;
 
@@ -78,7 +113,7 @@ mod style {
                     tag!($name)
                 }
 
-                fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
+                fn parse<'a>(values: &StyleProperty) -> Result<Self::Item, ElementsError> {
                     if let Some(val) = values.$parse_func() {
                         Ok(val)
                     } else {
@@ -87,7 +122,7 @@ mod style {
                 }
 
                 fn apply<'w>(
-                    cache: &Self::Cache,
+                    cache: &Self::Item,
                     mut components: QueryItem<Self::Components>,
                     _asset_server: &AssetServer,
                     _commands: &mut Commands,
@@ -100,14 +135,50 @@ mod style {
     }
 
     // Val properties
+    impl_style_rect!("position", PositionProperty);
     impl_style_single_value!("left", LeftProperty, Val, val, position.left);
     impl_style_single_value!("right", RightProperty, Val, val, position.right);
     impl_style_single_value!("top", TopProperty, Val, val, position.top);
     impl_style_single_value!("bottom", BottomProperty, Val, val, position.bottom);
-
+    impl_style_rect!("margin", MarginProperty);
     impl_style_single_value!("margin-left", MarginLeftProperty, Val, val, margin.left);
     impl_style_single_value!("margin-right", MarginRightProperty, Val, val, margin.right);
+    impl_style_single_value!("margin-top", MarginTopProperty, Val, val, margin.top);
+    impl_style_single_value!(
+        "margin-bottom",
+        MarginBottomProperty,
+        Val,
+        val,
+        margin.bottom
+    );
+    impl_style_rect!("padding", PaddingProperty);
     impl_style_single_value!("padding-left", PaddingLeftProperty, Val, val, padding.left);
+    impl_style_single_value!(
+        "padding-right",
+        PaddingRightProperty,
+        Val,
+        val,
+        padding.right
+    );
+    impl_style_single_value!("padding-top", PaddingTopProperty, Val, val, padding.top);
+    impl_style_single_value!(
+        "padding-bottom",
+        PaddingBottomProperty,
+        Val,
+        val,
+        padding.bottom
+    );
+    impl_style_rect!("border", BorderProperty);
+    impl_style_single_value!("border-left", BorderLeftProperty, Val, val, border.left);
+    impl_style_single_value!("border-right", BorderRightProperty, Val, val, border.right);
+    impl_style_single_value!("border-top", BorderTopProperty, Val, val, border.top);
+    impl_style_single_value!(
+        "border-bottom",
+        BorderBottomProperty,
+        Val,
+        val,
+        border.bottom
+    );
 
     impl_style_single_value!("width", WidthProperty, Val, val, size.width);
     impl_style_single_value!("height", HeightProperty, Val, val, size.height);
@@ -145,7 +216,7 @@ mod style {
             pub(crate) struct $struct;
 
             impl Property for $struct {
-                type Cache = $cache;
+                type Item = $cache;
                 type Components = &'static mut Style;
                 type Filters = With<Node>;
 
@@ -153,7 +224,7 @@ mod style {
                     tag!($name)
                 }
 
-                fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
+                fn parse<'a>(values: &StyleProperty) -> Result<Self::Item, ElementsError> {
                     if let Some(identifier) = values.identifier() {
                         use $cache::*;
                         // Chain if-let when `cargofmt` supports it
@@ -168,7 +239,7 @@ mod style {
                 }
 
                 fn apply<'w>(
-                    cache: &Self::Cache,
+                    cache: &Self::Item,
                     mut components: QueryItem<Self::Components>,
                     _asset_server: &AssetServer,
                     _commands: &mut Commands,
@@ -270,7 +341,7 @@ mod text {
     pub(crate) struct FontColorProperty;
 
     impl Property for FontColorProperty {
-        type Cache = Color;
+        type Item = Color;
         type Components = &'static mut Text;
         type Filters = With<Node>;
 
@@ -282,7 +353,7 @@ mod text {
             true
         }
 
-        fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
+        fn parse<'a>(values: &StyleProperty) -> Result<Self::Item, ElementsError> {
             if let Some(color) = values.color() {
                 Ok(color)
             } else {
@@ -293,7 +364,7 @@ mod text {
         }
 
         fn apply<'w>(
-            cache: &Self::Cache,
+            cache: &Self::Item,
             mut components: QueryItem<Self::Components>,
             _asset_server: &AssetServer,
             _commands: &mut Commands,
@@ -311,7 +382,7 @@ mod text {
     pub(crate) struct FontProperty;
 
     impl Property for FontProperty {
-        type Cache = FontPath;
+        type Item = FontPath;
         type Components = &'static mut Text;
         type Filters = With<Node>;
 
@@ -323,7 +394,7 @@ mod text {
             true
         }
 
-        fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
+        fn parse<'a>(values: &StyleProperty) -> Result<Self::Item, ElementsError> {
             if let Some(path) = values.string() {
                 Ok(FontPath::Custom(path))
             } else if let Some(ident) = values.identifier() {
@@ -344,7 +415,7 @@ mod text {
         }
 
         fn apply<'w>(
-            cache: &Self::Cache,
+            cache: &Self::Item,
             mut components: QueryItem<Self::Components>,
             asset_server: &AssetServer,
             commands: &mut Commands,
@@ -383,7 +454,7 @@ mod text {
     pub(crate) struct FontSizeProperty;
 
     impl Property for FontSizeProperty {
-        type Cache = f32;
+        type Item = f32;
         type Components = &'static mut Text;
         type Filters = With<Node>;
 
@@ -395,7 +466,7 @@ mod text {
             true
         }
 
-        fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
+        fn parse<'a>(values: &StyleProperty) -> Result<Self::Item, ElementsError> {
             if let Some(size) = values.f32() {
                 Ok(size)
             } else {
@@ -406,7 +477,7 @@ mod text {
         }
 
         fn apply<'w>(
-            cache: &Self::Cache,
+            cache: &Self::Item,
             mut components: QueryItem<Self::Components>,
             _asset_server: &AssetServer,
             _commands: &mut Commands,
@@ -425,7 +496,7 @@ mod text {
 
     impl Property for VerticalAlignProperty {
         // Using Option since Cache must impl Default, which VerticalAlign doesn't
-        type Cache = Option<VerticalAlign>;
+        type Item = Option<VerticalAlign>;
         type Components = &'static mut Text;
         type Filters = With<Node>;
 
@@ -433,7 +504,7 @@ mod text {
             tag!("vertical-align")
         }
 
-        fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
+        fn parse<'a>(values: &StyleProperty) -> Result<Self::Item, ElementsError> {
             if let Some(ident) = values.identifier() {
                 match ident {
                     "top" => return Ok(Some(VerticalAlign::Top)),
@@ -448,7 +519,7 @@ mod text {
         }
 
         fn apply<'w>(
-            cache: &Self::Cache,
+            cache: &Self::Item,
             mut components: QueryItem<Self::Components>,
             _asset_server: &AssetServer,
             _commands: &mut Commands,
@@ -464,7 +535,7 @@ mod text {
 
     impl Property for HorizontalAlignProperty {
         // Using Option since Cache must impl Default, which HorizontalAlign doesn't
-        type Cache = Option<HorizontalAlign>;
+        type Item = Option<HorizontalAlign>;
         type Components = &'static mut Text;
         type Filters = With<Node>;
 
@@ -472,7 +543,7 @@ mod text {
             tag!("text-align")
         }
 
-        fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
+        fn parse<'a>(values: &StyleProperty) -> Result<Self::Item, ElementsError> {
             if let Some(ident) = values.identifier() {
                 match ident {
                     "left" => return Ok(Some(HorizontalAlign::Left)),
@@ -487,7 +558,7 @@ mod text {
         }
 
         fn apply<'w>(
-            cache: &Self::Cache,
+            cache: &Self::Item,
             mut components: QueryItem<Self::Components>,
             _asset_server: &AssetServer,
             _commands: &mut Commands,
@@ -503,7 +574,7 @@ mod text {
     pub(crate) struct TextContentProperty;
 
     impl Property for TextContentProperty {
-        type Cache = String;
+        type Item = String;
         type Components = &'static mut Text;
         type Filters = With<Node>;
 
@@ -511,7 +582,7 @@ mod text {
             tag!("text-content")
         }
 
-        fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
+        fn parse<'a>(values: &StyleProperty) -> Result<Self::Item, ElementsError> {
             if let Some(content) = values.string() {
                 Ok(content)
             } else {
@@ -522,7 +593,7 @@ mod text {
         }
 
         fn apply<'w>(
-            cache: &Self::Cache,
+            cache: &Self::Item,
             mut components: QueryItem<Self::Components>,
             _asset_server: &AssetServer,
             _commands: &mut Commands,
@@ -542,7 +613,7 @@ mod text {
 pub(crate) struct BackgroundColorProperty;
 
 impl Property for BackgroundColorProperty {
-    type Cache = Color;
+    type Item = Color;
     type Components = Entity;
     type Filters = With<BackgroundColor>;
 
@@ -550,7 +621,7 @@ impl Property for BackgroundColorProperty {
         tag!("background-color")
     }
 
-    fn parse<'a>(values: &StyleProperty) -> Result<Self::Cache, ElementsError> {
+    fn parse<'a>(values: &StyleProperty) -> Result<Self::Item, ElementsError> {
         if let Some(color) = values.color() {
             Ok(color)
         } else {
@@ -561,7 +632,7 @@ impl Property for BackgroundColorProperty {
     }
 
     fn apply<'w>(
-        cache: &Self::Cache,
+        cache: &Self::Item,
         components: QueryItem<Self::Components>,
         _asset_server: &AssetServer,
         commands: &mut Commands,

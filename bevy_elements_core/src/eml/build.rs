@@ -15,8 +15,10 @@ use bevy::{
 use tagstr::*;
 
 use crate::{
-    ess::StyleRule, ess::StyleSheetParser, params::Params, tags, Element, PropertyTransformer,
-    Variant,
+    ess::StyleRule,
+    ess::StyleSheetParser,
+    params::{Params, StyleParams},
+    tags, Element, PropertyExtractor, PropertyTransformer, Variant,
 };
 
 pub trait Widget: Sized + Component + 'static {
@@ -51,11 +53,13 @@ pub trait WidgetBuilder: Widget {
         let commands = Commands::new(&mut queue, world);
         let asset_server = world.resource::<AssetServer>().clone();
         let transformer = world.resource::<PropertyTransformer>().clone();
+        let extractor = world.resource::<PropertyExtractor>().clone();
         let mut ctx = ElementContext {
             commands,
             data,
             asset_server,
             transformer,
+            extractor,
         };
         if let Some(mut component) = component {
             component.bind_component(&mut ctx);
@@ -84,21 +88,30 @@ pub trait WidgetBuilder: Widget {
         }
         let id = ctx.id();
         let classes = ctx.classes();
-        let styles =
-            ctx.styles().transform(
-                |tag, variant| match ctx.transformer.transform(tag, variant) {
+        let styles = ctx.styles().transform(|tag, variant| {
+            if ctx.extractor.is_compound_property(tag) {
+                match ctx.extractor.extract(tag, variant) {
+                    Ok(mut props) => props.drain().collect(),
+                    Err(e) => {
+                        error!("Ignoring property {}: {}", tag, e);
+                        vec![]
+                    }
+                }
+            } else {
+                match ctx.transformer.transform(tag, variant) {
                     Ok(variant) => vec![(tag, variant)],
                     Err(e) => {
                         error!("Ignoring property {}: {}", tag, e);
                         vec![]
                     }
-                },
-            );
+                }
+            }
+        });
         ctx.update_element(move |element| {
             element.names = names;
             element.id = id;
             element.classes.extend(classes);
-            element.styles.merge(styles);
+            element.styles.extend(styles);
         });
     }
 
@@ -133,6 +146,7 @@ pub struct ElementContext<'w, 's> {
     data: ElementContextData,
     commands: Commands<'w, 's>,
     asset_server: AssetServer,
+    extractor: PropertyExtractor,
     transformer: PropertyTransformer,
     // extractors
 }
@@ -184,7 +198,7 @@ impl<'w, 's> ElementContext<'w, 's> {
         self.data.params.classes()
     }
 
-    pub fn styles(&mut self) -> Params {
+    pub fn styles(&mut self) -> StyleParams {
         self.data.params.styles()
     }
 

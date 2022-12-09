@@ -2,14 +2,13 @@ use std::{fmt::Debug, mem};
 
 use crate::property::*;
 use crate::tags;
-use crate::variant;
 use crate::variant::ApplyCommands;
-use crate::ElementsError;
 use crate::Variant;
-use bevy::prelude::error;
+use bevy::prelude::Deref;
+use bevy::prelude::DerefMut;
 use bevy::{
     ecs::system::EntityCommands,
-    utils::{hashbrown::hash_map::Drain, HashMap, HashSet},
+    utils::{HashMap, HashSet},
 };
 use tagstr::*;
 
@@ -58,6 +57,14 @@ impl Param {
         }
     }
 
+    pub fn style(name: Tag, value: Variant) -> Param {
+        Param {
+            name,
+            value,
+            target: ParamTarget::Style,
+        }
+    }
+
     pub fn take<T: 'static>(&mut self) -> Option<T> {
         mem::take(&mut self.value).take()
     }
@@ -67,9 +74,31 @@ impl Param {
     }
 }
 
+#[derive(Default, Deref, DerefMut, Debug)]
+pub struct StyleParams(HashMap<Tag, Variant>);
+
+impl StyleParams {
+    pub fn transform<I: IntoIterator<Item = (Tag, PropertyValue)>, F: Fn(Tag, Variant) -> I>(
+        self,
+        transform: F,
+    ) -> HashMap<Tag, PropertyValue> {
+        let mut styles = HashMap::default();
+        for (tag, param) in self.0 {
+            for (tag, property) in transform(tag, param) {
+                styles.insert(tag, property);
+            }
+        }
+        styles
+    }
+}
+
 // fn test_system
 #[derive(Default, Debug)]
-pub struct Params(HashMap<Tag, Param>);
+pub struct Params {
+    pub(crate) defined_classes: HashSet<Tag>,
+    pub(crate) defined_styles: StyleParams,
+    pub(crate) rest: HashMap<Tag, Param>,
+}
 
 impl Params {
     pub fn add(&mut self, mut attr: Param) {
@@ -84,95 +113,38 @@ impl Params {
             }
         }
         if attr.name == tags::class() {
-            if let Some(existed) = self.get_mut::<String>(attr.name) {
-                if let Some(classes) = attr.take::<String>() {
-                    existed.push_str(" ");
-                    existed.push_str(classes.as_str());
-                    return;
+            if let Variant::String(classes) = attr.value {
+                for class in classes.split_whitespace() {
+                    self.defined_classes.insert(class.as_tag());
                 }
+                return;
             }
         }
         match attr.target {
-            ParamTarget::Param => self.0.insert(attr.name, attr),
-            ParamTarget::Class => match self.0.get_mut(&tags::class()) {
-                Some(class) => {
-                    let classes = class
-                        .value
-                        .get_mut::<String>()
-                        .expect("Class param should be of type String.");
-                    classes.push_str(" ");
-                    classes.push_str(attr.name.into());
-                    None
-                }
-                None => {
-                    attr = Param::new(tags::class().into(), Variant::String(attr.name.into()));
-                    self.0.insert(tags::class(), attr)
-                }
-            },
-            ParamTarget::Style => match self.0.get_mut(&tags::styles()) {
-                Some(styles) => {
-                    let styles = styles
-                        .value
-                        .get_mut::<Params>()
-                        .expect("Styles param should be of type Params.");
-                    attr.target = ParamTarget::Param;
-                    styles.add(attr);
-                    None
-                }
-                None => {
-                    let mut styles = Params::default();
-                    attr.target = ParamTarget::Param;
-                    styles.add(attr);
-                    let attr = Param::new(tags::styles().into(), Variant::Params(styles));
-                    self.0.insert(tags::styles(), attr)
-                }
-            },
-        };
+            ParamTarget::Param => {
+                self.rest.insert(attr.name, attr);
+            }
+            ParamTarget::Style => {
+                self.defined_styles.insert(attr.name, attr.value);
+            }
+            ParamTarget::Class => {
+                self.defined_classes.insert(attr.name);
+            }
+        }
     }
 
-    pub fn drain(&mut self) -> Drain<Tag, Param> {
-        self.0.drain()
-    }
+    // pub fn drain(&mut self) -> Drain<Tag, Param> {
+    //     self.0.drain()
+    // }
 
     pub fn merge(&mut self, mut other: Self) {
-        if let Some(other_classes) = other.0.remove(&tags::class()) {
-            if let Some(self_classes) = self.0.get_mut(&tags::class()) {
-                let self_class_string = self_classes
-                    .value
-                    .get_mut::<String>()
-                    .expect("Class param should be of type String.");
-                let other_class_string = other_classes
-                    .value
-                    .get::<String>()
-                    .expect("Class param should be of type String.");
-                self_class_string.push_str(" ");
-                self_class_string.push_str(other_class_string.as_str());
+        self.defined_classes.extend(other.defined_classes);
+        self.defined_styles.extend(other.defined_styles.0);
+        for (name, value) in other.rest.drain() {
+            if let Some(param) = self.rest.get_mut(&name) {
+                param.value.merge(value.value);
             } else {
-                self.0.insert(tags::class(), other_classes);
-            }
-        }
-        if let Some(mut other_styles) = other.0.remove(&tags::styles()) {
-            if let Some(self_styles) = self.0.get_mut(&tags::styles()) {
-                let self_styles_value = self_styles
-                    .value
-                    .get_mut::<Params>()
-                    .expect("styles param should be of type Params");
-                let other_styles_value = other_styles
-                    .value
-                    .get_mut::<Params>()
-                    .expect("styles param should be of type Params");
-                for (_, attr) in other_styles_value.0.drain() {
-                    self_styles_value.add(attr);
-                }
-            } else {
-                self.0.insert(tags::styles(), other_styles);
-            }
-        }
-        for (name, attr) in other.0.drain() {
-            if let Some(self_attr) = self.0.get_mut(&name) {
-                self_attr.value.merge(attr.value);
-            } else {
-                self.add(attr);
+                self.rest.insert(name, value);
             }
         }
     }
@@ -181,34 +153,31 @@ impl Params {
         self.drop::<ApplyCommands>(name)
     }
 
-    pub fn styles(&mut self) -> Params {
-        self.drop::<Params>(tags::styles()).unwrap_or_default()
-    }
     pub fn classes(&mut self) -> HashSet<Tag> {
-        self.drop::<String>(tags::class())
-            .unwrap_or("".to_string())
-            .split(" ")
-            .filter(|s| !s.is_empty())
-            .map(|s| s.as_tag())
-            .collect()
+        mem::take(&mut self.defined_classes)
     }
+
+    pub fn styles(&mut self) -> StyleParams {
+        mem::take(&mut self.defined_styles)
+    }
+
     pub fn id(&mut self) -> Option<Tag> {
         self.drop(tags::id())
     }
     pub fn get<T: 'static>(&self, key: Tag) -> Option<&T> {
-        self.0.get(&key).and_then(|v| v.value.get::<T>())
+        self.rest.get(&key).and_then(|v| v.value.get::<T>())
     }
     pub fn get_variant(&self, key: Tag) -> Option<&Variant> {
-        self.0.get(&key).map(|v| &v.value)
+        self.rest.get(&key).map(|v| &v.value)
     }
     pub fn get_mut<T: 'static>(&mut self, key: Tag) -> Option<&mut T> {
-        self.0.get_mut(&key).and_then(|v| v.value.get_mut::<T>())
+        self.rest.get_mut(&key).and_then(|v| v.value.get_mut::<T>())
     }
     pub fn drop<T: 'static>(&mut self, key: Tag) -> Option<T> {
-        self.0.remove(&key).and_then(|mut a| a.take())
+        self.rest.remove(&key).and_then(|mut a| a.take())
     }
     pub fn drop_variant(&mut self, key: Tag) -> Option<Variant> {
-        self.0.remove(&key).map(|mut a| a.take_varint())
+        self.rest.remove(&key).map(|mut a| a.take_varint())
     }
     pub fn drop_or_default<T: 'static>(&mut self, key: Tag, default: T) -> T {
         if let Some(value) = self.drop(key) {
@@ -223,26 +192,22 @@ impl Params {
         }
     }
 
-    pub fn contains(&self, tag: Tag) -> bool {
-        self.0.contains_key(&tag)
-    }
+    // pub fn contains(&self, tag: Tag) -> bool {
+    //     self.rest.contains_key(&tag)
+    // }
 
-    pub fn transform<I: IntoIterator<Item = (Tag, Variant)>, F: Fn(Tag, Variant) -> I>(
-        mut self,
-        transform: F,
-    ) -> Params {
-        let mut this = Params::default();
-        for (tag, mut param) in self.0.drain() {
-            for (tag, variant) in transform(tag, param.take_varint()) {
-                this.add(Param {
-                    name: tag,
-                    value: variant,
-                    target: param.target,
-                })
-            }
-        }
-        this
-    }
+    // pub fn transform<I: IntoIterator<Item = (Tag, PropertyValue)>, F: Fn(Tag, Variant) -> I>(
+    //     mut self,
+    //     transform: F,
+    // ) -> HashMap<Tag, PropertyValue> {
+    //     let mut this = HashMap::default();
+    //     for (tag, mut param) in self.rest.drain() {
+    //         for (tag, variant) in transform(tag, param.take_varint()) {
+    //             this.insert(tag, variant);
+    //         }
+    //     }
+    //     this
+    // }
 }
 
 #[macro_export]
@@ -313,11 +278,10 @@ mod test {
     fn test_basic_styles() {
         let mut attrs = Params::default();
         attrs.add(Param::new("s:color", "black".into()));
-        let styles = attrs.drop::<Params>("styles".as_tag());
-        assert!(styles.is_some());
-        let styles = styles.unwrap();
+        let styles = attrs.styles();
+        assert!(!styles.is_empty());
         assert_eq!(
-            styles.get::<String>("color".as_tag()),
+            styles.get(&"color".as_tag()).unwrap().get::<String>(),
             Some(&"black".to_string())
         );
     }

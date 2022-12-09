@@ -8,14 +8,13 @@ use bevy::{
     reflect::TypeUuid,
     utils::{hashbrown::hash_map::Keys, HashMap},
 };
-use itertools::Itertools;
 pub use selector::*;
 use smallvec::SmallVec;
 use tagstr::Tag;
 
 use crate::{
-    input::invalidate_elements, property::StyleProperty, Defaults, Element, PropertyExtractor,
-    PropertyTransformer, Variant,
+    input::invalidate_elements, property::PropertyValue, Defaults, Element, PropertyExtractor,
+    PropertyTransformer,
 };
 
 pub use self::parser::StyleSheetParser;
@@ -196,7 +195,6 @@ impl StyleSheet {
     }
 }
 
-
 impl Deref for StyleSheet {
     type Target = Vec<StyleRule>;
 
@@ -209,7 +207,7 @@ impl Deref for StyleSheet {
 pub struct StyleRule {
     pub selector: Selector,
     // pub properties: HashMap<Tag, StyleProperty>,
-    pub properties: HashMap<Tag, Variant>,
+    pub properties: HashMap<Tag, PropertyValue>,
 }
 
 #[derive(Default, Resource)]
