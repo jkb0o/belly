@@ -121,6 +121,7 @@ fn register_properties(app: &mut bevy::prelude::App) {
     app.register_property::<TextContentProperty>();
 
     app.register_property::<BackgroundColorProperty>();
+    app.register_property::<ScaleProperty>();
 }
 
 pub struct Widgets;

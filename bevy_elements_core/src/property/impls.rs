@@ -7,6 +7,7 @@ use super::{CompoundProperty, Property, StyleProperty};
 
 pub(crate) use style::*;
 pub(crate) use text::*;
+pub(crate) use transform::*;
 
 /// Impls for `bevy_ui` [`Style`] component
 mod style {
@@ -604,6 +605,42 @@ mod text {
                 .iter_mut()
                 // TODO: Maybe change this so each line break is a new section
                 .for_each(|section| section.value = cache.clone());
+        }
+    }
+}
+
+mod transform {
+    use super::*;
+    use bevy::prelude::Transform;
+
+    #[derive(Default)]
+    pub(crate) struct ScaleProperty;
+
+    impl Property for ScaleProperty {
+        type Item = f32;
+        type Components = &'static mut Transform;
+        type Filters = With<Node>;
+
+        fn name() -> Tag {
+            tag!("scale")
+        }
+
+        fn parse<'a>(values: &StyleProperty) -> Result<Self::Item, ElementsError> {
+            if let Some(val) = values.f32() {
+                Ok(val)
+            } else {
+                Err(ElementsError::InvalidPropertyValue(values.to_string()))
+            }
+        }
+
+        fn apply<'w>(
+            cache: &Self::Item,
+            mut components: QueryItem<Self::Components>,
+            _asset_server: &AssetServer,
+            _commands: &mut Commands,
+            _entity: Entity,
+        ) {
+            components.scale = Vec3::splat(*cache);
         }
     }
 }

@@ -19,23 +19,21 @@ impl Plugin for ButtonPlugin {
     "margin: 5px"
 )]
 #[style("button:hover .button-foreground", "background-color: white")]
+#[style("button:active .button-background", "margin: 1px -1px -1px 1px")]
 #[style(
     ".button-shadow",
     "background-color: #4f4f4fb8",
-    "top: 2px",
-    "left: 2px",
-    "bottom: -2px",
-    "right: -2px"
+    "top: 1px",
+    "left: 1px",
+    "bottom: -1px",
+    "right: -1px"
 )]
 #[style(
     ".button-background",
-    "margin: -2px",
-    "padding: 1px",
-    "background-color: #2f2f2f",
-    "left: 0px",
-    "right: 0px",
     "width: 100%",
-    "height: 100%"
+    "margin: -1px 1px 1px -1px",
+    "padding: 1px",
+    "background-color: #2f2f2f"
 )]
 #[style(
     ".button-foreground",

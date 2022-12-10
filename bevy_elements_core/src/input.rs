@@ -35,6 +35,10 @@ impl Plugin for ElementsInputPlugin {
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 hover_system.label(Label::Hover).after(Label::Signals),
+            )
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                active_system.label(Label::Active).after(Label::Signals),
             );
     }
 }
@@ -45,6 +49,7 @@ pub enum Label {
     TabFocus,
     Focus,
     Hover,
+    Active,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -94,6 +99,14 @@ impl PointerInput {
         }
     }
 
+    pub fn up(&self) -> bool {
+        if let PointerInputData::Up { presses: _ } = self.data {
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn pressed(&self) -> bool {
         if let PointerInputData::Pressed { presses: _ } = self.data {
             true
@@ -126,6 +139,16 @@ impl PointerInput {
                 }
             }
             false
+        } else {
+            false
+        }
+    }
+
+    pub fn dragging_over_self(&self) -> bool {
+        if let PointerInputData::Drag { from } = &self.data {
+            // this is just vec equality
+            from.len() == self.entities.len()
+                && self.entities.iter().zip(from.iter()).all(|(a, b)| a == b)
         } else {
             false
         }
@@ -384,7 +407,7 @@ pub fn pointer_input_system(
             data: PointerInputData::DragStart,
         });
     }
-    if drag_entities.len() > 0 {
+    if drag_entities.len() > 0 && drag_stop_entities.is_empty() {
         events.send(PointerInput {
             pos,
             delta,
@@ -463,15 +486,16 @@ pub fn focus_system(
 }
 
 pub fn hover_system(
-    mut hovered_entities: Local<HashSet<Entity>>,
-    // mut elements: Query<&mut Element, With<Interaction>>,
     mut events: EventReader<PointerInput>,
     mut elements: Elements,
+    mut hovered_entities: Local<HashSet<Entity>>,
+    mut dirty: Local<Vec<Entity>>,
 ) {
+    dirty.clear();
     let mut any_motion = false;
     let new_hovered_entities: HashSet<_> = events
         .iter()
-        .filter(|e| e.motion())
+        .filter(|e| e.motion() || e.dragging())
         .map(|e| {
             any_motion = true;
             e
@@ -482,7 +506,7 @@ pub fn hover_system(
     if !any_motion {
         return;
     }
-    let mut dirty = vec![];
+
     // remove hovered state
     for entity in hovered_entities.difference(&new_hovered_entities) {
         if let Ok(mut element) = elements.get_mut(*entity) {
@@ -501,6 +525,51 @@ pub fn hover_system(
     for entity in dirty.iter() {
         elements.invalidate(*entity);
     }
+}
+
+pub fn active_system(
+    mut elements: Elements,
+    mut events: EventReader<PointerInput>,
+    mut active_elements: Local<HashSet<Entity>>,
+    mut add_active: Local<HashSet<Entity>>,
+    mut remove_active: Local<HashSet<Entity>>,
+) {
+    add_active.clear();
+    remove_active.clear();
+    let mut add_active = HashSet::default();
+    let mut remove_active = HashSet::default();
+    for event in events.iter() {
+        match &event.data {
+            PointerInputData::Drag { from } => {
+                if event.dragging_over_self() {
+                    add_active.extend(from);
+                } else {
+                    remove_active.extend(from);
+                }
+            }
+            PointerInputData::Down { presses: _ } => {
+                add_active.extend(&event.entities);
+            }
+            PointerInputData::Up { presses: _ } => {
+                remove_active.extend(&event.entities);
+                remove_active.extend(&*active_elements);
+            }
+            _ => (),
+        }
+    }
+    for entity in add_active.iter() {
+        elements.invalidate(*entity);
+        if let Ok(mut element) = elements.get_mut(*entity) {
+            element.state.insert(tags::active());
+        }
+    }
+    for entity in remove_active.iter() {
+        elements.invalidate(*entity);
+        if let Ok(mut element) = elements.get_mut(*entity) {
+            element.state.remove(&tags::active());
+        }
+    }
+    *active_elements = &(&*active_elements | &add_active) - &remove_active;
 }
 
 pub fn tab_focus_system(

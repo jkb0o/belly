@@ -119,4 +119,10 @@ impl<'w, 's> Elements<'w, 's> {
             .iter()
             .for_each(|e| self.invalidate(*e));
     }
+
+    pub fn update<F: FnMut(ElementsQueryItem<'_>)>(&mut self, entity: Entity, mut update: F) {
+        if let Ok(element) = self.elements.get_mut(entity) {
+            update(element)
+        }
+    }
 }

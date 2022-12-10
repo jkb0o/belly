@@ -26,3 +26,7 @@ pub fn focus() -> Tag {
 pub fn hover() -> Tag {
     tag!("hover")
 }
+
+pub fn active() -> Tag {
+    tag!("active")
+}

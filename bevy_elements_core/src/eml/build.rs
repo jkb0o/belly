@@ -77,7 +77,7 @@ pub trait WidgetBuilder: Widget {
         // println!("adding tag {}", names.ite
         ctx.apply_commands();
         let focus_policy = match ctx.param(tag!("interactable")) {
-            Some(Variant::Empty) => Some(FocusPolicy::Pass),
+            Some(Variant::Empty) => Some(FocusPolicy::Block),
             Some(Variant::String(s)) if &s == "block" => Some(FocusPolicy::Block),
             Some(Variant::String(s)) if &s == "pass" => Some(FocusPolicy::Pass),
             _ => None,
