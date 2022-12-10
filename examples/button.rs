@@ -73,7 +73,7 @@ fn setup(mut commands: Commands) {
                 </button>
             </div>
             <div>
-                <button on:press=connect!(that, |ctx| ctx.target().despawn_recursive() )>
+                <button c:bluex on:press=connect!(that, |ctx| ctx.target().despawn_recursive() )>
                     "That will disappear:"
                 </button>
                 <strong {that}>"THAT"</strong>
@@ -137,7 +137,7 @@ fn setup(mut commands: Commands) {
         }
         .colorbox {
             width: 200px;
-            height: 75px;
+            height: 175px;
         }
         .colorbox div {
             justify-content: center;
@@ -151,6 +151,12 @@ fn setup(mut commands: Commands) {
             background-color: lightblue;
             color: indianred;
         }
+        .blue .button-foreground {
+            background-color: lightblue;
+            color: indianred;
+            padding: 10px;
+        }
+
     "#,
     ));
 }

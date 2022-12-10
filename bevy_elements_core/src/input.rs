@@ -1,19 +1,50 @@
+use crate::{tags, Element, Elements};
 use bevy::{
     ecs::query::WorldQuery,
+    input::InputSystem,
     prelude::*,
     render::camera::RenderTarget,
     ui::{FocusPolicy, UiStack},
+    utils::HashSet,
 };
 
-use crate::{tags, Element};
+const DRAG_THRESHOLD: f32 = 2.;
 
-const DRAG_THRESHOLD: f32 = 5.;
+pub(crate) struct ElementsInputPlugin;
+impl Plugin for ElementsInputPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_event::<PointerInput>()
+            .add_event::<RequestFocus>()
+            .init_resource::<Focused>()
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                pointer_input_system
+                    .label(Label::Signals)
+                    .after(InputSystem),
+            )
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                tab_focus_system
+                    .label(Label::TabFocus)
+                    .after(Label::Signals),
+            )
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                focus_system.label(Label::Focus).after(Label::TabFocus),
+            )
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                hover_system.label(Label::Hover).after(Label::Signals),
+            );
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
 pub enum Label {
     Signals,
     TabFocus,
     Focus,
+    Hover,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -98,6 +129,10 @@ impl PointerInput {
         } else {
             false
         }
+    }
+
+    pub fn motion(&self) -> bool {
+        self.data == PointerInputData::Motion
     }
 }
 
@@ -382,13 +417,18 @@ pub struct Focus(bool);
 #[derive(Resource, Default)]
 pub struct Focused(Option<Entity>);
 
+pub struct RequestFocus(Entity);
+
 pub fn focus_system(
     mut focused: ResMut<Focused>,
+    // mut elements: Query<(Entity, &mut Element)>,
+    mut elements: Elements,
     interactable: Query<Entity, (With<Interaction>, With<Element>)>,
-    mut elements: Query<(Entity, &mut Element)>,
     mut signals: EventReader<PointerInput>,
-    children: Query<&Children>,
+    mut requests: EventReader<RequestFocus>,
+    mut dirty: Local<Vec<Entity>>,
 ) {
+    dirty.clear();
     let mut target_focus = None;
     let mut update_required = false;
     for signal in signals.iter().filter(|s| s.down()) {
@@ -399,65 +439,80 @@ pub fn focus_system(
             }
         }
     }
-    for (entity, mut element) in elements.iter_mut() {
-        if element.state.contains(&tags::focus_request()) {
-            element.state.remove(&tags::focus_request());
-            update_required = true;
-            target_focus = Some(entity);
-        }
+    for RequestFocus(entity) in requests.iter() {
+        update_required = true;
+        target_focus = Some(*entity);
     }
 
     if update_required && target_focus != focused.0 {
         if let Some(was_focused) = focused.0 {
-            if let Ok((_, mut element)) = elements.get_mut(was_focused) {
+            if let Ok(mut element) = elements.get_mut(was_focused) {
                 element.state.remove(&tags::focus());
-                invalidate_subtree(was_focused, &mut elements, &children);
+                dirty.push(was_focused);
             }
         }
         if let Some(target_focus) = target_focus {
-            if let Ok((_, mut element)) = elements.get_mut(target_focus) {
+            if let Ok(mut element) = elements.get_mut(target_focus) {
                 element.state.insert(tags::focus());
-                invalidate_subtree(target_focus, &mut elements, &children);
+                dirty.push(target_focus);
             }
         }
         focused.0 = target_focus;
+    }
+    dirty.iter().for_each(|e| elements.invalidate(*e));
+}
+
+pub fn hover_system(
+    mut hovered_entities: Local<HashSet<Entity>>,
+    // mut elements: Query<&mut Element, With<Interaction>>,
+    mut events: EventReader<PointerInput>,
+    mut elements: Elements,
+) {
+    let mut any_motion = false;
+    let new_hovered_entities: HashSet<_> = events
+        .iter()
+        .filter(|e| e.motion())
+        .map(|e| {
+            any_motion = true;
+            e
+        })
+        .flat_map(|e| e.entities.iter())
+        .map(|e| *e)
+        .collect();
+    if !any_motion {
+        return;
+    }
+    let mut dirty = vec![];
+    // remove hovered state
+    for entity in hovered_entities.difference(&new_hovered_entities) {
+        if let Ok(mut element) = elements.get_mut(*entity) {
+            element.state.remove(&tags::hover());
+            dirty.push(*entity);
+        }
+    }
+    // add hovered state to newely hovered entityes
+    for entity in new_hovered_entities.difference(&hovered_entities) {
+        if let Ok(mut element) = elements.get_mut(*entity) {
+            element.state.insert(tags::hover());
+            dirty.push(*entity);
+        }
+    }
+    *hovered_entities = new_hovered_entities;
+    for entity in dirty.iter() {
+        elements.invalidate(*entity);
     }
 }
 
 pub fn tab_focus_system(
     keyboard: Res<Input<KeyCode>>,
-    mut elements: Query<&mut Element, With<Interaction>>,
+    elements: Query<(Entity, &Element), With<Interaction>>,
+    mut requests: EventWriter<RequestFocus>,
 ) {
     if !keyboard.just_pressed(KeyCode::Tab) {
         return;
     }
-    for mut element in elements.iter_mut() {
-        element.focus();
+    for (entity, _) in elements.iter() {
+        requests.send(RequestFocus(entity));
         break;
-    }
-}
-
-pub fn invalidate_elements(
-    roots: &Query<Entity, (With<Element>, Without<Parent>)>,
-    elements: &mut Query<(Entity, &mut Element)>,
-    children: &Query<&Children>,
-) {
-    for root in roots.iter() {
-        invalidate_subtree(root, elements, children);
-    }
-}
-
-pub fn invalidate_subtree(
-    node: Entity,
-    q_elements: &mut Query<(Entity, &mut Element)>,
-    q_children: &Query<&Children>,
-) {
-    if let Ok((_, mut element)) = q_elements.get_mut(node) {
-        element.invalidate();
-    }
-    if let Ok(children) = q_children.get(node) {
-        for child in children.iter() {
-            invalidate_subtree(*child, q_elements, q_children);
-        }
     }
 }

@@ -1,11 +1,11 @@
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
-use bevy::input::InputSystem;
 use bevy::text::TextLayoutInfo;
 use bevy::utils::HashMap;
 use bevy::{ecs::system::EntityCommands, prelude::*};
 use bevy_inspector_egui::egui::mutex::RwLock;
 use eml::EmlPlugin;
 use ess::{EssPlugin, StyleSheet, StyleSheetParser};
+use input::ElementsInputPlugin;
 use std::error::Error;
 use std::fmt::Display;
 use std::sync::Arc;
@@ -39,6 +39,7 @@ pub use crate::relations::Connect;
 pub use crate::relations::ConnectionTo;
 pub use crate::relations::Signal;
 pub use element::Element;
+pub use element::Elements;
 pub use property::Property;
 pub use tagstr::*;
 pub use variant::Variant;
@@ -48,28 +49,10 @@ use relations::RelationsPlugin;
 impl Plugin for ElementsCorePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(FrameTimeDiagnosticsPlugin)
-            .add_event::<input::PointerInput>()
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                input::pointer_input_system
-                    .label(input::Label::Signals)
-                    .after(InputSystem),
-            )
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                input::tab_focus_system
-                    .label(input::Label::TabFocus)
-                    .after(input::Label::Signals),
-            )
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                input::focus_system
-                    .label(input::Label::Focus)
-                    .after(input::Label::TabFocus),
-            )
             .add_system(fix_text_height)
-            .init_resource::<input::Focused>()
+            // .init_resource::<input::Focused>()
             .insert_resource(Defaults::default())
+            .add_plugin(ElementsInputPlugin)
             .add_plugin(RelationsPlugin)
             .add_plugin(EssPlugin)
             .add_plugin(EmlPlugin);
@@ -140,7 +123,7 @@ fn register_properties(app: &mut bevy::prelude::App) {
     app.register_property::<BackgroundColorProperty>();
 }
 
-pub struct Elements;
+pub struct Widgets;
 
 #[derive(Bundle)]
 pub struct ElementBundle {

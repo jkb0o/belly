@@ -12,10 +12,7 @@ pub use selector::*;
 use smallvec::SmallVec;
 use tagstr::Tag;
 
-use crate::{
-    input::invalidate_elements, property::PropertyValue, Defaults, Element, PropertyExtractor,
-    PropertyTransformer,
-};
+use crate::{property::PropertyValue, Defaults, Elements, PropertyExtractor, PropertyTransformer};
 
 pub use self::parser::StyleSheetParser;
 use std::ops::Deref;
@@ -239,10 +236,8 @@ fn process_styles_system(
     mut styles: ResMut<Styles>,
     mut assets: ResMut<Assets<StyleSheet>>,
     mut events: EventReader<AssetEvent<StyleSheet>>,
+    mut elements: Elements,
     defaults: Res<Defaults>,
-    roots: Query<Entity, (With<Element>, Without<Parent>)>,
-    mut elements: Query<(Entity, &mut Element)>,
-    children: Query<&Children>,
 ) {
     let mut styles_changed = false;
     for event in events.iter() {
@@ -264,6 +259,6 @@ fn process_styles_system(
         }
     }
     if styles_changed {
-        invalidate_elements(&roots, &mut elements, &children);
+        elements.invalidate_all();
     }
 }

@@ -189,7 +189,7 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                 let mut __ctx = ::bevy_elements_core::eml::build::ElementContextData::new(__parent);
 
                 #children
-                let __builder = ::bevy_elements_core::Elements::#tag();
+                let __builder = ::bevy_elements_core::Widgets::#tag();
                 __builder.get_builder().build(__world, __ctx);
                 #connections
                 __parent
@@ -376,7 +376,7 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
             #extension_body
         }
 
-        impl #extension_ident for ::bevy_elements_core::Elements {
+        impl #extension_ident for ::bevy_elements_core::Widgets {
             type Descriptor = #mod_descriptor::Descriptor;
             fn descriptor() -> Self::Descriptor {
                 #mod_descriptor::Descriptor
@@ -482,9 +482,9 @@ fn parse_extends(ident: &syn::Ident, attrs: &Vec<syn::Attribute>) -> syn::Result
     let extends = format_ident!("{}WidgetExtension", capitalize(&extends));
     let derive = quote! {
         impl ::std::ops::Deref for #this_mod::Descriptor {
-            type Target = <::bevy_elements_core::Elements as #extends>::Descriptor;
-            fn deref(&self) -> &<::bevy_elements_core::Elements as #extends>::Descriptor {
-                let instance = <::bevy_elements_core::Elements as #extends>::Descriptor::get_instance();
+            type Target = <::bevy_elements_core::Widgets as #extends>::Descriptor;
+            fn deref(&self) -> &<::bevy_elements_core::Widgets as #extends>::Descriptor {
+                let instance = <::bevy_elements_core::Widgets as #extends>::Descriptor::get_instance();
                 instance
             }
         }
@@ -496,15 +496,58 @@ fn parse_styles(ident: &syn::Ident, attrs: &Vec<syn::Attribute>) -> syn::Result<
     let mut styles = "".to_string();
     let element = ident.to_string();
     for attr in attrs.iter().filter(|a| a.path.is_ident("style")) {
-        let Ok(style) = attr.parse_args::<syn::LitStr>() else {
-            return Err(syn::Error::new(attr.span(), "#[style] should be defined using string literal: `#[style(\"padding: 2px\")]"));
+        let span = attr.span();
+        let Ok(meta) = attr.parse_meta() else {
+            return Err(syn::Error::new(span,  "Invalid syntax fo #[signal(name, Event, filter)] attribute."));
         };
-        styles += &style.value();
-        styles += "; ";
+        let syn::Meta::List(style) = meta else {
+            return Err(syn::Error::new(span, "Invalid syntax fo #[signal(name, Event, filter)] attribute."));    
+        };
+        let style: Vec<_> = style.nested.iter().collect();
+        if style.len() == 1 {
+            let syn::NestedMeta::Lit(syn::Lit::Str(prop)) = style[0] else {
+                let span = style[0].span();
+                return Err(syn::Error::new(span, "Non-literal token ident as first argument to #[widget(\"prop: value\")] attribute."));
+            };
+            let style = prop.value();
+            styles += &format!("{element}: {{ {style} }}\n")
+        } else {
+            let syn::NestedMeta::Lit(syn::Lit::Str(selector)) = style[0] else {
+                let span = style[0].span();
+                return Err(syn::Error::new(span, "Non-literal token in #[widget(\"selector\", \"prop: value\")] attribute."));
+            };
+            let selector = selector.value();
+            let mut props = "".to_string();
+            for prop in style.iter().skip(1) {
+                let syn::NestedMeta::Lit(syn::Lit::Str(prop)) = prop else {
+                    let span = style[0].span();
+                    return Err(syn::Error::new(span, "Non-literal token in #[widget(\"selector\", \"prop: value\")] attribute."));
+                };
+                props += &prop.value();
+                props += "; "
+            }
+            styles += &format!("{selector} {{ {props} }}");
+        }
+
+        // let Ok(style) = syn::punctuated::Punctuated::<syn::LitStr, syn::Token![,]>::parse_terminated.parse2(attrs) else {
+        //     return Err(syn::Error::new(span, "#[style] macro attributes should string literals: #[widget(\"font: bold\")]"));
+        // };
+        // if style.len() == 1 {
+        //     let style = style[0].value();
+        //     styles += &format!("{element}: {{ {style} }}\n")
+        // } else {
+        //     let selector = style[0].value();
+        //     let mut props = "".to_string();
+        //     for prop in style.iter().skip(1) {
+        //         props += &prop.value();
+        //         props += "; ";
+        //     }
+        //     styles += &format!("{selector} {{ {props} }}\n");
+        // }
     }
 
     if styles.len() > 0 {
-        let styles = format!("{element}: {{ {styles} }}");
+        // let styles = format!("{element}: {{ {styles} }}");
         return Ok(quote! {
             fn styles() -> &'static str {
                 #styles
@@ -591,7 +634,7 @@ pub fn widget(
             fn descriptor() -> Self::Descriptor;
         }
 
-        impl #extension for ::bevy_elements_core::Elements {
+        impl #extension for ::bevy_elements_core::Widgets {
             type Descriptor = Descriptor;
             fn descriptor() -> Self::Descriptor {
                 Descriptor

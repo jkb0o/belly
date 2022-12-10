@@ -23,6 +23,6 @@ pub fn focus() -> Tag {
     tag!("focus")
 }
 
-pub fn focus_request() -> Tag {
-    tag!("focus-request")
+pub fn hover() -> Tag {
+    tag!("hover")
 }

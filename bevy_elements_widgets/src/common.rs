@@ -111,6 +111,12 @@ impl WidgetBuilder for Label {
 }
 
 #[widget]
+fn span(ctx: &mut ElementContext) {
+    let content = ctx.content();
+    ctx.insert(ElementBundle::default()).push_children(&content);
+}
+
+#[widget]
 #[style("font: bold")]
 /// The `<strong>` tag highlights an important part of a text. It can be used
 /// for such important contents, as warnings. This can be one sentence that gives

@@ -14,18 +14,18 @@ fn setup(mut commands: Commands) {
     let img = commands.spawn_empty().id();
     commands.add(eml! {
         <body s:justify-content="center" s:padding="20px">
-            <img {img} src="icon.png" mode="fit" s:width="50%" s:height="70%" s:background-color="grey"/>
+            <img {img} src="icon.png" mode="fit" s:width="50%" s:height="70%" s:background-color="grey" s:margin-bottom="20px"/>
             <br/>
-            <div s:max-width="600px">
-                "Mode:"
+            <div s:max-width="600px" s:align-content="center" s:align-items="center">
+                <span s:min-width="80px">"Mode:"</span>
                 <button s:flex-grow="1.0" on:press=connect!(img, |i:Img| i.mode = ImgMode::Fit)>"fit"</button>
                 <button s:flex-grow="1.0" on:press=connect!(img, |i:Img| i.mode = ImgMode::Cover)>"cover"</button>
                 <button s:flex-grow="1.0" on:press=connect!(img, |i:Img| i.mode = ImgMode::Stretch)>"stretch"</button>
                 <button s:flex-grow="1.0" on:press=connect!(img, |i:Img| i.mode = ImgMode::Source)>"source"</button>
             </div>
             <br/>
-            <div s:max-width="600px">
-                "Source:"
+            <div s:max-width="600px" s:align-content="center" s:align-items="center">
+                <span s:min-width="80px">"Source:"</span>
                 <button s:flex-grow="1.0" on:press=connect!(img, |i:Img| i.src = "icon.png".to_string())>"icon.png"</button>
                 <button s:flex-grow="1.0" on:press=connect!(img, |i:Img| i.src = "bevy_logo_light.png".to_string())>"bevy_logo_light.png"</button>
                 <button s:flex-grow="1.0" on:press=connect!(img, |i:Img| i.src = "bevy_logo_dark.png".to_string())>"bevy_logo_dark.png"</button>

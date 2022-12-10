@@ -40,7 +40,7 @@ pub mod build {
     pub use super::*;
     pub use bevy_elements_core::ElementBuilder;
     pub use bevy_elements_core::ElementContext;
-    pub use bevy_elements_core::Elements;
     pub use bevy_elements_core::RegisterWidgetExtension;
+    pub use bevy_elements_core::Widgets;
     pub use bevy_elements_macro::widget;
 }
