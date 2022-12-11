@@ -5,6 +5,8 @@ use bevy::{
 };
 use bevy_elements_core::*;
 use bevy_elements_macro::*;
+use std::fmt::Debug;
+use std::hash::Hash;
 
 pub(crate) struct ButtonPlugin;
 impl Plugin for ButtonPlugin {
@@ -68,6 +70,7 @@ pub enum BtnMode {
     Press,
     Instant,
     Toggle,
+    Repeat(BtnModeRepeat),
     Group(BtnModeGroup),
 }
 
@@ -78,6 +81,16 @@ impl TryFrom<&str> for BtnMode {
             "press" => Ok(BtnMode::Press),
             "instant" => Ok(BtnMode::Instant),
             "toggle" => Ok(BtnMode::Toggle),
+            "repeat" => Ok(BtnMode::Repeat(BtnModeRepeat::default())),
+            repeat if repeat.starts_with("repeat(") && repeat.ends_with(")") => {
+                Ok(BtnMode::Repeat(BtnModeRepeat::try_from(
+                    repeat
+                        .strip_prefix("repeat(")
+                        .unwrap()
+                        .strip_suffix(")")
+                        .unwrap(),
+                )?))
+            }
             group if group.starts_with("group(") && group.ends_with(")") => {
                 Ok(BtnMode::Group(BtnModeGroup::try_from(
                     group
@@ -126,6 +139,73 @@ impl TryFrom<&str> for BtnModeGroup {
         match value.trim() {
             "" => Err("Empty group name".to_string()),
             name => Ok(BtnModeGroup::String(name.to_string())),
+        }
+    }
+}
+
+#[derive(PartialEq, Clone, Debug)]
+struct FloatSequence(Vec<f32>);
+
+#[derive(PartialEq, Clone, Debug, Deref)]
+pub struct BtnModeRepeat(Vec<f32>);
+
+impl BtnModeRepeat {
+    pub fn fast() -> BtnModeRepeat {
+        vec![0.5, 0.25, 0.25, 0.1, 0.1, 0.1, 0.05].into()
+    }
+    pub fn slow() -> BtnModeRepeat {
+        vec![0.75, 0.5, 0.55, 0.25].into()
+    }
+
+    pub fn normal() -> BtnModeRepeat {
+        vec![0.66, 0.33, 0.33, 0.1].into()
+    }
+}
+
+impl Default for BtnModeRepeat {
+    fn default() -> Self {
+        BtnModeRepeat::normal()
+    }
+}
+
+impl Eq for BtnModeRepeat {}
+impl Hash for BtnModeRepeat {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        for item in self.0.iter() {
+            state.write(&item.to_le_bytes());
+        }
+    }
+}
+impl From<&[f32]> for BtnModeRepeat {
+    fn from(values: &[f32]) -> Self {
+        BtnModeRepeat(values.iter().cloned().collect())
+    }
+}
+
+impl From<Vec<f32>> for BtnModeRepeat {
+    fn from(values: Vec<f32>) -> Self {
+        BtnModeRepeat(values)
+    }
+}
+
+impl TryFrom<&str> for BtnModeRepeat {
+    type Error = String;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let value = value.trim();
+        match value {
+            "fast" => Ok(BtnModeRepeat::fast()),
+            "slow" => Ok(BtnModeRepeat::slow()),
+            "normal" => Ok(BtnModeRepeat::normal()),
+            _ => {
+                let items: Result<Vec<_>, _> = value
+                    .split_whitespace()
+                    .map(|v| {
+                        v.parse()
+                            .map_err(|e| format!("Unable to parse {}: {:?}", v, e))
+                    })
+                    .collect();
+                Ok(BtnModeRepeat(items?))
+            }
         }
     }
 }
@@ -228,26 +308,101 @@ impl BtnGroupState {
 #[derive(Resource, Default, Deref, DerefMut)]
 struct BtnGroups(HashMap<BtnModeGroup, BtnGroupState>);
 
+#[derive(Default)]
+struct RepeatState {
+    button: Option<(Entity, BtnModeRepeat)>,
+    step: usize,
+    seconds_to_hit: f32,
+    paused: bool,
+}
+
+impl RepeatState {
+    fn hits(&mut self, delta: f32) -> Option<Entity> {
+        if self.paused || self.button.is_none() {
+            return None;
+        }
+        self.seconds_to_hit -= delta;
+        if self.seconds_to_hit > 0. {
+            return None;
+        }
+        let (entity, repeats) = self.button.as_ref().unwrap();
+        while self.seconds_to_hit <= 0. {
+            let delay = if repeats.is_empty() {
+                1.0
+            } else {
+                repeats[self.step.min(repeats.len() - 1)].abs()
+            };
+            self.seconds_to_hit += delay;
+            self.step += 1;
+        }
+        Some(*entity)
+    }
+
+    fn reset(&mut self) {
+        self.button = None;
+        self.step = 0;
+        self.seconds_to_hit = 0.0;
+        self.paused = false;
+    }
+
+    fn pause(&mut self) {
+        self.paused = true;
+    }
+
+    fn unpause(&mut self) {
+        self.paused = false;
+    }
+
+    fn is_active(&self) -> bool {
+        self.button.is_some()
+    }
+
+    fn start(&mut self, button: Entity, repeat: BtnModeRepeat) {
+        self.paused = false;
+        self.step = 1;
+        self.seconds_to_hit = if repeat.is_empty() { 1.0 } else { repeat[0] };
+        self.button = Some((button, repeat));
+    }
+}
+
 fn handle_input_system(
     mut pointer_events: EventReader<PointerInput>,
     mut button_events: EventWriter<BtnEvent>,
     mut buttons: Query<&mut Btn>,
     mut groups: ResMut<BtnGroups>,
     mut state_changes: Local<HashMap<BtnModeGroup, Entity>>,
+    mut repeat_state: Local<RepeatState>,
+    time: Res<Time>,
 ) {
     state_changes.clear();
 
-    for event in pointer_events
-        .iter()
-        .filter(|e| e.up() || e.down() || e.pressed())
-    {
+    if let Some(entity) = repeat_state.hits(time.delta_seconds()) {
+        button_events.send(BtnEvent::Pressed([entity]));
+    }
+
+    for event in pointer_events.iter() {
         for entity in event.sources() {
+            if repeat_state.is_active() {
+                if event.up() {
+                    repeat_state.reset();
+                }
+                if event.dragging_over_self() {
+                    repeat_state.unpause();
+                } else if event.dragging() {
+                    repeat_state.pause();
+                }
+            }
+
             let Ok(mut button) = buttons.get_mut(*entity) else {
                 continue;
             };
             match (&button.mode, &event.data) {
                 (BtnMode::Instant, PointerInputData::Down { presses: _ })
                 | (BtnMode::Press, PointerInputData::Pressed { presses: _ }) => {
+                    button_events.send(BtnEvent::Pressed([*entity]));
+                }
+                (BtnMode::Repeat(repeat), PointerInputData::Down { presses: _ }) => {
+                    repeat_state.start(*entity, repeat.clone());
                     button_events.send(BtnEvent::Pressed([*entity]));
                 }
                 (BtnMode::Toggle, PointerInputData::Pressed { presses: _ }) => {
