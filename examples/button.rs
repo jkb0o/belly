@@ -12,7 +12,7 @@ fn main() {
 }
 
 #[widget]
-#[extends(button)]
+#[extends(Btn)]
 #[style("background-color: darkorange")]
 #[style("padding: 5px")]
 #[style("color: #2f2f2f")]
@@ -59,9 +59,9 @@ fn setup(mut commands: Commands) {
             <div>
                 <button on:press=connect!(|ctx| {
                     info!(
-                        "I was pressed at {}, pos: {:?}!",
+                        "I was pressed at {}",
                         ctx.time().elapsed_seconds(),
-                        ctx.event().pos
+                        // ctx.event().
                     )
                 })>
                     "Press me and look at the logs!"

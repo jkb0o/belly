@@ -21,6 +21,37 @@ impl TryFrom<Variant> for String {
     }
 }
 
+impl From<bool> for Variant {
+    fn from(v: bool) -> Self {
+        Variant::boxed(v)
+    }
+}
+
+impl TryFrom<Variant> for bool {
+    type Error = String;
+    fn try_from(variant: Variant) -> Result<Self, Self::Error> {
+        match variant {
+            Variant::String(s) if &s == "yes" => Ok(true),
+            Variant::String(s) if &s == "Yes" => Ok(true),
+            Variant::String(s) if &s == "YES" => Ok(true),
+            Variant::String(s) if &s == "true" => Ok(true),
+            Variant::String(s) if &s == "True" => Ok(true),
+            Variant::String(s) if &s == "TRUE" => Ok(true),
+            Variant::String(s) if &s == "no" => Ok(false),
+            Variant::String(s) if &s == "No" => Ok(false),
+            Variant::String(s) if &s == "NO" => Ok(false),
+            Variant::String(s) if &s == "false" => Ok(false),
+            Variant::String(s) if &s == "false" => Ok(false),
+            Variant::String(s) if &s == "FALSE" => Ok(false),
+            Variant::Boxed(b) => b
+                .downcast::<bool>()
+                .map(|v| *v)
+                .map_err(|e| format!("Can't extract bool from {:?}", e)),
+            invalid => Err(format!("Can't extract bool from {:?}", invalid)),
+        }
+    }
+}
+
 impl From<&str> for Variant {
     fn from(v: &str) -> Self {
         Variant::String(v.to_string())

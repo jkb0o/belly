@@ -35,6 +35,7 @@ pub use crate::eml::content::ExpandElements;
 pub use crate::eml::content::ExpandElementsExt;
 pub use crate::eml::content::IntoContent;
 pub use crate::input::PointerInput;
+pub use crate::input::PointerInputData;
 pub use crate::relations::Connect;
 pub use crate::relations::ConnectionTo;
 pub use crate::relations::Signal;

@@ -30,3 +30,7 @@ pub fn hover() -> Tag {
 pub fn active() -> Tag {
     tag!("active")
 }
+
+pub fn pressed() -> Tag {
+    tag!("pressed")
+}

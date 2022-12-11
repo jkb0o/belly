@@ -212,7 +212,7 @@ impl Params {
 
 #[macro_export]
 macro_rules! bindattr {
-    ($ctx:ident, $key:ident:$typ:ident => $($target:tt)*) => {
+    ($ctx:ident, $key:ident:$typ:ty => $($target:tt)*) => {
         {
             let __elem = $ctx.entity();
             let __key = stringify!($key).as_tag();
@@ -221,7 +221,7 @@ macro_rules! bindattr {
             match __attr {
                 Some($crate::Variant::BindFrom(__b)) => $ctx.commands().add(__b.to($crate::bind!(=> __elem, $($target)*))),
                 Some($crate::Variant::BindTo(__b)) => $ctx.commands().add(__b.from($crate::bind!(<= __elem, $($target)*))),
-                Some(__attr) => match $typ::try_from(__attr) {
+                Some(__attr) => match <$typ>::try_from(__attr) {
                     Ok(__v) => __value = Some(__v),
                     Err(__err) => error!("Invalid value for '{}' param: {}", __key, __err)
                 },

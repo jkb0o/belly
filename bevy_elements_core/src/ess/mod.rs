@@ -91,7 +91,6 @@ pub struct ParseCommand {
 
 impl Command for ParseCommand {
     fn write(self, world: &mut bevy::prelude::World) {
-        info!("wriging ParseCommand");
         let world = world.cell();
         let extractor = world.resource::<PropertyExtractor>().clone();
         let validator = world.resource::<PropertyTransformer>().clone();
@@ -115,7 +114,6 @@ pub struct AddCommand {
 
 impl Command for AddCommand {
     fn write(self, world: &mut bevy::prelude::World) {
-        info!("wriging AddCommand");
         let world = world.cell();
         let stylesheet = StyleSheet::new(self.rules);
         let mut styles = world.resource_mut::<Styles>();
@@ -130,7 +128,6 @@ impl Command for AddCommand {
 
 impl Command for LoadCommand {
     fn write(self, world: &mut bevy::prelude::World) {
-        info!("wriging LoadCommand");
         let world = world.cell();
         let mut styles = world.resource_mut::<Styles>();
         let handle = world.resource::<AssetServer>().load(&self.path);

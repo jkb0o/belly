@@ -120,9 +120,15 @@ impl<'w, 's> Elements<'w, 's> {
             .for_each(|e| self.invalidate(*e));
     }
 
-    pub fn update<F: FnMut(ElementsQueryItem<'_>)>(&mut self, entity: Entity, mut update: F) {
-        if let Ok(element) = self.elements.get_mut(entity) {
-            update(element)
+    pub fn set_state(&mut self, entity: Entity, state: Tag, value: bool) {
+        if let Ok(mut element) = self.elements.get_mut(entity) {
+            if !value && element.state.contains(&state) {
+                element.state.remove(&state);
+                self.invalidate(entity);
+            } else if value && !element.state.contains(&state) {
+                element.state.insert(state);
+                self.invalidate(entity);
+            }
         }
     }
 }
