@@ -12,24 +12,49 @@ fn main() {
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
     let img = commands.spawn_empty().id();
+    commands.add(StyleSheet::parse(
+        r#"
+        body {
+            flex-wrap: no-wrap;
+            flex-direction: column;
+            align-content: center;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        img {
+            width: 50%;
+            height: 70%;
+            background-color: grey;
+            margin-bottom: 20px;
+        }
+        buttongroup { 
+            width: 600px;
+            align-content: center;
+            align-items: center;
+        }
+        buttongroup button {
+            flex-grow: 1.0;
+        }
+    "#,
+    ));
     commands.add(eml! {
-        <body s:justify-content="center" s:padding="20px">
-            <img {img} src="icon.png" mode="fit" s:width="50%" s:height="70%" s:background-color="grey" s:margin-bottom="20px"/>
-            <br/>
-            // <buttongroup bind:value=to!(img, Img.mode) 
-            <div s:max-width="600px" s:align-content="center" s:align-items="center">
+        <body>
+            <img {img} src="icon.png" mode="fit"/>
+            // <br/>
+            <buttongroup bind:value=to!(img, Img:mode)>
                 <span s:min-width="80px">"Mode:"</span>
-                <button mode="group(mode)" s:flex-grow="1.0" on:press=connect!(img, |i:Img| i.mode = ImgMode::Fit)>"fit"</button>
-                <button mode="group(mode)" s:flex-grow="1.0" on:press=connect!(img, |i:Img| i.mode = ImgMode::Cover)>"cover"</button>
-                <button mode="group(mode)" s:flex-grow="1.0" on:press=connect!(img, |i:Img| i.mode = ImgMode::Stretch)>"stretch"</button>
-                <button mode="group(mode)" s:flex-grow="1.0" on:press=connect!(img, |i:Img| i.mode = ImgMode::Source)>"source"</button>
-            </div>
-            <br/>
-            <buttongroup value=bind!(=> img, Img.src) s:width="600px" s:align-content="center" s:align-items="center">
+                <button value="fit">"fit"</button>
+                <button value="cover">"cover"</button>
+                <button value="stretch">"stretch"</button>
+                <button value="source">"source"</button>
+            </buttongroup>
+            // <br/>
+            <buttongroup bind:value=to!(img, Img:src)>
                 <span s:min-width="80px">"Source:"</span>
-                <button s:flex-grow="1.0" value="icon.png">"icon.png"</button>
-                <button s:flex-grow="1.0" value="bevy_logo_light.png">"bevy_logo_light.png"</button>
-                <button pressed s:flex-grow="1.0" value="bevy_logo_dark.png">"bevy_logo_dark.png"</button>
+                <button value="icon.png">"Bevy icon"</button>
+                <button value="bevy_logo_light.png">"Bevy logo light"</button>
+                <button pressed value="bevy_logo_dark.png">"Bevy logo dark"</button>
             </buttongroup>
         </body>
     });

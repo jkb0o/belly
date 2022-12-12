@@ -1,5 +1,5 @@
-pub use tagstr_core::{AsTag, Tag};
-pub use tagstr_macro::tag;
+pub use tagstr_core::{tag, AsTag, Tag};
+// pub use tagstr_macro::tag;
 
 #[cfg(test)]
 mod test {

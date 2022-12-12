@@ -595,6 +595,7 @@ dependencies = [
  "bevy_elements_core",
  "bevy_elements_macro",
  "bevy_elements_widgets",
+ "tagstr",
 ]
 
 [[package]]

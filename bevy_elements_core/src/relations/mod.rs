@@ -1,5 +1,7 @@
 mod bind;
+pub mod bound;
 mod connect;
+pub mod transform;
 
 use std::{
     any::TypeId,
@@ -8,6 +10,7 @@ use std::{
 
 use bevy::{prelude::*, utils::HashSet};
 
+use self::bound::{process_binds, watch_changes, BindableSource, BindableTarget, ChangesState};
 pub use self::{
     bind::{
         Bind, BindFrom, BindFromUntyped, BindTo, BindToUntyped, BindValue, BindingChanges,
@@ -23,8 +26,9 @@ pub struct RelationsPlugin;
 
 impl Plugin for RelationsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ChangeCounter>()
-            .add_system_to_stage(CoreStage::PreUpdate, process_relations_system);
+        app.init_resource::<ChangeCounter>();
+        app.init_resource::<ChangesState>();
+        app.add_system_to_stage(CoreStage::PreUpdate, process_relations_system);
     }
 }
 
@@ -35,6 +39,10 @@ pub enum BindingStage {
     Apply,
     Custom,
     Report,
+
+    // new `bound` system states
+    Bind,
+    Watch,
 }
 
 pub fn process_relations_system(world: &mut World) {
@@ -157,6 +165,10 @@ pub(crate) struct BindingSystemsInternal {
     reporters: HashSet<TypeId>,
     processors: HashSet<(TypeId, TypeId)>,
     custom: HashSet<TypeId>,
+
+    // new `bound` added system hashes
+    systems: HashSet<(TypeId, TypeId, TypeId, TypeId)>,
+    watchers: HashSet<TypeId>,
 }
 
 #[derive(Default, Clone, Resource)]
@@ -221,14 +233,40 @@ impl BindingSystemsInternal {
     }
     pub fn run(&mut self, world: &mut World) {
         let mut last_change = world.resource::<ChangeCounter>().get();
+        let mut last_state = world.resource::<ChangesState>().get();
         loop {
             self.schedule.run(world);
             let current_change = world.resource::<ChangeCounter>().get();
-            if last_change == current_change {
+            let current_state = world.resource::<ChangeCounter>().get();
+            if last_change == current_change && last_state == current_state {
                 break;
             } else {
                 last_change = current_change;
+                last_state = current_state;
             }
+        }
+    }
+
+    fn add_bind_system<R: Component, W: Component, S: BindableSource, T: BindableTarget>(
+        &mut self,
+    ) {
+        let watcher = TypeId::of::<R>();
+        let entry = (
+            TypeId::of::<W>(),
+            TypeId::of::<W>(),
+            TypeId::of::<S>(),
+            TypeId::of::<T>(),
+        );
+        if !self.watchers.contains(&watcher) {
+            self.watchers.insert(watcher);
+            self.schedule
+                .add_system_to_stage(BindingStage::Watch, watch_changes::<R>);
+        }
+
+        if !self.systems.contains(&entry) {
+            self.systems.insert(entry);
+            self.schedule
+                .add_system_to_stage(BindingStage::Bind, process_binds::<R, W, S, T>);
         }
     }
 }
@@ -240,13 +278,21 @@ impl Default for BindingSystemsInternal {
         let reporters = HashSet::default();
         let processors = HashSet::default();
         let custom = HashSet::default();
+
+        // new `bound` hashes
+        let systems = HashSet::default();
+        let watchers = HashSet::default();
+
         let mut schedule = Schedule::default();
         schedule
             .add_stage(BindingStage::Process, SystemStage::parallel())
             .add_stage(BindingStage::Collect, SystemStage::parallel())
             .add_stage(BindingStage::Apply, SystemStage::parallel())
             .add_stage(BindingStage::Custom, SystemStage::parallel())
-            .add_stage(BindingStage::Report, SystemStage::parallel());
+            .add_stage(BindingStage::Report, SystemStage::parallel())
+            // new `bound` stages
+            .add_stage(BindingStage::Bind, SystemStage::parallel())
+            .add_stage(BindingStage::Watch, SystemStage::parallel());
         Self {
             schedule,
             collectors,
@@ -255,6 +301,10 @@ impl Default for BindingSystemsInternal {
             processors,
             custom,
             last_writer: 0,
+
+            // new `bound` hashes
+            systems,
+            watchers,
         }
     }
 }

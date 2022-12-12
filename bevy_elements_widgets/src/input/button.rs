@@ -225,11 +225,11 @@ pub struct NoValue;
 /// like `<i>`, `<b>`, `<strong>`, `<br>`, `<img>`, etc.)
 pub struct Btn {
     #[param]
-    pressed: bool,
+    pub pressed: bool,
     #[param]
-    mode: BtnMode,
+    pub mode: BtnMode,
     #[param]
-    value: String,
+    pub value: String,
 }
 
 impl WidgetBuilder for Btn {
@@ -300,7 +300,7 @@ impl WidgetBuilder for Btn {
 #[alias(buttongroup)]
 pub struct BtnGroup {
     #[param]
-    value: String,
+    pub value: String,
 
     configurated: bool,
 }

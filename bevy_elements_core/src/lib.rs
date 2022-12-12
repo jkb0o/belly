@@ -39,6 +39,13 @@ pub use crate::input::PointerInputData;
 pub use crate::relations::Connect;
 pub use crate::relations::ConnectionTo;
 pub use crate::relations::Signal;
+
+// new bound system
+pub use crate::relations::bound::TransformationError;
+pub use crate::relations::bound::TransformationResult;
+pub use crate::relations::transform::ColorTransformerExtension;
+pub use crate::relations::transform::TryIntoFloat;
+
 pub use element::Element;
 pub use element::Elements;
 pub use property::Property;
@@ -126,6 +133,7 @@ fn register_properties(app: &mut bevy::prelude::App) {
 }
 
 pub struct Widgets;
+pub struct Transformers;
 
 #[derive(Bundle)]
 pub struct ElementBundle {

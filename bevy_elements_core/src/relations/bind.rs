@@ -389,7 +389,7 @@ mod test {
     #[derive(Component, Default)]
     struct HealthBar {
         value: f32,
-        max: f32,
+        _max: f32,
     }
 
     #[test]

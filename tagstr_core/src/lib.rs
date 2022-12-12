@@ -12,7 +12,7 @@ lazy_static! {
     static ref UNDEFINED: Tag = "undefined".as_tag();
 }
 
-fn value(name: impl AsRef<str>) -> &'static str {
+fn construct_tag(name: impl AsRef<str>) -> &'static str {
     let name = name.as_ref();
     // try read
     {
@@ -34,10 +34,6 @@ fn value(name: impl AsRef<str>) -> &'static str {
     }
 }
 
-pub fn tag(name: impl AsRef<str>) -> Tag {
-    Tag(value(name))
-}
-
 pub const fn undefined_tag() -> Tag {
     Tag("undefined")
 }
@@ -45,12 +41,15 @@ pub const fn undefined_tag() -> Tag {
 #[derive(Clone, Copy)]
 pub struct Tag(&'static str);
 
-unsafe impl Send for Tag { }
-unsafe impl Sync for Tag { }
+unsafe impl Send for Tag {}
+unsafe impl Sync for Tag {}
 
 impl Tag {
     pub fn as_str(&self) -> &'static str {
         self.0
+    }
+    pub fn new<T: AsRef<str>>(value: T) -> Tag {
+        Tag(construct_tag(value))
     }
 }
 
@@ -107,7 +106,7 @@ impl From<Tag> for &str {
 
 impl From<&str> for Tag {
     fn from(t: &str) -> Self {
-        tag(t)
+        Tag::new(t)
     }
 }
 
@@ -119,7 +118,7 @@ impl From<Tag> for String {
 
 impl From<String> for Tag {
     fn from(t: String) -> Self {
-        tag(t)
+        Tag::new(t)
     }
 }
 
@@ -129,33 +128,70 @@ pub trait AsTag {
 
 impl AsTag for String {
     fn as_tag(&self) -> Tag {
-        tag(self)
+        Tag::new(self)
     }
 }
 
 impl AsTag for &str {
     fn as_tag(&self) -> Tag {
-        tag(self)
+        Tag::new(self)
     }
+}
+
+#[macro_export]
+macro_rules! tag {
+    ( $source:tt ) => {
+        unsafe {
+            static mut TAG: $crate::Tag = $crate::undefined_tag();
+            static ONCE: ::std::sync::Once = ::std::sync::Once::new();
+            ONCE.call_once(|| {
+                TAG = $crate::Tag::new($source);
+            });
+            TAG
+        }
+    };
+    ( $source:expr ) => {
+        unsafe {
+            static mut TAG: $crate::Tag = $crate::undefined_tag();
+            static ONCE: ::std::sync::Once = ::std::sync::Once::new();
+            ONCE.call_once(|| {
+                TAG = $crate::Tag::new($source);
+            });
+            TAG
+        }
+    };
 }
 
 #[cfg(test)]
 mod test {
-    use super::tag;
-    use super::Tag;
+    use super::*;
 
     #[test]
     fn tag_equals() {
         let str_tag: Tag = "hello".into();
         let string_tag: Tag = "hello".to_string().into();
-        let tag_tag = tag(str_tag);
+        let tag_tag = Tag::new(str_tag);
         assert_eq!(str_tag, string_tag);
         assert_eq!(tag_tag, string_tag);
 
-        let bye_str_tag = tag("goodbye");
+        let bye_str_tag = Tag::new("goodbye");
         let bye_string_tag: Tag = "goodbye".to_string().into();
         assert_ne!(str_tag, bye_str_tag);
         assert_ne!(string_tag, bye_string_tag);
         assert_ne!(string_tag, bye_str_tag);
+    }
+
+    #[test]
+    fn test_macro() {
+        assert_eq!(tag!("hello"), tag!("hello"));
+        assert_ne!(tag!("hello"), tag!("good bye"));
+    }
+
+    fn test_tag() -> Tag {
+        tag!("test")
+    }
+    #[test]
+    fn test_mixed_equals() {
+        assert_eq!("test".as_tag(), test_tag());
     }
 }

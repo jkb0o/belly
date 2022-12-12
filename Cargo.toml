@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
-
 members = [
     "bevy_elements_core",
     "bevy_elements_macro",
@@ -18,6 +17,7 @@ members = [
 
 [dependencies]
 bevy = "0.9.0"
+tagstr = { path = "tagstr" }
 bevy_elements_macro = { path = "bevy_elements_macro" }
 bevy_elements_core = { path = "bevy_elements_core" }
 bevy_elements_widgets = { path = "bevy_elements_widgets" }

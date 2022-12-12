@@ -233,14 +233,12 @@ fn parse_values<'i, 'tt>(
 #[cfg(test)]
 mod tests {
     use crate::{
-        ess::selector::EmlNode,
         property::{PropertyValue, StylePropertyToken},
         ExtractProperty, TransformProperty,
     };
 
     use super::*;
     use bevy::utils::HashMap;
-    use std::ops::Deref;
 
     fn transform(v: Variant) -> Result<PropertyValue, ElementsError> {
         match v {
@@ -264,7 +262,7 @@ mod tests {
                 transformers.insert(format!("{}-{}", tag, tag).as_tag(), transform);
             }
             let mut extractors: HashMap<Tag, ExtractProperty> = Default::default();
-            extractors.insert("compound".as_tag(), |p| {
+            extractors.insert("compound".as_tag(), |_| {
                 let mut map = HashMap::default();
                 map.insert(
                     "a".as_tag(),

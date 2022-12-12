@@ -61,6 +61,20 @@ pub enum ImgMode {
     Source,
 }
 
+impl TryFrom<String> for ImgMode {
+    type Error = String;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        match value.as_str() {
+            "" => Ok(ImgMode::Fit),
+            "fit" => Ok(ImgMode::Fit),
+            "cover" => Ok(ImgMode::Cover),
+            "stretch" => Ok(ImgMode::Stretch),
+            "source" => Ok(ImgMode::Source),
+            err => Err(format!("Can't parse `{}` as ImgMode", err)),
+        }
+    }
+}
+
 impl TryFrom<Variant> for ImgMode {
     type Error = String;
     fn try_from(value: Variant) -> Result<Self, Self::Error> {
@@ -88,9 +102,6 @@ impl From<ImgMode> for Variant {
 }
 
 #[derive(Component, Widget)]
-#[alias(img)]
-#[signal(load, ImgEvent, loaded)]
-#[signal(unload, ImgEvent, unloaded)]
 /// The `<img>` tag is used to load image and show it content on the UI screen.
 /// The `<img>` tag has two properties:
 /// - `src`: Specifies the path to the image
@@ -98,7 +109,10 @@ impl From<ImgMode> for Variant {
 ///   - `fit`: resize the image to fit the box keeping it aspect ratio
 ///   - `cover`: resize the image to cover the box keeping it aspect ratio
 ///   - `stretch`: resize image to take all the space ignoring the aspect ratio
-///   - `source`: do not resize the image
+///   - `source`: do not resize the imagezzz
+#[alias(img)]
+#[signal(load, ImgEvent, loaded)]
+#[signal(unload, ImgEvent, unloaded)]
 pub struct Img {
     #[param]
     pub src: String,

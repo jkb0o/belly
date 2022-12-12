@@ -117,6 +117,34 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                         #connections
                         __builder.#signal_ident(__world, __parent, #connection);
                     }
+                } else if let Some(prop) = attr_name.strip_prefix("bind:") {
+                    let Some(bind) = attr.value.as_ref() else {
+                        return Error::new(attr_span, format!("bind:{prop} param should provide connection"))
+                            .into_compile_error();
+                    };
+                    let bind = bind.as_ref();
+                    let stream = bind.to_token_stream().to_string();
+                    if stream.trim().starts_with("to!") {
+                        let bind_to = format!("bind_{}_to", prop);
+                        let bind_ident = syn::Ident::new(&bind_to, bind.span());
+                        connections = quote_spanned! {attr_span=>
+                            #connections
+                            __builder.#bind_ident(__world, __parent, #bind);
+                        };
+                    } else if stream.trim().starts_with("from!") {
+                        let bind_from = format!("bind_{}_from", prop);
+                        let bind_ident = syn::Ident::new(&bind_from, bind.span());
+                        connections = quote_spanned! {attr_span=>
+                            #connections
+                            __builder.#bind_ident(__world, __parent, #bind);
+                        };
+                    }
+                    // panic!("bind def: {}", bind_def.to_token_stream());
+                    // let signal_ident = syn::Ident::new(signal, connection.span());
+                    // connections = quote_spanned! {attr_span=>
+                    //     #connections
+                    //     __builder.#signal_ident(__world, __parent, #connection);
+                    // }
                 } else if &attr_name == "entity" {
                     if parent_defined {
                         return Error::new(attr_span, "Entity already provided by braced block")
@@ -230,7 +258,7 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
     let ast = parse_macro_input!(input as DeriveInput);
     let span = ast.span();
 
-    let component = ast.ident;
+    let component = &ast.ident;
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     let component_str = format!("{component}");
     let mut alias_expr = quote! { #component_str };
@@ -250,7 +278,7 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
         }
     };
 
-    let syn::Data::Struct(data) = ast.data else {
+    let syn::Data::Struct(data) = &ast.data else {
         return err(span, "Widget could be derived only for structs");
     };
 
@@ -341,6 +369,12 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
         Err(e) => return proc_macro::TokenStream::from(e.to_compile_error()),
     };
 
+    let bind_descriptors = match parse_binds(&ast) {
+        Ok(tokens) => tokens,
+        Err(e) => return proc_macro::TokenStream::from(e.to_compile_error()),
+    };
+    // panic!("binds: {}", bind_descriptors.to_string());
+
     proc_macro::TokenStream::from(quote! {
         mod #mod_descriptor {
             use super::*;
@@ -354,6 +388,8 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                     #component::as_builder()
                 }
                 #connect_signals
+
+                #bind_descriptors
             }
         }
         impl #impl_generics ::bevy_elements_core::Widget for #component #ty_generics #where_clause {
@@ -392,6 +428,80 @@ fn capitalize(s: &str) -> String {
         None => String::new(),
         Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
     }
+}
+
+fn parse_binds(ast: &syn::DeriveInput) -> syn::Result<TokenStream> {
+    let component = &ast.ident;
+    let span = ast.span();
+    let mut binds = quote! {};
+    let syn::Data::Struct(data) = &ast.data else {
+        return Err(syn::Error::new(span, "Widget could be derived only for structs"));
+    };
+    for field in data.fields.iter() {
+        let Some(field_ident) = field.ident.as_ref() else {
+            return  Err(syn::Error::new(span, "Tuple Structs not yet supported by Widget derive."));
+        };
+        if field
+            .attrs
+            .iter()
+            .filter(|a| a.path.is_ident("param"))
+            .next()
+            .is_none()
+        {
+            continue;
+        }
+        let field_name = format!("{}", field_ident);
+
+        // let field_str = format!("{field_ident}");
+        // for attr in field.attrs.iter() {
+        //     if !attr.path.is_ident("param") {
+        //         continue;
+        //     };
+        // }
+
+        let field_type = &field.ty;
+        let bind_to_ident = format_ident!("bind_{}_to", field_ident);
+        let bind_from_ident = format_ident!("bind_{}_from", field_ident);
+        binds = quote! {
+            #binds
+
+            pub fn #bind_to_ident <W: ::bevy::prelude::Component, T: ::bevy_elements_core::relations::bound::BindableTarget>(
+                &self,
+                world: &mut ::bevy::prelude::World,
+                source: ::bevy::prelude::Entity,
+                bind: ::bevy_elements_core::relations::bound::Bind<
+                    #component, W, #field_type, T
+                >
+            ) {
+                let ::bevy_elements_core::relations::bound::Bind::To(to) = bind else { return };
+                to.from(::bevy_elements_core::relations::bound::BoundFrom {
+                    source,
+                    reader: |c: &#component| c.#field_ident.clone(),
+                    source_id: tag!(::bevy_elements_core::relations::bound::format_source_id::<#component>(#field_name)),
+                }).write(world);
+            }
+
+            pub fn #bind_from_ident <R: ::bevy::prelude::Component, S: ::bevy_elements_core::relations::bound::BindableSource>(
+                &self,
+                world: &mut ::bevy::prelude::World,
+                target: Entity,
+                bind: ::bevy_elements_core::relations::bound::Bind<
+                    R, #component, S, #field_type
+                >
+            ) {
+                let ::bevy_elements_core::relations::bound::Bind::From(from, transformer) = bind else { return };
+                from.to(::bevy_elements_core::relations::bound::BoundTo {
+                    target,
+                    target_id: tag!(::bevy_elements_core::relations::bound::format_source_id::<#component>(#field_name)),
+                    transformer: transformer,
+                    reader: |c: &#component| &c.#field_ident,
+                    writer: |c: &mut #component, v| c.#field_ident = v
+                }).write(world);
+
+            }
+        };
+    }
+    Ok(binds)
 }
 
 fn parse_docs(attrs: &Vec<syn::Attribute>) -> (Vec<String>, TokenStream) {

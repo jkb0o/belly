@@ -17,6 +17,8 @@ pub use bevy_elements_core::ess::StyleSheet;
 // macros
 pub use bevy_elements_core::bind;
 pub use bevy_elements_core::connect;
+pub use bevy_elements_core::from;
+pub use bevy_elements_core::to;
 pub use bevy_elements_macro::eml;
 
 // traits
