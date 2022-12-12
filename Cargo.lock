@@ -592,12 +592,9 @@ name = "bevy_elements"
 version = "0.1.0"
 dependencies = [
  "bevy 0.9.0",
- "bevy-inspector-egui",
  "bevy_elements_core",
  "bevy_elements_macro",
  "bevy_elements_widgets",
- "proc-macro2",
- "procout",
 ]
 
 [[package]]
