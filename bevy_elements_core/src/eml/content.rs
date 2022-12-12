@@ -24,10 +24,10 @@ impl IntoContent for String {
 }
 
 #[derive(Component)]
-struct BindContent<T: Bindable + IntoContent + std::fmt::Debug> {
+struct BindContent<T: BindValue + IntoContent + std::fmt::Debug> {
     value: T,
 }
-impl<C: Component, T: Bindable + IntoContent + std::fmt::Debug> IntoContent for BindFrom<C, T> {
+impl<C: Component, T: BindValue + IntoContent + std::fmt::Debug> IntoContent for BindFrom<C, T> {
     fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity> {
         world
             .entity_mut(parent)
@@ -50,7 +50,7 @@ impl<C: Component, T: Bindable + IntoContent + std::fmt::Debug> IntoContent for 
     }
 }
 
-fn bind_component_system<T: Bindable + IntoContent + std::fmt::Debug>(
+fn bind_component_system<T: BindValue + IntoContent + std::fmt::Debug>(
     mut commands: Commands,
     binds: Query<(Entity, &BindContent<T>), Changed<BindContent<T>>>,
 ) {

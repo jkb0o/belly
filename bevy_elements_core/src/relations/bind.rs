@@ -5,11 +5,11 @@ use std::{
     marker::PhantomData,
 };
 
-pub trait Bindable: Default + PartialEq + Clone + Send + Sync + 'static {}
-impl<T: Default + PartialEq + Clone + Send + Sync + 'static> Bindable for T {}
+pub trait BindValue: Default + PartialEq + Clone + Send + Sync + 'static {}
+impl<T: Default + PartialEq + Clone + Send + Sync + 'static> BindValue for T {}
 
 #[derive(Component, Deref, DerefMut)]
-pub struct BindingChanges<T: Bindable>(HashMap<usize, T>);
+pub struct BindingChanges<T: BindValue>(HashMap<usize, T>);
 
 #[derive(Resource, Default)]
 pub struct ChangeCounter(usize);
@@ -23,27 +23,27 @@ impl ChangeCounter {
     }
 }
 
-impl<T: Bindable> BindingChanges<T> {
+impl<T: BindValue> BindingChanges<T> {
     pub fn new() -> BindingChanges<T> {
         BindingChanges(default())
     }
 }
 
 #[derive(Component, Deref)]
-pub struct BindingSource<R: Component, T: Bindable>(Vec<(Entity, fn(&R) -> T, usize)>);
+pub struct BindingSource<R: Component, T: BindValue>(Vec<(Entity, fn(&R) -> T, usize)>);
 
-impl<R: Component, T: Bindable> BindingSource<R, T> {
+impl<R: Component, T: BindValue> BindingSource<R, T> {
     pub fn new() -> BindingSource<R, T> {
         BindingSource(default())
     }
 }
 
 #[derive(Component, Default, Deref, DerefMut)]
-pub struct BindingTarget<W: Component, T: Bindable>(
+pub struct BindingTarget<W: Component, T: BindValue>(
     HashMap<usize, (fn(&W, &T) -> bool, fn(&mut W, &T))>,
 );
 
-impl<W: Component, T: Bindable> BindingTarget<W, T> {
+impl<W: Component, T: BindValue> BindingTarget<W, T> {
     fn new() -> BindingTarget<W, T> {
         BindingTarget(default())
     }
@@ -57,12 +57,12 @@ impl<T: Component> Default for Changes<T> {
     }
 }
 
-pub struct BindFrom<R: Component, T: Bindable> {
+pub struct BindFrom<R: Component, T: BindValue> {
     source: Entity,
     reader: fn(&R) -> T,
 }
 
-impl<R: Component, T: Bindable> BindFrom<R, T> {
+impl<R: Component, T: BindValue> BindFrom<R, T> {
     pub fn new(source: Entity, reader: fn(&R) -> T) -> BindFrom<R, T> {
         BindFrom { source, reader }
     }
@@ -87,13 +87,13 @@ impl<R: Component, T: Bindable> BindFrom<R, T> {
     }
 }
 
-pub struct BindTo<W: Component, T: Bindable> {
+pub struct BindTo<W: Component, T: BindValue> {
     target: Entity,
     comparer: fn(&W, &T) -> bool,
     writer: fn(&mut W, &T),
 }
 
-impl<W: Component, T: Bindable> BindTo<W, T> {
+impl<W: Component, T: BindValue> BindTo<W, T> {
     pub fn new(
         target: Entity,
         comparer: fn(&W, &T) -> bool,
@@ -139,12 +139,12 @@ impl<W: Component, T: Bindable> BindTo<W, T> {
     }
 }
 
-pub struct Bind<R: Component, T: Bindable, W: Component> {
+pub struct Bind<R: Component, T: BindValue, W: Component> {
     source: BindFrom<R, T>,
     target: BindTo<W, T>,
 }
 
-impl<R: Component, T: Bindable, W: Component> Bind<R, T, W> {
+impl<R: Component, T: BindValue, W: Component> Bind<R, T, W> {
     pub fn new(source: BindFrom<R, T>, target: BindTo<W, T>) -> Bind<R, T, W> {
         Bind { source, target }
     }
@@ -169,7 +169,7 @@ impl<R: Component, T: Bindable, W: Component> Bind<R, T, W> {
     }
 }
 
-impl<R: Component, T: Bindable, W: Component> Command for Bind<R, T, W> {
+impl<R: Component, T: BindValue, W: Component> Command for Bind<R, T, W> {
     fn write(self, world: &mut World) {
         let writer_id = self.target.write(world);
         self.source.write(world, self.target.target, writer_id);
@@ -180,7 +180,7 @@ type UntypedWriteDescriptor = (Entity, usize, TypeId, &'static str);
 pub struct BindFromUntyped(Box<dyn Fn(&mut World, UntypedWriteDescriptor)>);
 
 impl BindFromUntyped {
-    pub fn from_typed<R: Component, T: Bindable>(bind_from: BindFrom<R, T>) -> BindFromUntyped {
+    pub fn from_typed<R: Component, T: BindValue>(bind_from: BindFrom<R, T>) -> BindFromUntyped {
         let reader_type = TypeId::of::<T>();
         let reader_type_name = type_name::<T>();
         BindFromUntyped(Box::new(
@@ -201,7 +201,7 @@ impl BindFromUntyped {
         (self.0)(world, descriptor);
     }
 
-    pub fn to<W: Component, T: Bindable>(self, bind: BindTo<W, T>) -> BindUntyped {
+    pub fn to<W: Component, T: BindValue>(self, bind: BindTo<W, T>) -> BindUntyped {
         BindUntyped {
             bind_from: self,
             bind_to: bind.to_untyped(),
@@ -212,7 +212,7 @@ impl BindFromUntyped {
 pub struct BindToUntyped(Box<dyn Fn(&mut World) -> UntypedWriteDescriptor>);
 
 impl BindToUntyped {
-    pub fn from_typed<W: Component, T: Bindable>(bind_to: BindTo<W, T>) -> BindToUntyped {
+    pub fn from_typed<W: Component, T: BindValue>(bind_to: BindTo<W, T>) -> BindToUntyped {
         let writer_type = TypeId::of::<T>();
         let writer_type_name = type_name::<T>();
         BindToUntyped(Box::new(move |world| {
@@ -225,7 +225,7 @@ impl BindToUntyped {
         (self.0)(world)
     }
 
-    pub fn from<R: Component, T: Bindable>(self, bind: BindFrom<R, T>) -> BindUntyped {
+    pub fn from<R: Component, T: BindValue>(self, bind: BindFrom<R, T>) -> BindUntyped {
         BindUntyped {
             bind_from: bind.to_untyped(),
             bind_to: self,
