@@ -10,7 +10,7 @@ use bevy::{prelude::*, utils::HashSet};
 
 pub use self::{
     bind::{
-        Bind, BindFrom, BindFromUntyped, BindTo, BindToUntyped, BindValue, BindingChanges,
+        Bind, BindFrom, BindFromUntyped, BindTo, BindToUntyped, Bindable, BindingChanges,
         BindingSource, BindingTarget, ChangeCounter, Changes,
     },
     connect::{
@@ -45,7 +45,7 @@ pub fn process_relations_system(world: &mut World) {
     systems.run(world);
 }
 
-pub fn collect_changes_system<R: Component, T: BindValue>(
+pub fn collect_changes_system<R: Component, T: Bindable>(
     mut change_detector: ResMut<Changes<R>>,
     sources: Query<(&R, &BindingSource<R, T>), Changed<R>>,
     mut changes: Query<&mut BindingChanges<T>>,
@@ -64,7 +64,7 @@ pub fn collect_changes_system<R: Component, T: BindValue>(
     }
 }
 
-pub fn apply_changes_system<W: Component, T: BindValue>(
+pub fn apply_changes_system<W: Component, T: Bindable>(
     mut changes: Query<
         (&BindingChanges<T>, &BindingTarget<W, T>, &mut W),
         Changed<BindingChanges<T>>,
@@ -169,7 +169,7 @@ impl BindingSystemsInternal {
         writer_idx
     }
 
-    fn add_collect_system<R: Component, T: BindValue>(&mut self) -> bool {
+    fn add_collect_system<R: Component, T: Bindable>(&mut self) -> bool {
         let reader = TypeId::of::<R>();
         let entry = (reader, TypeId::of::<T>());
         if self.collectors.contains(&entry) {
@@ -187,7 +187,7 @@ impl BindingSystemsInternal {
             true
         }
     }
-    fn add_apply_system<W: Component, T: BindValue>(&mut self) {
+    fn add_apply_system<W: Component, T: Bindable>(&mut self) {
         let entry = (TypeId::of::<W>(), TypeId::of::<T>());
         if self.appliers.contains(&entry) {
             return;

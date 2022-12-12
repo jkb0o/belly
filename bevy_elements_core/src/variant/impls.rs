@@ -1,6 +1,6 @@
 use crate::{
     params::Params,
-    relations::{BindFrom, BindTo, BindValue},
+    relations::{BindFrom, BindTo, Bindable},
 };
 use bevy::prelude::*;
 
@@ -31,6 +31,7 @@ impl TryFrom<Variant> for bool {
     type Error = String;
     fn try_from(variant: Variant) -> Result<Self, Self::Error> {
         match variant {
+            Variant::Empty => Ok(true),
             Variant::String(s) if &s == "yes" => Ok(true),
             Variant::String(s) if &s == "Yes" => Ok(true),
             Variant::String(s) if &s == "YES" => Ok(true),
@@ -76,13 +77,13 @@ impl From<Params> for Variant {
     }
 }
 
-impl<W: Component, T: BindValue> From<BindFrom<W, T>> for Variant {
+impl<W: Component, T: Bindable> From<BindFrom<W, T>> for Variant {
     fn from(bind: BindFrom<W, T>) -> Self {
         Variant::BindFrom(bind.to_untyped())
     }
 }
 
-impl<R: Component, T: BindValue> From<BindTo<R, T>> for Variant {
+impl<R: Component, T: Bindable> From<BindTo<R, T>> for Variant {
     fn from(bind: BindTo<R, T>) -> Self {
         Variant::BindTo(bind.to_untyped())
     }

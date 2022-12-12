@@ -14,6 +14,8 @@ impl Plugin for ButtonPlugin {
         app.add_event::<BtnEvent>();
         app.init_resource::<BtnGroups>();
         app.register_widget::<Btn>();
+        app.add_system(process_btngroups_system);
+        app.add_system(force_btngroups_reconfiguration_system);
         app.add_system_to_stage(
             CoreStage::PreUpdate,
             handle_input_system
@@ -210,6 +212,9 @@ impl TryFrom<&str> for BtnModeRepeat {
     }
 }
 
+#[derive(Default, PartialEq, Clone)]
+pub struct NoValue;
+
 // #[derive(Component)]
 #[derive(Component, Widget)]
 #[signal(press, BtnEvent, pressed)]
@@ -223,6 +228,8 @@ pub struct Btn {
     pressed: bool,
     #[param]
     mode: BtnMode,
+    #[param]
+    value: String,
 }
 
 impl WidgetBuilder for Btn {
@@ -289,8 +296,26 @@ impl WidgetBuilder for Btn {
     }
 }
 
+#[derive(Component, Widget)]
+#[alias(buttongroup)]
+pub struct BtnGroup {
+    #[param]
+    value: String,
+
+    configurated: bool,
+}
+
+impl WidgetBuilder for BtnGroup {
+    fn setup(&mut self, ctx: &mut ElementContext) {
+        let content = ctx.content();
+        ctx.render(eml! {
+            <div>{content}</div>
+        })
+    }
+}
+
 struct BtnGroupState {
-    pressed: Entity,
+    selected: Entity,
     buttons: HashSet<Entity>,
 }
 
@@ -299,7 +324,7 @@ impl BtnGroupState {
         let mut buttons = HashSet::default();
         buttons.insert(entity);
         BtnGroupState {
-            pressed: entity,
+            selected: entity,
             buttons,
         }
     }
@@ -370,6 +395,7 @@ fn handle_input_system(
     mut button_events: EventWriter<BtnEvent>,
     mut buttons: Query<&mut Btn>,
     mut groups: ResMut<BtnGroups>,
+    mut btn_groups: Query<&mut BtnGroup>,
     mut state_changes: Local<HashMap<BtnModeGroup, Entity>>,
     mut repeat_state: Local<RepeatState>,
     time: Res<Time>,
@@ -426,13 +452,25 @@ fn handle_input_system(
         }
     }
     for (group, pressed_entity) in state_changes.drain() {
+        if let BtnModeGroup::Entity(btn_group_id) = &group {
+            if let Ok(mut btn_group) = btn_groups.get_mut(*btn_group_id) {
+                if let Ok(btn) = buttons.get(pressed_entity) {
+                    if btn_group.value != btn.value {
+                        btn_group.value = btn.value.clone();
+                    }
+                }
+            }
+        }
         let state = groups
             .entry(group)
             .or_insert_with(|| BtnGroupState::single(pressed_entity));
-        state.pressed = pressed_entity;
+        state.selected = pressed_entity;
         for entity in state.buttons.iter() {
             if let Ok(mut button) = buttons.get_mut(*entity) {
-                button.pressed = *entity == pressed_entity;
+                let pressed = *entity == pressed_entity;
+                if button.pressed != pressed {
+                    button.pressed = pressed;
+                }
             }
         }
     }
@@ -461,15 +499,120 @@ fn handle_states_system(
                 }
             } else {
                 groups.insert(group.clone(), BtnGroupState::single(entity));
-                btn.pressed = true;
+                if !btn.pressed {
+                    btn.pressed = true;
+                }
                 elements.set_state(entity, tags::pressed(), true);
             }
         }
     }
     for entity in drop_pressed.iter() {
         if let Ok((entity, mut btn)) = buttons.get_mut(*entity) {
-            btn.pressed = false;
+            if btn.pressed {
+                btn.pressed = false;
+            }
             elements.set_state(entity, tags::pressed(), false);
+        }
+    }
+}
+
+fn process_btngroups_system(
+    mut btn_grpups: Query<(Entity, &mut BtnGroup), Changed<BtnGroup>>,
+    mut buttons: Query<&mut Btn>,
+    mut groups: ResMut<BtnGroups>,
+    children: Query<&Children>,
+) {
+    for (entity, mut group) in btn_grpups.iter_mut() {
+        if group.configurated {
+            continue;
+        }
+        group.configurated = true;
+
+        let mode_group = BtnModeGroup::Entity(entity);
+        let mode = BtnMode::Group(mode_group.clone());
+        let mut default_pressed = None;
+        let mut found_state = None;
+        let mut pressed_value = None;
+        for btnid in find_buttons(entity, &buttons, &children) {
+            let state = groups
+                .entry(mode_group.clone())
+                .or_insert_with(|| BtnGroupState::single(btnid));
+            state.buttons.insert(btnid);
+            if default_pressed.is_none() {
+                default_pressed = Some(btnid);
+            }
+            if let Ok(mut btn) = buttons.get_mut(btnid) {
+                if pressed_value.is_none() && !btn.value.is_empty() {
+                    pressed_value = Some(btn.value.clone())
+                }
+                if btn.mode != mode {
+                    btn.mode = mode.clone();
+                }
+                if !btn.value.is_empty() && btn.value == group.value {
+                    default_pressed = Some(btnid);
+                    pressed_value = Some(btn.value.clone());
+                }
+                if group.value.is_empty() && btn.pressed && !btn.value.is_empty() {
+                    default_pressed = Some(btnid);
+                    pressed_value = Some(btn.value.clone());
+                }
+            }
+            found_state = Some(state)
+        }
+        if let Some(value) = pressed_value {
+            if group.value != value {
+                group.value = value;
+            }
+        }
+        if let Some(state) = found_state {
+            if let Some(btnid) = default_pressed {
+                state.selected = btnid;
+                if let Ok(mut btn) = buttons.get_mut(btnid) {
+                    if !btn.pressed {
+                        btn.pressed = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn force_btngroups_reconfiguration_system(
+    mut btn_gropus: Query<&mut BtnGroup>,
+    new_buttons: Query<Entity, Added<Btn>>,
+    parents: Query<&Parent>,
+) {
+    for btnid in new_buttons.iter() {
+        for entity in parents.iter_ancestors(btnid) {
+            if let Ok(mut group) = btn_gropus.get_mut(entity) {
+                group.configurated = false;
+            }
+        }
+    }
+}
+
+fn find_buttons(
+    entity: Entity,
+    buttons: &Query<&mut Btn>,
+    children: &Query<&Children>,
+) -> Vec<Entity> {
+    let mut result = vec![];
+    find_buttons_walker(&mut result, entity, buttons, children);
+    result
+}
+
+fn find_buttons_walker(
+    buttons: &mut Vec<Entity>,
+    entity: Entity,
+    buttons_query: &Query<&mut Btn>,
+    children_query: &Query<&Children>,
+) {
+    if buttons_query.contains(entity) {
+        buttons.push(entity)
+    }
+    if let Ok(children) = children_query.get(entity) {
+        for ch in children.iter() {
+            find_buttons_walker(buttons, *ch, buttons_query, children_query)
         }
     }
 }

@@ -16,6 +16,8 @@ use std::fmt::Debug;
 
 pub type ApplyCommands = Box<dyn FnOnce(&mut EntityCommands)>;
 
+// pub trait Clonable: An
+
 #[derive(Default)]
 pub enum Variant {
     #[default]

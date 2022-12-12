@@ -133,7 +133,11 @@ fn load_img(
     mut signals: EventWriter<ImgEvent>,
 ) {
     for (entity, mut img) in elements.iter_mut() {
-        let handle = asset_server.load(&img.src);
+        let handle = if img.src.is_empty() {
+            Handle::default()
+        } else {
+            asset_server.load(&img.src)
+        };
         if handle != img.handle {
             if assets.contains(&img.handle) {
                 signals.send(ImgEvent::Unloaded(vec![entity]));

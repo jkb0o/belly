@@ -231,6 +231,7 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
     let span = ast.span();
 
     let component = ast.ident;
+    let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     let component_str = format!("{component}");
     let mut alias_expr = quote! { #component_str };
     let mod_descriptor = format_ident!("{}_widget_descriptor", component_str.to_lowercase());
@@ -355,7 +356,7 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 #connect_signals
             }
         }
-        impl ::bevy_elements_core::Widget for #component {
+        impl #impl_generics ::bevy_elements_core::Widget for #component #ty_generics #where_clause {
             fn names() -> &'static [&'static str] {
                 &[#alias_expr]
             }
