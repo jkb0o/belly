@@ -82,7 +82,7 @@ fn setup(mut commands: Commands) {
                 <button mode="repeat(normal)" on:press=connect!(label, |g: Greet| g.counter += 1)>
                     <strong>"+"</strong>
                 </button>
-                <label {label} value=bind!(<= label, Greet.message)/>
+                <label {label} bind:value=from!(label, Greet:message)/>
                 <button mode="repeat(fast)" on:press=connect!(label, |g: Greet| g.counter -= 1)>
                     <strong>"-"</strong>
                 </button>

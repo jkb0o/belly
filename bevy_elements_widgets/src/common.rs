@@ -79,11 +79,12 @@ fn div(ctx: &mut ElementContext) {
 ///
 ///     // bind textinput.value to label.value
 ///     <textinput {input}/>
-///     <label value=bind!(<= input, TextInput.value)/>
+///     <label bind:value=from(input, TextInput:value)/>
 /// });
 /// ```
 pub struct Label {
-    #[param( => this, Text.sections[0].value)]
+    #[param]
+    #[bindto(this, Text:sections[0].value)]
     pub value: String,
 }
 

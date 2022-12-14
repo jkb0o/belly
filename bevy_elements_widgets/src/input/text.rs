@@ -51,7 +51,8 @@ impl Plugin for TextInputPlugin {
 /// The `<inputtext>` tag specifies a text input field
 /// where the user can enter data.
 pub struct TextInput {
-    #[param( => text, Label.value)]
+    #[param]
+    #[bindto(text, Label:value)]
     pub value: String,
     index: usize,
     selected: Selection,

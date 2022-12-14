@@ -1,7 +1,4 @@
-use crate::{
-    params::Params,
-    relations::{BindFrom, BindTo, BindValue},
-};
+use crate::params::Params;
 use bevy::prelude::*;
 
 use super::{ApplyCommands, Variant};
@@ -23,6 +20,21 @@ impl TryFrom<Variant> for String {
 
 impl From<bool> for Variant {
     fn from(v: bool) -> Self {
+        Variant::boxed(v)
+    }
+}
+
+impl TryFrom<Variant> for f32 {
+    type Error = String;
+    fn try_from(variant: Variant) -> Result<Self, Self::Error> {
+        variant
+            .take::<f32>()
+            .ok_or("Can't cast variant to f32".to_string())
+    }
+}
+
+impl From<f32> for Variant {
+    fn from(v: f32) -> Self {
         Variant::boxed(v)
     }
 }
@@ -74,18 +86,6 @@ impl From<ApplyCommands> for Variant {
 impl From<Params> for Variant {
     fn from(v: Params) -> Self {
         Variant::Params(v)
-    }
-}
-
-impl<W: Component, T: BindValue> From<BindFrom<W, T>> for Variant {
-    fn from(bind: BindFrom<W, T>) -> Self {
-        Variant::BindFrom(bind.to_untyped())
-    }
-}
-
-impl<R: Component, T: BindValue> From<BindTo<R, T>> for Variant {
-    fn from(bind: BindTo<R, T>) -> Self {
-        Variant::BindTo(bind.to_untyped())
     }
 }
 

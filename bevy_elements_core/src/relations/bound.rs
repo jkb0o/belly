@@ -378,31 +378,41 @@ macro_rules! bound {
     };
 
     // adding the rest of props, everyting before |
-    // add indexed field to props
-    (@args $h:tt, {$($props:tt)+} . $prop:tt[$($idx:tt)+] $($rest:tt)*) => {
-        $crate::bound!(@args $h, {$($props)+.$prop[$($idx)+]} $($rest)*)
+    (@args $h:tt, {$($props:tt)+} [$($idx:tt)+] $($rest:tt)*) => {
+        $crate::bound!(@args $h, {$($props)+[$($idx)+]} $($rest)*)
     };
 
-    // add method call to props
-    (@args $h:tt, {$($props:tt)+} . $prop:tt($($call:tt)*) $($rest:tt)*) => {
-        $crate::bound!(@args $h, {$($props)+.$prop($($call)*)} $($rest)*)
+    (@args $h:tt, {$($props:tt)+} ($($call:tt)*) $($rest:tt)*) => {
+        $crate::bound!(@args $h, {$($props)+($($call)*)} $($rest)*)
     };
 
-    // add field to props
-    (@args $h:tt, {$($props:tt)+} . $prop:tt $($rest:tt)*) => {
-        $crate::bound!(@args $h, {$($props)+.$prop} $($rest)*)
+    (@args $h:tt, {$($props:tt)+} $part:tt $($rest:tt)*) => {
+        $crate::bound!(@args $h, {$($props)+$part} $($rest)*)
     };
+
+    // (@args $h:tt, {$($props:tt)+} $part:literal $($rest:tt)*) => {
+    //     $crate::bound!(@args $h, {$($props)+$part} $($rest)*)
+    // };
+
+
+    (@args $h:tt, {$($props:tt)+} . $($rest:tt)*) => {
+        $crate::bound!(@args $h, {$($props)+.} $($rest)*)
+    };
+
 
     //sinle part should be handled separatly
     // add indexed field
-    (@args $h:tt: $first:tt[$($idx:tt)+] $($args:tt)*) => {
-        $crate::bound!(@args $h, {$first[$($call)+]} $($args)* )
-    };
-    // add method call
-    (@args $h:tt: $first:tt($($call:tt)*) $($args:tt)*) => {
-        $crate::bound!(@args $h, {$first($($call)*)} $($args)* )
-    };
+    // (@args $h:tt: $first:tt[$($idx:tt)+] $($args:tt)*) => {
+    //     $crate::bound!(@args $h, {$first[$($idx)+]} $($args)* )
+    // };
+    // // add method call
+    // (@args $h:tt: $first:tt($($call:tt)*) $($args:tt)*) => {
+    //     $crate::bound!(@args $h, {$first($($call)*)} $($args)* )
+    // };
     // add field
+    (@args $h:tt: $first:ident $($args:tt)*) => {
+        $crate::bound!(@args $h, {$first} $($args)* )
+    };
     (@args $h:tt: $first:tt $($args:tt)*) => {
         $crate::bound!(@args $h, {$first} $($args)* )
     };

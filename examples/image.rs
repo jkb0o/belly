@@ -41,7 +41,6 @@ fn setup(mut commands: Commands) {
     commands.add(eml! {
         <body>
             <img {img} src="icon.png" mode="fit"/>
-            // <br/>
             <buttongroup bind:value=to!(img, Img:mode)>
                 <span s:min-width="80px">"Mode:"</span>
                 <button value="fit">"fit"</button>
@@ -49,7 +48,6 @@ fn setup(mut commands: Commands) {
                 <button value="stretch">"stretch"</button>
                 <button value="source">"source"</button>
             </buttongroup>
-            // <br/>
             <buttongroup bind:value=to!(img, Img:src)>
                 <span s:min-width="80px">"Source:"</span>
                 <button value="icon.png">"Bevy icon"</button>

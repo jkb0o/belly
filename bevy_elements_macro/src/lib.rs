@@ -253,7 +253,7 @@ fn err(span: Span, message: &str) -> proc_macro::TokenStream {
     proc_macro::TokenStream::from(syn::Error::new(span, message).to_compile_error())
 }
 
-#[proc_macro_derive(Widget, attributes(alias, param, signal))]
+#[proc_macro_derive(Widget, attributes(alias, param, signal, bindto, bindfrom))]
 pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let span = ast.span();
@@ -321,27 +321,57 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
     }
 
     for field in data.fields.iter() {
-        let field_ident = &field.ident;
+        let Some(field_ident) = field.ident.as_ref() else {
+            return  err(span, "Tuple Structs not yet supported by Widget derive.");
+        };
+        let field_name = format!("{field_ident}");
+        let prop_name = format!("{field_ident}").replace("_", "-");
         for attr in field.attrs.iter() {
-            if !attr.path.is_ident("param") {
-                continue;
-            };
+            let attr_name = attr.path.get_ident().unwrap().to_string();
             let field_type = &field.ty;
-            bind_body = quote! {
-                #bind_body
-                if let ::std::option::Option::Some(value) =
-                    ::bevy_elements_core::bindattr!(ctx, #field_ident:#field_type => Self.#field_ident)
-                {
-                    self.#field_ident = value;
-                }
-            };
-            if !attr.tokens.is_empty() {
-                let bind_target = attr.parse_args::<TokenStream>().unwrap();
+            if attr.path.is_ident("param") {
                 bind_body = quote! {
                     #bind_body
-                    ctx.commands().add(
-                        ::bevy_elements_core::bind!(this, #component.#field_ident #bind_target)
-                    );
+                    if let ::std::option::Option::Some(value) = ctx.param(::tagstr::tag!(#prop_name)) {
+                        match #field_type::try_from(value) {
+                            Ok(value) => self.#field_ident = value,
+                            Err(err) => {
+                                error!("Invalid value for '{}' param: {}", #prop_name, err)
+                            }
+                        }
+                    }
+                }
+            }
+            if attr.path.is_ident("bindto") || attr.path.is_ident("bindfrom") {
+                let bind_type = attr_name.strip_prefix("bind").unwrap();
+                let Ok(bind) = attr.parse_args::<TokenStream>() else {
+                    return err(attr.span(), "#[bind{bind_type}] attribute should be defined with to! or from! macro: #[bind{bind_type}(entity, Component:field)]")
+                };
+                // panic!("{bind}")
+                bind_body = if bind_type == "to" {
+                    let func_ident = format_ident!("bind_{field_name}_to");
+                    quote! {
+                        #bind_body
+                        ctx.commands().add(move |world: &mut ::bevy::prelude::World| {
+                            #mod_descriptor::Descriptor::get_instance().#func_ident(
+                                world,
+                                this,
+                                ::bevy_elements_core::to!(#bind)
+                            )
+                        });
+                    }
+                } else {
+                    let func_ident = format_ident!("bind_{field_name}_from");
+                    quote! {
+                        #bind_body
+                        ctx.commands().add(move |world: &mut ::bevy::prelude::World| {
+                            #mod_descriptor::Descriptor::get_instance().#func_ident(
+                                world,
+                                this,
+                                ::bevy_elements_core::from!(#bind)
+                            )
+                        });
+                    }
                 }
             }
         }

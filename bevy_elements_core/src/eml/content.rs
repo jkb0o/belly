@@ -1,8 +1,13 @@
-use bevy::ecs::system::Command;
 use bevy::prelude::*;
 use std::any::TypeId;
 
-use crate::{relations::*, Element, ElementsBuilder};
+use crate::{
+    relations::{
+        bound::{Bind, BindableSource, BindableTarget},
+        *,
+    },
+    to, Element, ElementsBuilder,
+};
 
 pub trait IntoContent {
     fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity>;
@@ -24,33 +29,30 @@ impl IntoContent for String {
 }
 
 #[derive(Component)]
-struct BindContent<T: BindValue + IntoContent + std::fmt::Debug> {
-    value: T,
+pub struct BindContent<S: BindableSource + IntoContent + std::fmt::Debug> {
+    value: S,
 }
-impl<C: Component, T: BindValue + IntoContent + std::fmt::Debug> IntoContent for BindFrom<C, T> {
+impl<R: Component, S: BindableTarget + Default + IntoContent + std::fmt::Debug> IntoContent
+    for Bind<R, BindContent<S>, S, S>
+{
     fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity> {
+        let bind = self >> to!(parent, BindContent<S>:value);
+        bind.write(world);
         world
             .entity_mut(parent)
             .insert(NodeBundle::default())
             .insert(BindContent {
-                value: T::default(),
+                value: S::default(),
             });
-        let target = BindTo::new(
-            parent,
-            |t: &BindContent<T>, v| &t.value == v,
-            |t: &mut BindContent<T>, v| t.value.clone_from(v),
-        );
-        let bind = Bind::new(self, target);
-        bind.write(world);
         let systems_ref = world.get_resource_or_insert_with(RelationsSystems::default);
         let mut systems = systems_ref.0.write().unwrap();
-        systems.add_custom_system(TypeId::of::<BindContent<T>>(), bind_component_system::<T>);
+        systems.add_custom_system(TypeId::of::<BindContent<S>>(), bind_content_system::<S>);
 
         vec![parent]
     }
 }
 
-fn bind_component_system<T: BindValue + IntoContent + std::fmt::Debug>(
+fn bind_content_system<T: BindableTarget + IntoContent + std::fmt::Debug>(
     mut commands: Commands,
     binds: Query<(Entity, &BindContent<T>), Changed<BindContent<T>>>,
 ) {

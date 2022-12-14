@@ -30,15 +30,15 @@ fn setup(mut commands: Commands) {
         <body s:padding="20px">
             <div c:vertical>
                 <div>"Hello, "<strong>"fella"</strong>"!"</div>
-                <textinput {input} value=bind!(=> label, Label.value) s:margin-right="10px" s:width="100px"/>
+                <textinput {input} bind:value=to!(label, Label:value) s:margin-right="10px" s:width="100px"/>
                 <div>
-                    "Bind by to-label:   Hello, "<label {label}/>"!"
+                    "Bind by to-label: Hello, "<label {label}/>"!"
                 </div>
                 <div>
-                    "Bind by from-label: Hello, "<label value=bind!(<= input, TextInput.value)/>"!"
+                    "Bind by from-label: Hello, "<label bind:value=from!(input, TextInput:value)/>"!"
                 </div>
                 <div>
-                    "Bind by content:    Hello, "{bind!(<= input, TextInput.value)}"!"
+                    "Bind by content: Hello, "{from!(input, TextInput:value)}"!"
                 </div>
             </div>
         </body>
