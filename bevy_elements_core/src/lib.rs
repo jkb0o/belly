@@ -41,8 +41,8 @@ pub use crate::relations::ConnectionTo;
 pub use crate::relations::Signal;
 
 // new bound system
-pub use crate::relations::bound::TransformationError;
-pub use crate::relations::bound::TransformationResult;
+pub use crate::relations::bind::TransformationError;
+pub use crate::relations::bind::TransformationResult;
 pub use crate::relations::transform::ColorTransformerExtension;
 pub use crate::relations::transform::TryIntoFloat;
 

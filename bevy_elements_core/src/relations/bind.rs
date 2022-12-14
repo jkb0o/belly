@@ -147,22 +147,19 @@ impl<W: Component, S: BindableSource, T: BindableTarget> WriteDescriptor<W, S, T
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct Write<W: Component, S: BindableSource, T: BindableTarget>(Vec<WriteDescriptor<W, S, T>>);
 
-pub struct BoundFrom<R: Component, S: BindableSource> {
+pub struct BindFrom<R: Component, S: BindableSource> {
     pub source_id: Tag,
     pub source: Entity,
     pub reader: fn(&R) -> S,
 }
 
-impl<R: Component, S: BindableSource> BoundFrom<R, S> {
-    pub fn to<W: Component, T: BindableTarget>(self, to: BoundTo<W, S, T>) -> Bound<R, W, S, T> {
-        Bound {
-            bound_from: self,
-            bound_to: to,
-        }
+impl<R: Component, S: BindableSource> BindFrom<R, S> {
+    pub fn to<W: Component, T: BindableTarget>(self, to: BindTo<W, S, T>) -> Bind<R, W, S, T> {
+        Bind { from: self, to }
     }
 }
 
-pub struct BoundTo<W: Component, S: BindableSource, T: BindableTarget> {
+pub struct BindTo<W: Component, S: BindableSource, T: BindableTarget> {
     pub target: Entity,
     pub target_id: Tag,
     pub transformer: fn(&S, &T) -> TransformationResult<T>,
@@ -170,43 +167,40 @@ pub struct BoundTo<W: Component, S: BindableSource, T: BindableTarget> {
     pub writer: fn(&mut W, T),
 }
 
-impl<W: Component, S: BindableSource, T: BindableTarget> BoundTo<W, S, T> {
-    pub fn from<R: Component>(self, from: BoundFrom<R, S>) -> Bound<R, W, S, T> {
-        Bound {
-            bound_from: from,
-            bound_to: self,
-        }
+impl<W: Component, S: BindableSource, T: BindableTarget> BindTo<W, S, T> {
+    pub fn from<R: Component>(self, from: BindFrom<R, S>) -> Bind<R, W, S, T> {
+        Bind { from, to: self }
     }
 }
 
-pub struct Bound<R: Component, W: Component, S: BindableSource, T: BindableTarget> {
-    bound_from: BoundFrom<R, S>,
-    bound_to: BoundTo<W, S, T>,
+pub struct Bind<R: Component, W: Component, S: BindableSource, T: BindableTarget> {
+    from: BindFrom<R, S>,
+    to: BindTo<W, S, T>,
 }
 
 impl<R: Component, W: Component, S: BindableSource, T: BindableTarget> std::fmt::Display
-    for Bound<R, W, S, T>
+    for Bind<R, W, S, T>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let source_str = self.bound_from.source_id;
-        let target_str = self.bound_to.target_id;
+        let source_str = self.from.source_id;
+        let target_str = self.to.target_id;
         write!(f, "Bind( {source_str} >> {target_str} )")
     }
 }
 
-impl<R: Component, W: Component, S: BindableSource, T: BindableTarget> Bound<R, W, S, T> {
+impl<R: Component, W: Component, S: BindableSource, T: BindableTarget> Bind<R, W, S, T> {
     pub fn write(self, world: &mut World) {
-        let id = BindId::new(self.bound_from.source_id, self.bound_to.target_id);
+        let id = BindId::new(self.from.source_id, self.to.target_id);
         {
             let systems_ref = world.get_resource_or_insert_with(RelationsSystems::default);
             let mut systems = systems_ref.0.write().unwrap();
             systems.add_bind_system::<R, W, S, T>();
         }
-        let mut source_entity = world.entity_mut(self.bound_from.source);
+        let mut source_entity = world.entity_mut(self.from.source);
         let read_descriptor = ReadDescriptor {
             id,
-            target: self.bound_to.target,
-            reader: self.bound_from.reader,
+            target: self.to.target,
+            reader: self.from.reader,
         };
         if let Some(mut source_component) = source_entity.get_mut::<Read<R, S>>() {
             source_component.push(read_descriptor);
@@ -214,12 +208,12 @@ impl<R: Component, W: Component, S: BindableSource, T: BindableTarget> Bound<R, 
             source_entity.insert(Read(vec![read_descriptor]));
         }
 
-        let mut target_entity = world.entity_mut(self.bound_to.target);
+        let mut target_entity = world.entity_mut(self.to.target);
         let write_descriptor = WriteDescriptor {
             id,
-            reader: self.bound_to.reader,
-            writer: self.bound_to.writer,
-            transformer: self.bound_to.transformer,
+            reader: self.to.reader,
+            writer: self.to.writer,
+            transformer: self.to.transformer,
         };
         if !target_entity.contains::<Change<W>>() {
             target_entity.insert(Change::<W>::new());
@@ -232,39 +226,39 @@ impl<R: Component, W: Component, S: BindableSource, T: BindableTarget> Bound<R, 
     }
 }
 
-pub enum Bind<R: Component, W: Component, S: BindableSource, T: BindableTarget> {
-    From(BoundFrom<R, S>, fn(&S, &T) -> TransformationResult<T>),
-    To(BoundTo<W, S, T>),
+pub enum BindDescriptor<R: Component, W: Component, S: BindableSource, T: BindableTarget> {
+    From(BindFrom<R, S>, fn(&S, &T) -> TransformationResult<T>),
+    To(BindTo<W, S, T>),
 }
 
 impl<R: Component, W: Component, S: BindableSource, T: BindableTarget> std::ops::Shl
-    for Bind<R, W, S, T>
+    for BindDescriptor<R, W, S, T>
 {
-    type Output = Bound<R, W, S, T>;
+    type Output = Bind<R, W, S, T>;
 
     fn shl(self, rhs: Self) -> Self::Output {
         let (left, right) = (self, rhs);
         match (left, right) {
             // TODO: handle transformer priority:
-            // - custom on Bind::To
+            // - custom on BindDescriptor::To
             // - custom on Bond::From
-            // - default on Bind::To
-            // - default on Bind::From
-            (Bind::To(bound_to), Bind::From(bound_from, transformer)) => bound_to.from(bound_from),
+            // - default on BindDescriptor::To
+            // - default on BindDescriptor::From
+            (BindDescriptor::To(to), BindDescriptor::From(from, transformer)) => to.from(from),
             _ => panic!("Invalid binding << operator usage, only to!(...) << from!(...) supprted."),
         }
     }
 }
 
 impl<R: Component, W: Component, S: BindableSource, T: BindableTarget> std::ops::Shr
-    for Bind<R, W, S, T>
+    for BindDescriptor<R, W, S, T>
 {
-    type Output = Bound<R, W, S, T>;
+    type Output = Bind<R, W, S, T>;
 
     fn shr(self, rhs: Self) -> Self::Output {
         let (left, right) = (rhs, self);
         match (left, right) {
-            (Bind::To(bound_to), Bind::From(bound_from, transformer)) => bound_to.from(bound_from),
+            (BindDescriptor::To(to), BindDescriptor::From(from, transformer)) => to.from(from),
             _ => panic!("Invalid binding >> operator usage, only from!(...) >> to!(...) supprted."),
         }
     }
@@ -328,10 +322,10 @@ pub fn format_source_id<T>(field: &str) -> String {
 }
 
 #[macro_export]
-macro_rules! bound {
+macro_rules! bind {
     (@bind component to $entity:expr, $cls:ty, { $($prop:tt)+ }, $filter:expr) => {
-        $crate::relations::bound::Bind::To($crate::relations::bound::BoundTo {
-            target_id: ::tagstr::tag!($crate::relations::bound::format_source_id::<$cls>(stringify!($($prop)+))),
+        $crate::relations::bind::BindDescriptor::To($crate::relations::bind::BindTo {
+            target_id: ::tagstr::tag!($crate::relations::bind::format_source_id::<$cls>(stringify!($($prop)+))),
             reader: |c: &$cls| &c.$($prop)+,
             transformer: $filter,
             writer: |c: &mut $cls, v| c.$($prop)+ = v,
@@ -339,8 +333,8 @@ macro_rules! bound {
         })
     };
     (@bind component from $entity:expr, $cls:ty, { $($prop:tt)+ }, $filter:expr) => {
-        $crate::relations::bound::Bind::From($crate::relations::bound::BoundFrom {
-            source_id: ::tagstr::tag!($crate::relations::bound::format_source_id::<$cls>(stringify!($($prop)+))),
+        $crate::relations::bind::BindDescriptor::From($crate::relations::bind::BindFrom {
+            source_id: ::tagstr::tag!($crate::relations::bind::format_source_id::<$cls>(stringify!($($prop)+))),
             source: $entity,
             reader: |c: &$cls| c.$($prop)+.clone()
         }, $filter)
@@ -351,9 +345,9 @@ macro_rules! bound {
             let $val = s;
             let $val = format!($($fmt)*);
             if &$val == t {
-                $crate::relations::bound::TransformationResult::Unchanged
+                $crate::relations::bind::TransformationResult::Unchanged
             } else {
-                $crate::relations::bound::TransformationResult::Changed($val)
+                $crate::relations::bind::TransformationResult::Changed($val)
             }
         }
     };
@@ -364,76 +358,76 @@ macro_rules! bound {
     };
     (@filter default) => {
         |s, t| {
-            $crate::relations::bound::transform(s, t)
+            $crate::relations::bind::transform(s, t)
         }
     };
 
     // only filters here, can bind actually
     (@args {$mode:ident, $direction:ident, $entity:expr, $cls:ty}, $prop:tt | $($filter:tt)+ ) => {
-        $crate::bound!(@bind $mode $direction $entity, $cls, $prop, $crate::bound!(@filter $($filter)+))
+        $crate::bind!(@bind $mode $direction $entity, $cls, $prop, $crate::bind!(@filter $($filter)+))
     };
 
     (@args {$mode:ident, $direction:ident,  $entity:expr, $cls:ty}, $prop:tt) => {
-        $crate::bound!(@bind $mode $direction $entity, $cls, $prop, $crate::bound!(@filter default))
+        $crate::bind!(@bind $mode $direction $entity, $cls, $prop, $crate::bind!(@filter default))
     };
 
     // adding the rest of props, everyting before |
     (@args $h:tt, {$($props:tt)+} [$($idx:tt)+] $($rest:tt)*) => {
-        $crate::bound!(@args $h, {$($props)+[$($idx)+]} $($rest)*)
+        $crate::bind!(@args $h, {$($props)+[$($idx)+]} $($rest)*)
     };
 
     (@args $h:tt, {$($props:tt)+} ($($call:tt)*) $($rest:tt)*) => {
-        $crate::bound!(@args $h, {$($props)+($($call)*)} $($rest)*)
+        $crate::bind!(@args $h, {$($props)+($($call)*)} $($rest)*)
     };
 
     (@args $h:tt, {$($props:tt)+} $part:tt $($rest:tt)*) => {
-        $crate::bound!(@args $h, {$($props)+$part} $($rest)*)
+        $crate::bind!(@args $h, {$($props)+$part} $($rest)*)
     };
 
     // (@args $h:tt, {$($props:tt)+} $part:literal $($rest:tt)*) => {
-    //     $crate::bound!(@args $h, {$($props)+$part} $($rest)*)
+    //     $crate::bind!(@args $h, {$($props)+$part} $($rest)*)
     // };
 
 
     (@args $h:tt, {$($props:tt)+} . $($rest:tt)*) => {
-        $crate::bound!(@args $h, {$($props)+.} $($rest)*)
+        $crate::bind!(@args $h, {$($props)+.} $($rest)*)
     };
 
 
     //sinle part should be handled separatly
     // add indexed field
     // (@args $h:tt: $first:tt[$($idx:tt)+] $($args:tt)*) => {
-    //     $crate::bound!(@args $h, {$first[$($idx)+]} $($args)* )
+    //     $crate::bind!(@args $h, {$first[$($idx)+]} $($args)* )
     // };
     // // add method call
     // (@args $h:tt: $first:tt($($call:tt)*) $($args:tt)*) => {
-    //     $crate::bound!(@args $h, {$first($($call)*)} $($args)* )
+    //     $crate::bind!(@args $h, {$first($($call)*)} $($args)* )
     // };
     // add field
     (@args $h:tt: $first:ident $($args:tt)*) => {
-        $crate::bound!(@args $h, {$first} $($args)* )
+        $crate::bind!(@args $h, {$first} $($args)* )
     };
     (@args $h:tt: $first:tt $($args:tt)*) => {
-        $crate::bound!(@args $h, {$first} $($args)* )
+        $crate::bind!(@args $h, {$first} $($args)* )
     };
 
     // start here and move up
     ( $direction:ident, $entity:expr, $cls:ty: $($args:tt)+ ) => {
-        $crate::bound!(@args {component, $direction, $entity, $cls}: $($args)+ )
+        $crate::bind!(@args {component, $direction, $entity, $cls}: $($args)+ )
     };
     ( $direction:ident, $cls:ty: $($args:tt)+ ) => {
-        $crate::bound!(@args {resource, $direction, $entity, $cls}: $($args)+ )
+        $crate::bind!(@args {resource, $direction, $entity, $cls}: $($args)+ )
     };
 }
 
 #[macro_export]
 macro_rules! from {
-    ( $($bind:tt)* ) => { $crate::bound!(from, $($bind)*) };
+    ( $($bind:tt)* ) => { $crate::bind!(from, $($bind)*) };
 }
 
 #[macro_export]
 macro_rules! to {
-    ( $($bind:tt)* ) => { $crate::bound!(to, $($bind)*) };
+    ( $($bind:tt)* ) => { $crate::bind!(to, $($bind)*) };
 }
 
 #[cfg(test)]
@@ -483,7 +477,7 @@ mod test {
             .value;
         assert_eq!(
             current_health, expected_health,
-            "Bound values should be equals after single update"
+            "Bind values should be equals after single update"
         );
 
         app.update();
@@ -496,7 +490,7 @@ mod test {
             .value;
         assert_eq!(
             current_health, expected_health,
-            "Bound values still should be equals after single update"
+            "Bind values still should be equals after single update"
         );
 
         let expected_health = 30.;
@@ -516,7 +510,7 @@ mod test {
             .value;
         assert_eq!(
             current_health, expected_health,
-            "Bound values still should be equals after mutliple updates"
+            "Bind values still should be equals after mutliple updates"
         );
     }
 

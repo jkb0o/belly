@@ -3,7 +3,7 @@ use std::any::TypeId;
 
 use crate::{
     relations::{
-        bound::{Bind, BindableSource, BindableTarget},
+        bind::{BindDescriptor, BindableSource, BindableTarget},
         *,
     },
     to, Element, ElementsBuilder,
@@ -33,7 +33,7 @@ pub struct BindContent<S: BindableSource + IntoContent + std::fmt::Debug> {
     value: S,
 }
 impl<R: Component, S: BindableTarget + Default + IntoContent + std::fmt::Debug> IntoContent
-    for Bind<R, BindContent<S>, S, S>
+    for BindDescriptor<R, BindContent<S>, S, S>
 {
     fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity> {
         let bind = self >> to!(parent, BindContent<S>:value);

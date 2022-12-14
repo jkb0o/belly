@@ -1,4 +1,4 @@
-pub mod bound;
+pub mod bind;
 mod connect;
 pub mod transform;
 
@@ -9,7 +9,7 @@ use std::{
 
 use bevy::{prelude::*, utils::HashSet};
 
-use self::bound::{process_binds, watch_changes, BindableSource, BindableTarget, ChangesState};
+use self::bind::{process_binds, watch_changes, BindableSource, BindableTarget, ChangesState};
 pub use self::connect::{
     Connect, ConnectionEntityContext, ConnectionGeneralContext, ConnectionTo, Connections, Signal,
 };

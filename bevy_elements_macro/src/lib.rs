@@ -495,34 +495,34 @@ fn parse_binds(ast: &syn::DeriveInput) -> syn::Result<TokenStream> {
         binds = quote! {
             #binds
 
-            pub fn #bind_to_ident <W: ::bevy::prelude::Component, T: ::bevy_elements_core::relations::bound::BindableTarget>(
+            pub fn #bind_to_ident <W: ::bevy::prelude::Component, T: ::bevy_elements_core::relations::bind::BindableTarget>(
                 &self,
                 world: &mut ::bevy::prelude::World,
                 source: ::bevy::prelude::Entity,
-                bind: ::bevy_elements_core::relations::bound::Bind<
+                bind: ::bevy_elements_core::relations::bind::BindDescriptor<
                     #component, W, #field_type, T
                 >
             ) {
-                let ::bevy_elements_core::relations::bound::Bind::To(to) = bind else { return };
-                to.from(::bevy_elements_core::relations::bound::BoundFrom {
+                let ::bevy_elements_core::relations::bind::BindDescriptor::To(to) = bind else { return };
+                to.from(::bevy_elements_core::relations::bind::BindFrom {
                     source,
                     reader: |c: &#component| c.#field_ident.clone(),
-                    source_id: tag!(::bevy_elements_core::relations::bound::format_source_id::<#component>(#field_name)),
+                    source_id: tag!(::bevy_elements_core::relations::bind::format_source_id::<#component>(#field_name)),
                 }).write(world);
             }
 
-            pub fn #bind_from_ident <R: ::bevy::prelude::Component, S: ::bevy_elements_core::relations::bound::BindableSource>(
+            pub fn #bind_from_ident <R: ::bevy::prelude::Component, S: ::bevy_elements_core::relations::bind::BindableSource>(
                 &self,
                 world: &mut ::bevy::prelude::World,
                 target: Entity,
-                bind: ::bevy_elements_core::relations::bound::Bind<
+                bind: ::bevy_elements_core::relations::bind::BindDescriptor<
                     R, #component, S, #field_type
                 >
             ) {
-                let ::bevy_elements_core::relations::bound::Bind::From(from, transformer) = bind else { return };
-                from.to(::bevy_elements_core::relations::bound::BoundTo {
+                let ::bevy_elements_core::relations::bind::BindDescriptor::From(from, transformer) = bind else { return };
+                from.to(::bevy_elements_core::relations::bind::BindTo {
                     target,
-                    target_id: tag!(::bevy_elements_core::relations::bound::format_source_id::<#component>(#field_name)),
+                    target_id: tag!(::bevy_elements_core::relations::bind::format_source_id::<#component>(#field_name)),
                     transformer: transformer,
                     reader: |c: &#component| &c.#field_ident,
                     writer: |c: &mut #component, v| c.#field_ident = v

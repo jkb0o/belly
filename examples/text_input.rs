@@ -19,28 +19,32 @@ fn setup(mut commands: Commands) {
         .text-input-border:focus {
             background-color: #2f2f2f;
         }
-        .vertical {
-            flex-direction: column
+        span {
+            width: 250px;
         }
     "#,
     ));
     let input = commands.spawn_empty().id();
     let label = commands.spawn_empty().id();
     commands.add(eml! {
-        <body s:padding="20px">
-            <div c:vertical>
-                <div>"Hello, "<strong>"fella"</strong>"!"</div>
-                <textinput {input} bind:value=to!(label, Label:value) s:margin-right="10px" s:width="100px"/>
-                <div>
-                    "Bind by to-label: Hello, "<label {label}/>"!"
-                </div>
-                <div>
-                    "Bind by from-label: Hello, "<label bind:value=from!(input, TextInput:value)/>"!"
-                </div>
-                <div>
-                    "Bind by content: Hello, "{from!(input, TextInput:value)}"!"
-                </div>
-            </div>
+        <body s:padding="50px">
+            "Hello, "<strong>"fella"</strong>"!"<brl/>
+            <span>"Type some text:"</span>
+            <textinput {input} bind:value=to!(label, Label:value | fmt:val("I'm bound to label, {val}!")) s:width="150px"/>
+            <brl/>
+
+            <span>"Bind input to label:"</span>
+            <label {label}/>
+            <br/>
+
+            <span>"Bind label from input:"</span>
+            <label bind:value=from!(input, TextInput:value | fmt:val("I'm bound from input, {val}!"))/>
+            <br/>
+
+            <span>"Bind content from input:"</span>
+            "I'm binded content, "{from!(input, TextInput:value)}"!"
+            <br/>
+
         </body>
     });
 }
