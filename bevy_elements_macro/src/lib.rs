@@ -125,18 +125,18 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                     let bind = bind.as_ref();
                     let stream = bind.to_token_stream().to_string();
                     if stream.trim().starts_with("to!") {
-                        let bind_to = format!("bind_{}_to", prop);
-                        let bind_ident = syn::Ident::new(&bind_to, bind.span());
+                        let bind_from = format!("bind_from_{prop}");
+                        let bind_from = syn::Ident::new(&bind_from, bind.span());
                         connections = quote_spanned! {attr_span=>
                             #connections
-                            __builder.#bind_ident(__world, __parent, #bind);
+                            (__builder.#bind_from(__parent) >> #bind).write(__world);
                         };
                     } else if stream.trim().starts_with("from!") {
-                        let bind_from = format!("bind_{}_from", prop);
-                        let bind_ident = syn::Ident::new(&bind_from, bind.span());
+                        let bind_to = format!("bind_to_{prop}");
+                        let bind_to = syn::Ident::new(&bind_to, bind.span());
                         connections = quote_spanned! {attr_span=>
                             #connections
-                            __builder.#bind_ident(__world, __parent, #bind);
+                            (__builder.#bind_to(__parent) << #bind).write(__world);
                         };
                     }
                     // panic!("bind def: {}", bind_def.to_token_stream());
@@ -349,27 +349,25 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 };
                 // panic!("{bind}")
                 bind_body = if bind_type == "to" {
-                    let func_ident = format_ident!("bind_{field_name}_to");
+                    let bind_from = format_ident!("bind_from_{field_name}");
+                    let bind_from = quote! {
+                        #mod_descriptor::Descriptor::get_instance().#bind_from(this)
+                    };
                     quote! {
                         #bind_body
                         ctx.commands().add(move |world: &mut ::bevy::prelude::World| {
-                            #mod_descriptor::Descriptor::get_instance().#func_ident(
-                                world,
-                                this,
-                                ::bevy_elements_core::to!(#bind)
-                            )
+                            (::bevy_elements_core::to!(#bind) << #bind_from).write(world);
                         });
                     }
                 } else {
-                    let func_ident = format_ident!("bind_{field_name}_from");
+                    let bind_to = format_ident!("bind_to_{field_name}");
+                    let bind_to = quote! {
+                        #mod_descriptor::Descriptor::get_instance().#bind_to(this)
+                    };
                     quote! {
                         #bind_body
                         ctx.commands().add(move |world: &mut ::bevy::prelude::World| {
-                            #mod_descriptor::Descriptor::get_instance().#func_ident(
-                                world,
-                                this,
-                                ::bevy_elements_core::from!(#bind)
-                            )
+                            (::bevy_elements_core::from!(#bind) >> #bind_to).wrote(world);
                         });
                     }
                 }
@@ -480,54 +478,23 @@ fn parse_binds(ast: &syn::DeriveInput) -> syn::Result<TokenStream> {
         {
             continue;
         }
-        let field_name = format!("{}", field_ident);
-
-        // let field_str = format!("{field_ident}");
-        // for attr in field.attrs.iter() {
-        //     if !attr.path.is_ident("param") {
-        //         continue;
-        //     };
-        // }
 
         let field_type = &field.ty;
-        let bind_to_ident = format_ident!("bind_{}_to", field_ident);
-        let bind_from_ident = format_ident!("bind_{}_from", field_ident);
+        let bind_to_ident = format_ident!("bind_to_{field_ident}");
+        let bind_from_ident = format_ident!("bind_from_{field_ident}");
         binds = quote! {
             #binds
 
-            pub fn #bind_to_ident <W: ::bevy::prelude::Component, T: ::bevy_elements_core::relations::bind::BindableTarget>(
-                &self,
-                world: &mut ::bevy::prelude::World,
-                source: ::bevy::prelude::Entity,
-                bind: ::bevy_elements_core::relations::bind::BindDescriptor<
-                    #component, W, #field_type, T
-                >
-            ) {
-                let ::bevy_elements_core::relations::bind::BindDescriptor::To(to) = bind else { return };
-                to.from(::bevy_elements_core::relations::bind::BindFrom {
-                    source,
-                    reader: |c: &#component| c.#field_ident.clone(),
-                    source_id: tag!(::bevy_elements_core::relations::bind::format_source_id::<#component>(#field_name)),
-                }).write(world);
+            pub fn #bind_to_ident(&self, target: ::bevy::prelude::Entity)
+            -> ::bevy_elements_core::relations::bind::ToComponentWithoutTransformer<#component, #field_type>
+            {
+                ::bevy_elements_core::to!(target, #component:#field_ident)
             }
 
-            pub fn #bind_from_ident <R: ::bevy::prelude::Component, S: ::bevy_elements_core::relations::bind::BindableSource>(
-                &self,
-                world: &mut ::bevy::prelude::World,
-                target: Entity,
-                bind: ::bevy_elements_core::relations::bind::BindDescriptor<
-                    R, #component, S, #field_type
-                >
-            ) {
-                let ::bevy_elements_core::relations::bind::BindDescriptor::From(from, transformer) = bind else { return };
-                from.to(::bevy_elements_core::relations::bind::BindTo {
-                    target,
-                    target_id: tag!(::bevy_elements_core::relations::bind::format_source_id::<#component>(#field_name)),
-                    transformer: transformer,
-                    reader: |c: &#component| &c.#field_ident,
-                    writer: |c: &mut #component, v| c.#field_ident = v
-                }).write(world);
-
+            pub fn #bind_from_ident(&self, source: ::bevy::prelude::Entity)
+            -> ::bevy_elements_core::relations::bind::FromComponent<#component, #field_type>
+            {
+                ::bevy_elements_core::from!(source, #component:#field_ident)
             }
         };
     }

@@ -44,7 +44,6 @@ pub use crate::relations::Signal;
 pub use crate::relations::bind::TransformationError;
 pub use crate::relations::bind::TransformationResult;
 pub use crate::relations::transform::ColorTransformerExtension;
-pub use crate::relations::transform::TryIntoFloat;
 
 pub use element::Element;
 pub use element::Elements;

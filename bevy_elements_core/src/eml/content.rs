@@ -3,7 +3,7 @@ use std::any::TypeId;
 
 use crate::{
     relations::{
-        bind::{BindDescriptor, BindableSource, BindableTarget},
+        bind::{BindableSource, BindableTarget, FromComponent},
         *,
     },
     to, Element, ElementsBuilder,
@@ -33,7 +33,7 @@ pub struct BindContent<S: BindableSource + IntoContent + std::fmt::Debug> {
     value: S,
 }
 impl<R: Component, S: BindableTarget + Default + IntoContent + std::fmt::Debug> IntoContent
-    for BindDescriptor<R, BindContent<S>, S, S>
+    for FromComponent<R, S>
 {
     fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity> {
         let bind = self >> to!(parent, BindContent<S>:value);
@@ -47,7 +47,6 @@ impl<R: Component, S: BindableTarget + Default + IntoContent + std::fmt::Debug> 
         let systems_ref = world.get_resource_or_insert_with(RelationsSystems::default);
         let mut systems = systems_ref.0.write().unwrap();
         systems.add_custom_system(TypeId::of::<BindContent<S>>(), bind_content_system::<S>);
-
         vec![parent]
     }
 }

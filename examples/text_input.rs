@@ -29,7 +29,9 @@ fn setup(mut commands: Commands) {
     commands.add(eml! {
         <body s:padding="50px">
             "Hello, "<strong>"fella"</strong>"!"<brl/>
-            <span>"Type some text:"</span>
+            <label bind:value=from!(Time:elapsed_seconds() | fmt:s("Elapsed seconds: {s:0.2}"))/>
+            <brl/>
+            <span>"Type input some text:"</span>
             <textinput {input} bind:value=to!(label, Label:value | fmt:val("I'm bound to label, {val}!")) s:width="150px"/>
             <brl/>
 
@@ -42,7 +44,7 @@ fn setup(mut commands: Commands) {
             <br/>
 
             <span>"Bind content from input:"</span>
-            "I'm binded content, "{from!(input, TextInput:value)}"!"
+            "I'm binded content, "{bind!(from input, TextInput:value)}"!"
             <br/>
 
         </body>

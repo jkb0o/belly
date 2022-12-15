@@ -7,26 +7,20 @@ use tagstr::Tag;
 
 use super::RelationsSystems;
 
+pub type SourceReader<R, S> = fn(&R) -> S;
+pub type TargetReader<W, T> = for<'a> fn(&'a W) -> &'a T;
+pub type Transformer<S, T> = fn(&S, &T) -> TransformationResult<T>;
+pub type Writer<W, T> = fn(&mut W, T);
+
 pub trait BindableSource: Clone + Send + Sync + 'static {}
 impl<T: Clone + Send + Sync + 'static> BindableSource for T {}
 pub trait BindableTarget: PartialEq + Clone + Send + Sync + 'static {}
 impl<T: PartialEq + Clone + Send + Sync + 'static> BindableTarget for T {}
 
-pub fn process_binds<R: Component, W: Component, S: BindableSource, T: BindableTarget>(
-    mut binds: ParamSet<(
-        Query<(&Read<R, S>, &R), Changed<R>>,
-        Query<(&Write<W, S, T>, &mut W, &mut Change<W>)>,
-    )>,
-    mut changes: Local<ActiveChanges<S>>,
+fn write_component_changes<W: Component, S: BindableSource, T: BindableTarget>(
+    changes: &ActiveChanges<S>,
+    writes: &mut Query<(&WriteComponent<W, S, T>, &mut W, &mut Change<W>)>,
 ) {
-    changes.clear();
-    for (readers, component) in binds.p0().iter() {
-        for descriptor in readers.iter() {
-            let value = (descriptor.reader)(component).clone();
-            changes.add_change(descriptor.target, value, descriptor.id);
-        }
-    }
-    let mut writes = binds.p1();
     for (target, sources) in changes.iter() {
         let Ok((writers, mut component, mut component_change)) = writes.get_mut(*target) else {
             continue
@@ -50,6 +44,52 @@ pub fn process_binds<R: Component, W: Component, S: BindableSource, T: BindableT
             }
         }
     }
+}
+
+pub fn component_to_component_system<
+    R: Component,
+    W: Component,
+    S: BindableSource,
+    T: BindableTarget,
+>(
+    mut binds: ParamSet<(
+        Query<(&ReadComponent<R, S>, &R), Changed<R>>,
+        Query<(&WriteComponent<W, S, T>, &mut W, &mut Change<W>)>,
+    )>,
+    mut changes: Local<ActiveChanges<S>>,
+) {
+    changes.clear();
+    for (readers, component) in binds.p0().iter() {
+        for descriptor in readers.iter() {
+            let value = (descriptor.reader)(component).clone();
+            changes.add_change(descriptor.target, value, descriptor.id);
+        }
+    }
+    let mut writes = binds.p1();
+    write_component_changes(&changes, &mut writes);
+}
+
+pub fn resource_to_component_system<
+    R: Resource,
+    W: Component,
+    S: BindableSource,
+    T: BindableTarget,
+>(
+    res: Res<R>,
+    read: Res<ReadResource<R, S>>,
+    mut writes: Query<(&WriteComponent<W, S, T>, &mut W, &mut Change<W>)>,
+    mut changes: Local<ActiveChanges<S>>,
+) {
+    if !res.is_changed() {
+        return;
+    }
+    changes.clear();
+
+    for descriptor in read.iter() {
+        let value = (descriptor.reader)(&res);
+        changes.add_change(descriptor.target, value, descriptor.id);
+    }
+    write_component_changes(&changes, &mut writes);
 }
 
 pub(crate) fn watch_changes<W: Component>(
@@ -107,10 +147,10 @@ impl<W: Component> Change<W> {
     fn report_changed(&mut self) {}
 }
 
-pub struct ReadDescriptor<R: Component, S: BindableSource> {
+pub struct ReadDescriptor<R, S: BindableSource> {
     id: BindId,
     target: Entity,
-    reader: fn(&R) -> S,
+    reader: SourceReader<R, S>,
 }
 
 impl<R: Component, S: BindableSource> Debug for ReadDescriptor<R, S> {
@@ -124,13 +164,22 @@ impl<R: Component, S: BindableSource> Debug for ReadDescriptor<R, S> {
 }
 
 #[derive(Component, Deref, DerefMut)]
-pub struct Read<R: Component, S: BindableSource>(Vec<ReadDescriptor<R, S>>);
+pub struct ReadComponent<R: Component, S: BindableSource>(Vec<ReadDescriptor<R, S>>);
 
-pub struct WriteDescriptor<W: Component, S: BindableSource, T: BindableTarget> {
+#[derive(Resource, Deref, DerefMut)]
+pub struct ReadResource<R: Resource, S: BindableSource>(Vec<ReadDescriptor<R, S>>);
+
+impl<R: Resource, S: BindableSource> Default for ReadResource<R, S> {
+    fn default() -> Self {
+        ReadResource(vec![])
+    }
+}
+
+pub struct WriteDescriptor<W, S: BindableSource, T: BindableTarget> {
     id: BindId,
-    transformer: fn(&S, &T) -> TransformationResult<T>,
-    reader: for<'a> fn(&'a W) -> &'a T,
-    writer: fn(&mut W, T),
+    transformer: Transformer<S, T>,
+    reader: TargetReader<W, T>,
+    writer: Writer<W, T>,
 }
 
 impl<W: Component, S: BindableSource, T: BindableTarget> WriteDescriptor<W, S, T> {
@@ -145,122 +194,235 @@ impl<W: Component, S: BindableSource, T: BindableTarget> WriteDescriptor<W, S, T
     }
 }
 #[derive(Component, Deref, DerefMut, Default)]
-pub struct Write<W: Component, S: BindableSource, T: BindableTarget>(Vec<WriteDescriptor<W, S, T>>);
+pub struct WriteComponent<W: Component, S: BindableSource, T: BindableTarget>(
+    Vec<WriteDescriptor<W, S, T>>,
+);
 
-pub struct BindFrom<R: Component, S: BindableSource> {
-    pub source_id: Tag,
+pub struct FromComponent<R: Component, S: BindableSource> {
+    pub id: Tag,
     pub source: Entity,
-    pub reader: fn(&R) -> S,
+    pub reader: SourceReader<R, S>,
 }
 
-impl<R: Component, S: BindableSource> BindFrom<R, S> {
-    pub fn to<W: Component, T: BindableTarget>(self, to: BindTo<W, S, T>) -> Bind<R, W, S, T> {
-        Bind { from: self, to }
+impl<R: Component, S: BindableSource> FromComponent<R, S> {
+    pub fn bind_component<W: Component, T: BindableTarget>(
+        self,
+        to: ToComponent<W, S, T>,
+    ) -> ComponentToComponent<R, W, S, T> {
+        ComponentToComponent { from: self, to }
     }
 }
 
-pub struct BindTo<W: Component, S: BindableSource, T: BindableTarget> {
+pub struct FromComponentWithTransformer<R: Component, S: BindableSource, T: BindableTarget> {
+    pub from: FromComponent<R, S>,
+    pub transformer: Transformer<S, T>,
+}
+
+impl<R: Component, S: BindableSource, T: BindableTarget> FromComponentWithTransformer<R, S, T> {
+    pub fn bind<W: Component>(
+        self,
+        to: ToComponentWithoutTransformer<W, T>,
+    ) -> ComponentToComponent<R, W, S, T> {
+        let transformer = self.transformer;
+        self.from.bind_component(ToComponent {
+            id: to.id,
+            target: to.target,
+            writer: to.writer,
+            reader: to.reader,
+            transformer,
+        })
+    }
+}
+
+pub struct FromResource<R: Resource, S: BindableSource> {
+    pub id: Tag,
+    pub reader: SourceReader<R, S>,
+}
+
+impl<R: Resource, S: BindableSource> FromResource<R, S> {
+    pub fn bind_component<W: Component, T: BindableTarget>(
+        self,
+        to: ToComponent<W, S, T>,
+    ) -> ResourceToComponent<R, W, S, T> {
+        ResourceToComponent { from: self, to }
+    }
+}
+
+pub struct FromResourceWithTransformer<R: Resource, S: BindableSource, T: BindableTarget> {
+    pub from: FromResource<R, S>,
+    pub transformer: Transformer<S, T>,
+}
+impl<R: Resource, S: BindableSource, T: BindableTarget> FromResourceWithTransformer<R, S, T> {
+    pub fn bind_component<W: Component>(
+        self,
+        to: ToComponentWithoutTransformer<W, T>,
+    ) -> ResourceToComponent<R, W, S, T> {
+        ResourceToComponent {
+            from: self.from,
+            to: ToComponent {
+                id: to.id,
+                target: to.target,
+                writer: to.writer,
+                reader: to.reader,
+                transformer: self.transformer,
+            },
+        }
+    }
+}
+
+pub struct ToComponent<W: Component, S: BindableSource, T: BindableTarget> {
+    pub id: Tag,
     pub target: Entity,
-    pub target_id: Tag,
-    pub transformer: fn(&S, &T) -> TransformationResult<T>,
-    pub reader: for<'a> fn(&'a W) -> &'a T,
+    pub transformer: Transformer<S, T>,
+    pub reader: TargetReader<W, T>,
     pub writer: fn(&mut W, T),
 }
 
-impl<W: Component, S: BindableSource, T: BindableTarget> BindTo<W, S, T> {
-    pub fn from<R: Component>(self, from: BindFrom<R, S>) -> Bind<R, W, S, T> {
-        Bind { from, to: self }
+impl<W: Component, S: BindableSource, T: BindableTarget> ToComponent<W, S, T> {
+    pub fn bind_component<R: Component>(
+        self,
+        from: FromComponent<R, S>,
+    ) -> ComponentToComponent<R, W, S, T> {
+        ComponentToComponent { from, to: self }
+    }
+    pub fn bind_resource<R: Resource>(
+        self,
+        from: FromResource<R, S>,
+    ) -> ResourceToComponent<R, W, S, T> {
+        ResourceToComponent { from, to: self }
     }
 }
 
-pub struct Bind<R: Component, W: Component, S: BindableSource, T: BindableTarget> {
-    from: BindFrom<R, S>,
-    to: BindTo<W, S, T>,
+pub struct ToComponentWithoutTransformer<W: Component, T: BindableTarget> {
+    pub id: Tag,
+    pub target: Entity,
+    pub reader: TargetReader<W, T>,
+    pub writer: Writer<W, T>,
+}
+
+impl<W: Component, T: BindableTarget> ToComponentWithoutTransformer<W, T> {
+    pub fn bind_component<R: Component, S: BindableSource>(
+        self,
+        from: FromComponentWithTransformer<R, S, T>,
+    ) -> ComponentToComponent<R, W, S, T> {
+        from.from.bind_component(ToComponent {
+            id: self.id,
+            target: self.target,
+            reader: self.reader,
+            writer: self.writer,
+            transformer: from.transformer,
+        })
+    }
+    pub fn bind_resource<R: Resource, S: BindableSource>(
+        self,
+        from: FromResourceWithTransformer<R, S, T>,
+    ) -> ResourceToComponent<R, W, S, T> {
+        from.from.bind_component(ToComponent {
+            id: self.id,
+            target: self.target,
+            reader: self.reader,
+            writer: self.writer,
+            transformer: from.transformer,
+        })
+    }
+}
+
+fn register_component_writer<W: Component, S: BindableSource, T: BindableTarget>(
+    world: &mut World,
+    id: BindId,
+    to: ToComponent<W, S, T>,
+) {
+    let mut target_entity = world.entity_mut(to.target);
+    let write_descriptor = WriteDescriptor {
+        id,
+        reader: to.reader,
+        writer: to.writer,
+        transformer: to.transformer,
+    };
+    if !target_entity.contains::<Change<W>>() {
+        target_entity.insert(Change::<W>::new());
+    }
+    if let Some(mut writer_component) = target_entity.get_mut::<WriteComponent<W, S, T>>() {
+        writer_component.push(write_descriptor);
+    } else {
+        target_entity.insert(WriteComponent(vec![write_descriptor]));
+    }
+}
+
+pub struct ComponentToComponent<R: Component, W: Component, S: BindableSource, T: BindableTarget> {
+    from: FromComponent<R, S>,
+    to: ToComponent<W, S, T>,
 }
 
 impl<R: Component, W: Component, S: BindableSource, T: BindableTarget> std::fmt::Display
-    for Bind<R, W, S, T>
+    for ComponentToComponent<R, W, S, T>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let source_str = self.from.source_id;
-        let target_str = self.to.target_id;
-        write!(f, "Bind( {source_str} >> {target_str} )")
+        let source_str = self.from.id;
+        let target_str = self.to.id;
+        write!(f, "ComponentToComponent( {source_str} >> {target_str} )")
     }
 }
 
-impl<R: Component, W: Component, S: BindableSource, T: BindableTarget> Bind<R, W, S, T> {
+impl<R: Component, W: Component, S: BindableSource, T: BindableTarget>
+    ComponentToComponent<R, W, S, T>
+{
     pub fn write(self, world: &mut World) {
-        let id = BindId::new(self.from.source_id, self.to.target_id);
         {
             let systems_ref = world.get_resource_or_insert_with(RelationsSystems::default);
             let mut systems = systems_ref.0.write().unwrap();
-            systems.add_bind_system::<R, W, S, T>();
+            systems.add_component_to_component::<R, W, S, T>();
         }
+        let id = BindId::new(self.from.id, self.to.id);
         let mut source_entity = world.entity_mut(self.from.source);
         let read_descriptor = ReadDescriptor {
             id,
             target: self.to.target,
             reader: self.from.reader,
         };
-        if let Some(mut source_component) = source_entity.get_mut::<Read<R, S>>() {
+        if let Some(mut source_component) = source_entity.get_mut::<ReadComponent<R, S>>() {
             source_component.push(read_descriptor);
         } else {
-            source_entity.insert(Read(vec![read_descriptor]));
+            source_entity.insert(ReadComponent(vec![read_descriptor]));
         }
+        register_component_writer(world, id, self.to);
+    }
+}
 
-        let mut target_entity = world.entity_mut(self.to.target);
-        let write_descriptor = WriteDescriptor {
+pub struct ResourceToComponent<R: Resource, W: Component, S: BindableSource, T: BindableTarget> {
+    from: FromResource<R, S>,
+    to: ToComponent<W, S, T>,
+}
+
+impl<R: Resource, W: Component, S: BindableSource, T: BindableTarget> std::fmt::Display
+    for ResourceToComponent<R, W, S, T>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let source_str = self.from.id;
+        let target_str = self.to.id;
+        write!(f, "ResourceToComponent( {source_str} >> {target_str} )")
+    }
+}
+
+impl<R: Resource, W: Component, S: BindableSource, T: BindableTarget>
+    ResourceToComponent<R, W, S, T>
+{
+    pub fn write(self, world: &mut World) {
+        {
+            let systems_ref = world.get_resource_or_insert_with(RelationsSystems::default);
+            let mut systems = systems_ref.0.write().unwrap();
+            systems.add_resource_to_component::<R, W, S, T>();
+        }
+        let id = BindId::new(self.from.id, self.to.id);
+        let read_descriptor = ReadDescriptor {
             id,
-            reader: self.to.reader,
-            writer: self.to.writer,
-            transformer: self.to.transformer,
+            target: self.to.target,
+            reader: self.from.reader,
         };
-        if !target_entity.contains::<Change<W>>() {
-            target_entity.insert(Change::<W>::new());
-        }
-        if let Some(mut writer_component) = target_entity.get_mut::<Write<W, S, T>>() {
-            writer_component.push(write_descriptor);
-        } else {
-            target_entity.insert(Write(vec![write_descriptor]));
-        }
-    }
-}
-
-pub enum BindDescriptor<R: Component, W: Component, S: BindableSource, T: BindableTarget> {
-    From(BindFrom<R, S>, fn(&S, &T) -> TransformationResult<T>),
-    To(BindTo<W, S, T>),
-}
-
-impl<R: Component, W: Component, S: BindableSource, T: BindableTarget> std::ops::Shl
-    for BindDescriptor<R, W, S, T>
-{
-    type Output = Bind<R, W, S, T>;
-
-    fn shl(self, rhs: Self) -> Self::Output {
-        let (left, right) = (self, rhs);
-        match (left, right) {
-            // TODO: handle transformer priority:
-            // - custom on BindDescriptor::To
-            // - custom on Bond::From
-            // - default on BindDescriptor::To
-            // - default on BindDescriptor::From
-            (BindDescriptor::To(to), BindDescriptor::From(from, transformer)) => to.from(from),
-            _ => panic!("Invalid binding << operator usage, only to!(...) << from!(...) supprted."),
-        }
-    }
-}
-
-impl<R: Component, W: Component, S: BindableSource, T: BindableTarget> std::ops::Shr
-    for BindDescriptor<R, W, S, T>
-{
-    type Output = Bind<R, W, S, T>;
-
-    fn shr(self, rhs: Self) -> Self::Output {
-        let (left, right) = (rhs, self);
-        match (left, right) {
-            (BindDescriptor::To(to), BindDescriptor::From(from, transformer)) => to.from(from),
-            _ => panic!("Invalid binding >> operator usage, only from!(...) >> to!(...) supprted."),
-        }
+        world
+            .get_resource_or_insert_with(ReadResource::<R, S>::default)
+            .push(read_descriptor);
+        register_component_writer(world, id, self.to);
     }
 }
 
@@ -282,6 +444,12 @@ impl<T: BindableTarget> TransformationResult<T> {
 
 pub struct TransformationError(String);
 
+impl TransformationError {
+    pub fn new(value: String) -> TransformationError {
+        TransformationError(value)
+    }
+}
+
 impl From<Infallible> for TransformationError {
     fn from(_: Infallible) -> Self {
         TransformationError("Unexpected Infallible error. This should never happen".to_string())
@@ -294,53 +462,73 @@ impl From<String> for TransformationError {
     }
 }
 
-pub fn transform<
-    T: TryFrom<F, Error = E> + BindableTarget,
-    F: Clone,
-    E: Into<TransformationError>,
->(
-    incoming: &F,
-    current: &T,
-) -> TransformationResult<T> {
-    let new_value = match T::try_from(incoming.clone()) {
-        Err(err) => return TransformationResult::from_error(err.into()),
-        Ok(val) => val,
-    };
-    if &new_value != current {
-        return TransformationResult::Changed(new_value);
-    } else {
-        return TransformationResult::Unchanged;
-    }
-}
-
-pub fn format_source_id<T>(field: &str) -> String {
-    format!(
+pub fn bind_id<T>(field: &str) -> Tag {
+    Tag::new(format!(
         "{}:{}",
         type_name::<T>().split_whitespace().join(""),
         field.trim().trim_matches('.').split_whitespace().join("")
-    )
+    ))
 }
 
 #[macro_export]
 macro_rules! bind {
-    (@bind component to $entity:expr, $cls:ty, { $($prop:tt)+ }, $filter:expr) => {
-        $crate::relations::bind::BindDescriptor::To($crate::relations::bind::BindTo {
-            target_id: ::tagstr::tag!($crate::relations::bind::format_source_id::<$cls>(stringify!($($prop)+))),
-            reader: |c: &$cls| &c.$($prop)+,
-            transformer: $filter,
-            writer: |c: &mut $cls, v| c.$($prop)+ = v,
-            target: $entity
-        })
-    };
-    (@bind component from $entity:expr, $cls:ty, { $($prop:tt)+ }, $filter:expr) => {
-        $crate::relations::bind::BindDescriptor::From($crate::relations::bind::BindFrom {
-            source_id: ::tagstr::tag!($crate::relations::bind::format_source_id::<$cls>(stringify!($($prop)+))),
+    // from!(entity, Component:some.property)
+    (@bind from component $entity:expr, $cls:ty, { $($prop:tt)+ }, default) => {
+        $crate::relations::bind::FromComponent {
+            id: $crate::relations::bind::bind_id::<$cls>(stringify!($($prop)+)),
             source: $entity,
             reader: |c: &$cls| c.$($prop)+.clone()
-        }, $filter)
+        }
+    };
+    // from!(Resource:some.property)
+    (@bind from resource $cls:ty, { $($prop:tt)+ }, default) => {
+        $crate::relations::bind::FromResource {
+            id: $crate::relations::bind::bind_id::<$cls>(stringify!($($prop)+)),
+            reader: |c: &$cls| c.$($prop)+.clone()
+        }
+    };
+    // from!(entity, Component:some.property | some:transformer)
+    (@bind from component $entity:expr, $cls:ty, { $($prop:tt)+ }, $transformer:expr) => {
+        $crate::relations::bind::FromComponentWithTransformer {
+            transformer: $transformer,
+            from: $crate::relations::bind::FromComponent {
+                id: $crate::relations::bind::bind_id::<$cls>(stringify!($($prop)+)),
+                source: $entity,
+                reader: |c: &$cls| c.$($prop)+.clone()
+            }
+        }
+    };
+    // from!(Resource:some.property | some:transformer)
+    (@bind from resource $cls:ty, { $($prop:tt)+ }, $transformer:expr) => {
+        $crate::relations::bind::FromResourceWithTransformer {
+            transformer: $transformer,
+            from: $crate::relations::bind::FromResource {
+                id: $crate::relations::bind::bind_id::<$cls>(stringify!($($prop)+)),
+                reader: |c: &$cls| c.$($prop)+.clone()
+            }
+        }
+    };
+    // to!(entity, Component:some.property)
+    (@bind to component $entity:expr, $cls:ty, { $($prop:tt)+ }, default) => {
+        $crate::relations::bind::ToComponentWithoutTransformer {
+            id: $crate::relations::bind::bind_id::<$cls>(stringify!($($prop)+)),
+            target: $entity,
+            reader: |c: &$cls| &c.$($prop)+,
+            writer: |c: &mut $cls, v| c.$($prop)+ = v,
+        }
+    };
+    // to!(entity, Component:some.propery | some:transformer)
+    (@bind to component $entity:expr, $cls:ty, { $($prop:tt)+ }, $transformer:expr) => {
+        $crate::relations::bind::ToComponent {
+            id: $crate::relations::bind::bind_id::<$cls>(stringify!($($prop)+)),
+            target: $entity,
+            reader: |c: &$cls| &c.$($prop)+,
+            writer: |c: &mut $cls, v| c.$($prop)+ = v,
+            transformer: $transformer,
+        }
     };
 
-    (@filter fmt:$val:ident( $($fmt:tt)* ) ) => {
+    (@transform fmt:$val:ident( $($fmt:tt)* ) ) => {
         |s, t| {
             let $val = s;
             let $val = format!($($fmt)*);
@@ -351,24 +539,35 @@ macro_rules! bind {
             }
         }
     };
-    (@filter $converter:ident:$method:ident ) => {
+    (@transform $converter:ident:$method:ident ) => {
         |s, t| {
             $crate::Transformers::$converter().$method(s, t)
         }
     };
-    (@filter default) => {
+    (@transform $converter:ident:$method:ident($($args:tt)*) ) => {
         |s, t| {
-            $crate::relations::bind::transform(s, t)
+            $crate::Transformers::$converter().$method(s, t, $($args)*)
         }
     };
 
-    // only filters here, can bind actually
-    (@args {$mode:ident, $direction:ident, $entity:expr, $cls:ty}, $prop:tt | $($filter:tt)+ ) => {
-        $crate::bind!(@bind $mode $direction $entity, $cls, $prop, $crate::bind!(@filter $($filter)+))
+    // only transformers here, can bind actually
+    (@args {$mode:ident from $entity:expr, $cls:ty}, $prop:tt) => {
+        $crate::bind!(@bind from $mode $entity, $cls, $prop, default)
+    };
+    (@args {$mode:ident from $cls:ty}, $prop:tt) => {
+        $crate::bind!(@bind from $mode $cls, $prop, default)
     };
 
-    (@args {$mode:ident, $direction:ident,  $entity:expr, $cls:ty}, $prop:tt) => {
-        $crate::bind!(@bind $mode $direction $entity, $cls, $prop, $crate::bind!(@filter default))
+    (@args {$mode:ident to $entity:expr, $cls:ty}, $prop:tt) => {
+        $crate::bind!(@bind to $mode $entity, $cls, $prop, default)
+    };
+
+    (@args {$mode:ident $direction:ident $cls:ty}, $prop:tt | $($transformer:tt)+ ) => {
+        $crate::bind!(@bind $direction $mode $cls, $prop, $crate::bind!(@transform $($transformer)+))
+    };
+
+    (@args {$mode:ident $direction:ident $entity:expr, $cls:ty}, $prop:tt | $($transformer:tt)+ ) => {
+        $crate::bind!(@bind $direction $mode $entity, $cls, $prop, $crate::bind!(@transform $($transformer)+))
     };
 
     // adding the rest of props, everyting before |
@@ -384,26 +583,12 @@ macro_rules! bind {
         $crate::bind!(@args $h, {$($props)+$part} $($rest)*)
     };
 
-    // (@args $h:tt, {$($props:tt)+} $part:literal $($rest:tt)*) => {
-    //     $crate::bind!(@args $h, {$($props)+$part} $($rest)*)
-    // };
-
-
     (@args $h:tt, {$($props:tt)+} . $($rest:tt)*) => {
         $crate::bind!(@args $h, {$($props)+.} $($rest)*)
     };
 
 
-    //sinle part should be handled separatly
-    // add indexed field
-    // (@args $h:tt: $first:tt[$($idx:tt)+] $($args:tt)*) => {
-    //     $crate::bind!(@args $h, {$first[$($idx)+]} $($args)* )
-    // };
-    // // add method call
-    // (@args $h:tt: $first:tt($($call:tt)*) $($args:tt)*) => {
-    //     $crate::bind!(@args $h, {$first($($call)*)} $($args)* )
-    // };
-    // add field
+    // add first ident (or tuple index) of field manually
     (@args $h:tt: $first:ident $($args:tt)*) => {
         $crate::bind!(@args $h, {$first} $($args)* )
     };
@@ -412,27 +597,34 @@ macro_rules! bind {
     };
 
     // start here and move up
-    ( $direction:ident, $entity:expr, $cls:ty: $($args:tt)+ ) => {
-        $crate::bind!(@args {component, $direction, $entity, $cls}: $($args)+ )
+    ( $direction:ident $cls:ty: $($args:tt)+ ) => {
+        $crate::bind!(@args {resource $direction $cls}: $($args)+ )
     };
-    ( $direction:ident, $cls:ty: $($args:tt)+ ) => {
-        $crate::bind!(@args {resource, $direction, $entity, $cls}: $($args)+ )
+    ( $direction:ident $entity:expr, $cls:ty: $($args:tt)+ ) => {
+        $crate::bind!(@args {component $direction $entity, $cls}: $($args)+ )
+    };
+    ( => $entity:expr, $cls:ty: $($args:tt)+ ) => {
+        $crate::bind!(@args {component to $entity, $cls}: $($args)+ )
+    };
+    ( <= $entity:expr, $cls:ty: $($args:tt)+ ) => {
+        $crate::bind!(@args {component from $entity, $cls}: $($args)+ )
     };
 }
 
 #[macro_export]
 macro_rules! from {
-    ( $($bind:tt)* ) => { $crate::bind!(from, $($bind)*) };
+    ( $($bind:tt)* ) => { $crate::bind!(from $($bind)*) };
 }
 
 #[macro_export]
 macro_rules! to {
-    ( $($bind:tt)* ) => { $crate::bind!(to, $($bind)*) };
+    ( $($bind:tt)* ) => { $crate::bind!(to $($bind)*) };
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::ColorTransformerExtension;
     use crate::*;
 
     #[derive(Component, Default)]
@@ -441,10 +633,98 @@ mod test {
         current: f32,
     }
 
+    impl Health {
+        fn percent(&self) -> f32 {
+            self.current / self.max
+        }
+    }
+
     #[derive(Component, Default)]
     struct HealthBar {
         value: f32,
+        output: String,
+        color: Color,
         _max: f32,
+    }
+
+    #[derive(Default, Clone, PartialEq)]
+    enum BtnMode {
+        #[default]
+        Press,
+        Instant,
+        Toggle,
+    }
+
+    impl TryFrom<&str> for BtnMode {
+        type Error = String;
+        fn try_from(value: &str) -> Result<Self, Self::Error> {
+            match value {
+                "press" => Ok(BtnMode::Press),
+                "instant" => Ok(BtnMode::Instant),
+                "toggle" => Ok(BtnMode::Toggle),
+                _ => Err(format!("Can't parse `{}` as BtnMode", value)),
+            }
+        }
+    }
+
+    impl TryFrom<String> for BtnMode {
+        type Error = String;
+        fn try_from(value: String) -> Result<Self, Self::Error> {
+            BtnMode::try_from(value.as_str())
+        }
+    }
+
+    impl From<BtnMode> for String {
+        fn from(mode: BtnMode) -> Self {
+            match mode {
+                BtnMode::Press => "press",
+                BtnMode::Instant => "instant",
+                BtnMode::Toggle => "toggle",
+            }
+            .to_string()
+        }
+    }
+
+    #[derive(Component)]
+    struct Btn {
+        mode: BtnMode,
+    }
+    fn btn_bind_mode_to(target: Entity) -> ToComponentWithoutTransformer<Btn, BtnMode> {
+        to!(target, Btn: mode)
+    }
+    fn btn_bind_from_mode(source: Entity) -> FromComponent<Btn, BtnMode> {
+        from!(source, Btn: mode)
+    }
+
+    #[test]
+    fn test_macro_compiles() {
+        // components
+        let mut world = World::new();
+        let e = world.spawn_empty().id();
+        let _bind = from!(e, Health: current) >> to!(e, HealthBar: value);
+        let _bind = to!(e, HealthBar: value) << from!(e, Health: current);
+
+        let _bind = from!(e, Health: current) >> to!(e, HealthBar:output | fmt:val("{val}"));
+        let _bind = from!(e, Health:current  | fmt:val("{val}")) >> to!(e, HealthBar: output);
+
+        let _bind = from!(e, Health: percent()) >> to!(e, HealthBar: color | color: one_minus_r);
+        let _bind = to!(e, HealthBar: color | color: r) << from!(e, Health: percent());
+        let _bind = from!(e, Health: percent() | color: r) >> to!(e, HealthBar: color);
+        let _bind =
+            to!(e, HealthBar: color) << from!(e, Health: percent() | color:lerp_r(0.2, 0.8));
+
+        let _bind = from!(e, HealthBar: output) >> to!(e, Btn: mode);
+        let _bind = to!(e, Btn: mode) << from!(e, HealthBar: output);
+
+        let _bind = btn_bind_from_mode(e) >> to!(e, HealthBar: output);
+        let _bind = from!(e, HealthBar: output) >> btn_bind_mode_to(e);
+
+        // resources
+        let _bind = from!(Time: elapsed_seconds()) >> to!(e, Health: current);
+        let _bind = to!(e, Health: current) << from!(Time: elapsed_seconds());
+        let _bind = from!(Time:elapsed_seconds() | fmt:val("{val}")) >> to!(e, HealthBar: output);
+        let _bind =
+            to!(e, HealthBar: output) << from!(Time:elapsed_seconds() | fmt:val("{val:0.3}"));
     }
 
     #[test]

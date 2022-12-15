@@ -1,5 +1,6 @@
 pub mod bind;
 mod connect;
+pub mod ops;
 pub mod transform;
 
 use std::{
@@ -9,7 +10,7 @@ use std::{
 
 use bevy::{prelude::*, utils::HashSet};
 
-use self::bind::{process_binds, watch_changes, BindableSource, BindableTarget, ChangesState};
+use self::bind::{BindableSource, BindableTarget, ChangesState};
 pub use self::connect::{
     Connect, ConnectionEntityContext, ConnectionGeneralContext, ConnectionTo, Connections, Signal,
 };
@@ -153,7 +154,12 @@ impl BindingSystemsInternal {
         }
     }
 
-    fn add_bind_system<R: Component, W: Component, S: BindableSource, T: BindableTarget>(
+    fn add_component_to_component<
+        R: Component,
+        W: Component,
+        S: BindableSource,
+        T: BindableTarget,
+    >(
         &mut self,
     ) {
         let watcher = TypeId::of::<R>();
@@ -166,13 +172,38 @@ impl BindingSystemsInternal {
         if !self.watchers.contains(&watcher) {
             self.watchers.insert(watcher);
             self.schedule
-                .add_system_to_stage(BindingStage::Watch, watch_changes::<R>);
+                .add_system_to_stage(BindingStage::Watch, bind::watch_changes::<R>);
         }
 
         if !self.systems.contains(&entry) {
             self.systems.insert(entry);
-            self.schedule
-                .add_system_to_stage(BindingStage::Bind, process_binds::<R, W, S, T>);
+            self.schedule.add_system_to_stage(
+                BindingStage::Bind,
+                bind::component_to_component_system::<R, W, S, T>,
+            );
+        }
+    }
+    fn add_resource_to_component<
+        R: Resource,
+        W: Component,
+        S: BindableSource,
+        T: BindableTarget,
+    >(
+        &mut self,
+    ) {
+        let entry = (
+            TypeId::of::<W>(),
+            TypeId::of::<W>(),
+            TypeId::of::<S>(),
+            TypeId::of::<T>(),
+        );
+
+        if !self.systems.contains(&entry) {
+            self.systems.insert(entry);
+            self.schedule.add_system_to_stage(
+                BindingStage::Bind,
+                bind::resource_to_component_system::<R, W, S, T>,
+            );
         }
     }
 }
