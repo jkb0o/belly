@@ -71,6 +71,12 @@ impl From<&str> for Variant {
     }
 }
 
+impl From<&&str> for Variant {
+    fn from(v: &&str) -> Self {
+        Variant::String(v.to_string())
+    }
+}
+
 impl From<Entity> for Variant {
     fn from(v: Entity) -> Self {
         Variant::Entity(v)

@@ -28,6 +28,12 @@ impl IntoContent for String {
     }
 }
 
+impl IntoContent for &str {
+    fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity> {
+        self.to_string().into_content(parent, world)
+    }
+}
+
 #[derive(Component)]
 pub struct BindContent<S: BindableSource + IntoContent + std::fmt::Debug> {
     value: S,
