@@ -40,6 +40,10 @@ pub use crate::relations::Connect;
 pub use crate::relations::ConnectionTo;
 pub use crate::relations::Signal;
 
+// transformations
+pub use crate::relations::bind::Prop;
+pub use crate::relations::transform::TransformableTo;
+
 // new bound system
 pub use crate::relations::bind::TransformationError;
 pub use crate::relations::bind::TransformationResult;

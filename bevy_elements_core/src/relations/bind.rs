@@ -1,6 +1,13 @@
-use std::{any::type_name, convert::Infallible, fmt::Debug, marker::PhantomData};
+use std::{
+    any::type_name,
+    convert::Infallible,
+    fmt::Debug,
+    marker::PhantomData,
+    num::ParseFloatError,
+    ops::{Deref, DerefMut},
+};
 
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{ecs::system::Command, prelude::*, utils::HashMap};
 use itertools::Itertools;
 use smallvec::SmallVec;
 use tagstr::Tag;
@@ -8,9 +15,10 @@ use tagstr::Tag;
 use super::RelationsSystems;
 
 pub type SourceReader<R, S> = fn(&R) -> S;
-pub type TargetReader<W, T> = for<'a> fn(&'a W) -> &'a T;
-pub type Transformer<S, T> = fn(&S, &T) -> TransformationResult<T>;
-pub type Writer<W, T> = fn(&mut W, T);
+pub type Transformer<S, T> = fn(&S, Prop<T>) -> TransformationResult;
+pub type RefReader<W, T> = for<'b> fn(&'b Mut<W>) -> &'b T;
+pub type MutReader<W, T> = for<'b> fn(&'b mut Mut<W>) -> &'b mut T;
+pub type TransformationResult = Result<(), TransformationError>;
 
 pub trait BindableSource: Clone + Send + Sync + 'static {}
 impl<T: Clone + Send + Sync + 'static> BindableSource for T {}
@@ -25,22 +33,15 @@ fn write_component_changes<W: Component, S: BindableSource, T: BindableTarget>(
         let Ok((writers, mut component, mut component_change)) = writes.get_mut(*target) else {
             continue
         };
-        for (source_value, id) in sources {
-            for writer in writers.iter().filter(|w| &w.id == id) {
-                let current_value = writer.read(&component);
-                match writer.transform(source_value, current_value) {
-                    TransformationResult::Changed(new_value) => {
-                        writer.write(&mut component, new_value);
-                        component_change.report_changed();
-                    }
-                    TransformationResult::Unchanged => {
-                        // Do nothing as nothing got changed
-                    }
-                    TransformationResult::Invalid(msg) => {
-                        error!("Can't transform value for binding: {}", msg);
-                        continue;
-                    }
-                };
+        for (source, id) in sources {
+            for write_descriptor in writers.iter().filter(|w| &w.id == id) {
+                let mut prop_descriptor = write_descriptor.prop_descripror(&mut component);
+                if let Err(e) = write_descriptor.transform(source, prop_descriptor.prop()) {
+                    error!("Error transforming {:?}: {}", id, e.0);
+                } else if prop_descriptor.changed {
+                    // TODO: protect infinity circular loops by tracking property changes
+                    component_change.set_changed();
+                }
             }
         }
     }
@@ -66,7 +67,7 @@ pub fn component_to_component_system<
         }
     }
     let mut writes = binds.p1();
-    write_component_changes(&changes, &mut writes);
+    write_component_changes(&mut changes, &mut writes);
 }
 
 pub fn resource_to_component_system<
@@ -89,7 +90,7 @@ pub fn resource_to_component_system<
         let value = (descriptor.reader)(&res);
         changes.add_change(descriptor.target, value, descriptor.id);
     }
-    write_component_changes(&changes, &mut writes);
+    write_component_changes(&mut changes, &mut writes);
 }
 
 pub(crate) fn watch_changes<W: Component>(
@@ -103,6 +104,50 @@ pub(crate) fn watch_changes<W: Component>(
 
 #[derive(Deref, DerefMut)]
 pub struct ActiveChanges<S: BindableSource>(HashMap<Entity, SmallVec<[(S, BindId); 16]>>);
+
+pub struct PropertyDescriptor<'a, 'c, C: Component, T> {
+    changed: bool,
+    component: &'a mut Mut<'c, C>,
+    ref_getter: for<'b> fn(&'b Mut<C>) -> &'b T,
+    mut_getter: for<'b> fn(&'b mut Mut<C>) -> &'b mut T,
+}
+
+impl<'a, 'c, C: Component, T> PropertyDescriptor<'a, 'c, C, T> {
+    fn prop(&mut self) -> Prop<T> {
+        Prop(self)
+    }
+}
+
+impl<'a, 'c, C: Component, T> AsRef<T> for PropertyDescriptor<'a, 'c, C, T> {
+    fn as_ref(&self) -> &T {
+        (self.ref_getter)(&self.component)
+    }
+}
+
+impl<'a, 'c, C: Component, T> AsMut<T> for PropertyDescriptor<'a, 'c, C, T> {
+    fn as_mut(&mut self) -> &mut T {
+        self.changed = true;
+        (self.mut_getter)(&mut self.component)
+    }
+}
+
+pub trait PropertyProtocol<T>: AsRef<T> + AsMut<T> {}
+impl<T, X: AsRef<T> + AsMut<T>> PropertyProtocol<T> for X {}
+
+pub struct Prop<'a, T>(&'a mut dyn PropertyProtocol<T>);
+
+impl<'a, T> Deref for Prop<'a, T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref()
+    }
+}
+
+impl<'a, T> DerefMut for Prop<'a, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0.as_mut()
+    }
+}
 
 impl<S: BindableSource> ActiveChanges<S> {
     fn add_change(&mut self, target: Entity, value: S, id: BindId) {
@@ -144,7 +189,6 @@ impl<W: Component> Change<W> {
     fn new() -> Change<W> {
         Change(PhantomData)
     }
-    fn report_changed(&mut self) {}
 }
 
 pub struct ReadDescriptor<R, S: BindableSource> {
@@ -178,19 +222,25 @@ impl<R: Resource, S: BindableSource> Default for ReadResource<R, S> {
 pub struct WriteDescriptor<W, S: BindableSource, T: BindableTarget> {
     id: BindId,
     transformer: Transformer<S, T>,
-    reader: TargetReader<W, T>,
-    writer: Writer<W, T>,
+    ref_getter: RefReader<W, T>,
+    mut_getter: MutReader<W, T>,
 }
 
 impl<W: Component, S: BindableSource, T: BindableTarget> WriteDescriptor<W, S, T> {
-    fn transform(&self, source: &S, target: &T) -> TransformationResult<T> {
-        (self.transformer)(source, target)
+    fn prop_descripror<'a, 'c>(
+        &self,
+        component: &'a mut Mut<'c, W>,
+    ) -> PropertyDescriptor<'a, 'c, W, T> {
+        PropertyDescriptor {
+            component,
+            changed: false,
+            ref_getter: self.ref_getter,
+            mut_getter: self.mut_getter,
+        }
     }
-    fn read<'a, 'b>(&'a self, component: &'b W) -> &'b T {
-        (self.reader)(component)
-    }
-    fn write(&self, component: &mut W, data: T) {
-        (self.writer)(component, data)
+
+    fn transform(&self, source: &S, prop: Prop<T>) -> TransformationResult {
+        (self.transformer)(source, prop)
     }
 }
 #[derive(Component, Deref, DerefMut, Default)]
@@ -270,12 +320,25 @@ impl<R: Resource, S: BindableSource, T: BindableTarget> FromResourceWithTransfor
     }
 }
 
+// pub struct ToCmp<W, S, T>
+// where
+//     W: Component,
+//     S: BindableSource,
+//     T: BindableTarget,
+// {
+//     pub id: Tag,
+//     pub target: Entity,
+//     pub transformer: Box<dyn Fn(&S, &T) -> TransformationResult<T>>,
+//     pub reader: TargetReader<W, T>,
+//     pub writer: fn(&mut W, T),
+// }
+
 pub struct ToComponent<W: Component, S: BindableSource, T: BindableTarget> {
     pub id: Tag,
     pub target: Entity,
     pub transformer: Transformer<S, T>,
-    pub reader: TargetReader<W, T>,
-    pub writer: fn(&mut W, T),
+    pub reader: RefReader<W, T>,
+    pub writer: MutReader<W, T>,
 }
 
 impl<W: Component, S: BindableSource, T: BindableTarget> ToComponent<W, S, T> {
@@ -296,8 +359,8 @@ impl<W: Component, S: BindableSource, T: BindableTarget> ToComponent<W, S, T> {
 pub struct ToComponentWithoutTransformer<W: Component, T: BindableTarget> {
     pub id: Tag,
     pub target: Entity,
-    pub reader: TargetReader<W, T>,
-    pub writer: Writer<W, T>,
+    pub reader: RefReader<W, T>,
+    pub writer: MutReader<W, T>,
 }
 
 impl<W: Component, T: BindableTarget> ToComponentWithoutTransformer<W, T> {
@@ -325,6 +388,34 @@ impl<W: Component, T: BindableTarget> ToComponentWithoutTransformer<W, T> {
             transformer: from.transformer,
         })
     }
+    // pub fn with_transormer<S: BindableSource>(self, transformator: fn())
+}
+
+pub trait Transformable {
+    type Transformer;
+    fn transformer() -> Self::Transformer;
+}
+
+pub struct ToComponentTransformable<W: Component, T: BindableTarget + Transformable> {
+    pub id: Tag,
+    pub target: Entity,
+    pub reader: RefReader<W, T>,
+    pub writer: MutReader<W, T>,
+}
+
+impl<W: Component, T: BindableTarget + Transformable> ToComponentTransformable<W, T> {
+    pub fn transformed<S: BindableSource>(
+        self,
+        make_transformer: fn(T::Transformer) -> Transformer<S, T>,
+    ) -> ToComponent<W, S, T> {
+        ToComponent {
+            id: self.id,
+            target: self.target,
+            reader: self.reader,
+            writer: self.writer,
+            transformer: make_transformer(T::transformer()),
+        }
+    }
 }
 
 fn register_component_writer<W: Component, S: BindableSource, T: BindableTarget>(
@@ -335,8 +426,8 @@ fn register_component_writer<W: Component, S: BindableSource, T: BindableTarget>
     let mut target_entity = world.entity_mut(to.target);
     let write_descriptor = WriteDescriptor {
         id,
-        reader: to.reader,
-        writer: to.writer,
+        ref_getter: to.reader,
+        mut_getter: to.writer,
         transformer: to.transformer,
     };
     if !target_entity.contains::<Change<W>>() {
@@ -361,6 +452,14 @@ impl<R: Component, W: Component, S: BindableSource, T: BindableTarget> std::fmt:
         let source_str = self.from.id;
         let target_str = self.to.id;
         write!(f, "ComponentToComponent( {source_str} >> {target_str} )")
+    }
+}
+
+impl<R: Component, W: Component, S: BindableSource, T: BindableTarget> Command
+    for ComponentToComponent<R, W, S, T>
+{
+    fn write(self, world: &mut World) {
+        self.write(world);
     }
 }
 
@@ -426,21 +525,21 @@ impl<R: Resource, W: Component, S: BindableSource, T: BindableTarget>
     }
 }
 
-pub enum TransformationResult<T: BindableTarget> {
-    Changed(T),
-    Invalid(String),
-    Unchanged,
-}
+// pub enum TransformationResult<T: BindableTarget> {
+//     Changed(T),
+//     Invalid(String),
+//     Unchanged,
+// }
 
-impl<T: BindableTarget> TransformationResult<T> {
-    pub fn invalid<S: AsRef<str>>(message: S) -> TransformationResult<T> {
-        TransformationResult::Invalid(message.as_ref().to_string())
-    }
+// impl<T: BindableTarget> TransformationResult<T> {
+//     pub fn invalid<S: AsRef<str>>(message: S) -> TransformationResult<T> {
+//         TransformationResult::Invalid(message.as_ref().to_string())
+//     }
 
-    pub fn from_error(error: TransformationError) -> TransformationResult<T> {
-        TransformationResult::Invalid(error.0)
-    }
-}
+//     pub fn from_error(error: TransformationError) -> TransformationResult<T> {
+//         TransformationResult::Invalid(error.0)
+//     }
+// }
 
 pub struct TransformationError(String);
 
@@ -453,6 +552,12 @@ impl TransformationError {
 impl From<Infallible> for TransformationError {
     fn from(_: Infallible) -> Self {
         TransformationError("Unexpected Infallible error. This should never happen".to_string())
+    }
+}
+
+impl From<ParseFloatError> for TransformationError {
+    fn from(e: ParseFloatError) -> Self {
+        TransformationError(format!("{e}"))
     }
 }
 
@@ -513,30 +618,39 @@ macro_rules! bind {
         $crate::relations::bind::ToComponentWithoutTransformer {
             id: $crate::relations::bind::bind_id::<$cls>(stringify!($($prop)+)),
             target: $entity,
-            reader: |c: &$cls| &c.$($prop)+,
-            writer: |c: &mut $cls, v| c.$($prop)+ = v,
+            reader: |c: &::bevy::prelude::Mut<$cls>| &c.$($prop)+,
+            writer: |c: &mut ::bevy::prelude::Mut<$cls>| &mut c.$($prop)+,
         }
+    };
+    (@bind to component $entity:expr, $cls:ty, { $($prop:tt)+ }, transformable $transformer:ident ) => {
+        $crate::relations::bind::ToComponentTransformable {
+            id: $crate::relations::bind::bind_id::<$cls>(stringify!($($prop)+)),
+            target: $entity,
+            reader: |c: &::bevy::prelude::Mut<$cls>| &c.$($prop)+,
+            writer: |c: &mut ::bevy::prelude::Mut<$cls>| &mut c.$($prop)+,
+        }.transformed(|tr| tr.$transformer())
     };
     // to!(entity, Component:some.propery | some:transformer)
     (@bind to component $entity:expr, $cls:ty, { $($prop:tt)+ }, $transformer:expr) => {
         $crate::relations::bind::ToComponent {
             id: $crate::relations::bind::bind_id::<$cls>(stringify!($($prop)+)),
             target: $entity,
-            reader: |c: &$cls| &c.$($prop)+,
-            writer: |c: &mut $cls, v| c.$($prop)+ = v,
+            reader: |c: &::bevy::prelude::Mut<$cls>| &c.$($prop)+,
+            writer: |c: &mut ::bevy::prelude::Mut<$cls>| &mut c.$($prop)+,
             transformer: $transformer,
         }
     };
 
+
     (@transform fmt:$val:ident( $($fmt:tt)* ) ) => {
-        |s, t| {
+        |s, mut t| {
             let $val = s;
             let $val = format!($($fmt)*);
-            if &$val == t {
-                $crate::relations::bind::TransformationResult::Unchanged
-            } else {
-                $crate::relations::bind::TransformationResult::Changed($val)
+            if $val != *t {
+                *t = $val;
+
             }
+            Ok(())
         }
     };
     (@transform $converter:ident:$method:ident ) => {
@@ -562,10 +676,14 @@ macro_rules! bind {
         $crate::bind!(@bind to $mode $entity, $cls, $prop, default)
     };
 
+
     (@args {$mode:ident $direction:ident $cls:ty}, $prop:tt | $($transformer:tt)+ ) => {
         $crate::bind!(@bind $direction $mode $cls, $prop, $crate::bind!(@transform $($transformer)+))
     };
 
+    (@args {$mode:ident $direction:ident $entity:expr, $cls:ty}, $prop:tt | $transformer:ident ) => {
+        $crate::bind!(@bind $direction $mode $entity, $cls, $prop, transformable $transformer)
+    };
     (@args {$mode:ident $direction:ident $entity:expr, $cls:ty}, $prop:tt | $($transformer:tt)+ ) => {
         $crate::bind!(@bind $direction $mode $entity, $cls, $prop, $crate::bind!(@transform $($transformer)+))
     };

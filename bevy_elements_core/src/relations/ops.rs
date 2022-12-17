@@ -7,17 +7,13 @@ fn transform<
     E: Into<TransformationError>,
 >(
     incoming: &S,
-    current: &T,
-) -> TransformationResult<T> {
-    let new_value = match T::try_from(incoming.clone()) {
-        Err(err) => return TransformationResult::from_error(err.into()),
-        Ok(val) => val,
-    };
-    if &new_value != current {
-        return TransformationResult::Changed(new_value);
-    } else {
-        return TransformationResult::Unchanged;
+    mut current: Prop<T>,
+) -> TransformationResult {
+    let new_value = T::try_from(incoming.clone()).map_err(E::into)?;
+    if new_value != *current {
+        *current = new_value;
     }
+    Ok(())
 }
 
 // from!(entity, Component:property) >> to!(entity, Component:property | filter)
