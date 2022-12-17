@@ -38,7 +38,7 @@ impl IntoContent for &str {
 pub struct BindContent<S: BindableSource + IntoContent + std::fmt::Debug> {
     value: S,
 }
-impl<R: Component, S: BindableTarget + Default + IntoContent + std::fmt::Debug> IntoContent
+impl<R: Component, S: BindableTarget + Clone + Default + IntoContent + std::fmt::Debug> IntoContent
     for FromComponent<R, S>
 {
     fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity> {
@@ -57,7 +57,7 @@ impl<R: Component, S: BindableTarget + Default + IntoContent + std::fmt::Debug> 
     }
 }
 
-fn bind_content_system<T: BindableTarget + IntoContent + std::fmt::Debug>(
+fn bind_content_system<T: BindableTarget + IntoContent + Clone + std::fmt::Debug>(
     mut commands: Commands,
     binds: Query<(Entity, &BindContent<T>), Changed<BindContent<T>>>,
 ) {

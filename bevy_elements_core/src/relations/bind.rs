@@ -22,8 +22,8 @@ pub type TransformationResult = Result<(), TransformationError>;
 
 pub trait BindableSource: Clone + Send + Sync + 'static {}
 impl<T: Clone + Send + Sync + 'static> BindableSource for T {}
-pub trait BindableTarget: PartialEq + Clone + Send + Sync + 'static {}
-impl<T: PartialEq + Clone + Send + Sync + 'static> BindableTarget for T {}
+pub trait BindableTarget: PartialEq + Send + Sync + 'static {}
+impl<T: PartialEq + Send + Sync + 'static> BindableTarget for T {}
 
 fn write_component_changes<W: Component, S: BindableSource, T: BindableTarget>(
     changes: &ActiveChanges<S>,
