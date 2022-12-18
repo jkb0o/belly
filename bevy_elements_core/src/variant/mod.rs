@@ -1,7 +1,9 @@
 mod impls;
 use std::{
     any::{type_name, Any, TypeId},
+    fmt::Display,
     mem,
+    str::FromStr,
 };
 
 use bevy::{ecs::system::EntityCommands, prelude::*};
@@ -150,6 +152,35 @@ impl Variant {
                     None
                 }
             },
+        }
+    }
+
+    pub fn try_get<T: TryFrom<Variant, Error = impl std::fmt::Display>>(self) -> Option<T> {
+        T::try_from(self).ok()
+    }
+
+    pub fn get_or<T: TryFrom<Variant, Error = impl std::fmt::Display>>(self, default: T) -> T {
+        self.try_get().unwrap_or(default)
+    }
+
+    pub fn get_or_parse<T: FromStr<Err = impl Display> + 'static>(self) -> Result<T, String> {
+        match self {
+            Variant::String(s) => s.parse().map_err(|e| format!("{e}")),
+            Variant::Boxed(b) => b
+                .downcast::<T>()
+                .map(|b| *b)
+                .or_else(|b| {
+                    b.downcast::<String>()
+                        .map(|b| *b)
+                        .or_else(|b| {
+                            b.downcast::<&str>()
+                                .map(|s| s.to_string())
+                                .map_err(|_| format!("Invalid value for {}", type_name::<T>()))
+                        })
+                        .and_then(|s| s.parse::<T>().map_err(|e| format!("{e}")))
+                })
+                .map_err(|e| format!("{e}")),
+            _ => Err(format!("Invalid value for {}", type_name::<T>())),
         }
     }
 

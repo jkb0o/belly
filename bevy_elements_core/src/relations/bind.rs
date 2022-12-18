@@ -33,13 +33,14 @@ fn write_component_changes<W: Component, S: BindableSource, T: BindableTarget>(
         let Ok((writers, mut component, mut component_change)) = writes.get_mut(*target) else {
             continue
         };
-        for (source, id) in sources {
+        for (id, source) in sources {
             for write_descriptor in writers.iter().filter(|w| &w.id == id) {
                 let mut prop_descriptor = write_descriptor.prop_descripror(&mut component);
                 if let Err(e) = write_descriptor.transform(source, prop_descriptor.prop()) {
                     error!("Error transforming {:?}: {}", id, e.0);
                 } else if prop_descriptor.changed {
                     // TODO: protect infinity circular loops by tracking property changes
+                    // info!("[bind] writing {:?}", id);
                     component_change.set_changed();
                 }
             }
@@ -63,7 +64,7 @@ pub fn component_to_component_system<
     for (readers, component) in binds.p0().iter() {
         for descriptor in readers.iter() {
             let value = (descriptor.reader)(component).clone();
-            changes.add_change(descriptor.target, value, descriptor.id);
+            changes.add_change(descriptor.id, value);
         }
     }
     let mut writes = binds.p1();
@@ -88,7 +89,7 @@ pub fn resource_to_component_system<
 
     for descriptor in read.iter() {
         let value = (descriptor.reader)(&res);
-        changes.add_change(descriptor.target, value, descriptor.id);
+        changes.add_change(descriptor.id, value);
     }
     write_component_changes(&mut changes, &mut writes);
 }
@@ -103,7 +104,7 @@ pub(crate) fn watch_changes<W: Component>(
 }
 
 #[derive(Deref, DerefMut)]
-pub struct ActiveChanges<S: BindableSource>(HashMap<Entity, SmallVec<[(S, BindId); 16]>>);
+pub struct ActiveChanges<S: BindableSource>(HashMap<Entity, SmallVec<[(BindId, S); 16]>>);
 
 pub struct PropertyDescriptor<'a, 'c, C: Component, T> {
     changed: bool,
@@ -150,8 +151,8 @@ impl<'a, T> DerefMut for Prop<'a, T> {
 }
 
 impl<S: BindableSource> ActiveChanges<S> {
-    fn add_change(&mut self, target: Entity, value: S, id: BindId) {
-        self.entry(target).or_default().push((value, id));
+    fn add_change(&mut self, id: BindId, value: S) {
+        self.entry(id.target).or_default().push((id, value));
     }
 }
 impl<S: BindableSource> Default for ActiveChanges<S> {
@@ -162,13 +163,20 @@ impl<S: BindableSource> Default for ActiveChanges<S> {
 
 #[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub struct BindId {
-    source: Tag,
-    target: Tag,
+    source: Option<Entity>,
+    from: Tag,
+    target: Entity,
+    to: Tag,
 }
 
 impl BindId {
-    fn new(source: Tag, target: Tag) -> BindId {
-        BindId { source, target }
+    fn new(source: Option<Entity>, from: Tag, target: Entity, to: Tag) -> BindId {
+        BindId {
+            source,
+            from,
+            target,
+            to,
+        }
     }
 }
 
@@ -193,7 +201,6 @@ impl<W: Component> Change<W> {
 
 pub struct ReadDescriptor<R, S: BindableSource> {
     id: BindId,
-    target: Entity,
     reader: SourceReader<R, S>,
 }
 
@@ -202,7 +209,7 @@ impl<R: Component, S: BindableSource> Debug for ReadDescriptor<R, S> {
         write!(
             f,
             "RaadDescriptor( {} -> {} on {:?} )",
-            self.id.source, self.id.target, self.target
+            self.id.from, self.id.to, self.id.target
         )
     }
 }
@@ -472,11 +479,15 @@ impl<R: Component, W: Component, S: BindableSource, T: BindableTarget>
             let mut systems = systems_ref.0.write().unwrap();
             systems.add_component_to_component::<R, W, S, T>();
         }
-        let id = BindId::new(self.from.id, self.to.id);
+        let id = BindId::new(
+            Some(self.from.source),
+            self.from.id,
+            self.to.target,
+            self.to.id,
+        );
         let mut source_entity = world.entity_mut(self.from.source);
         let read_descriptor = ReadDescriptor {
             id,
-            target: self.to.target,
             reader: self.from.reader,
         };
         if let Some(mut source_component) = source_entity.get_mut::<ReadComponent<R, S>>() {
@@ -512,10 +523,9 @@ impl<R: Resource, W: Component, S: BindableSource, T: BindableTarget>
             let mut systems = systems_ref.0.write().unwrap();
             systems.add_resource_to_component::<R, W, S, T>();
         }
-        let id = BindId::new(self.from.id, self.to.id);
+        let id = BindId::new(None, self.from.id, self.to.target, self.to.id);
         let read_descriptor = ReadDescriptor {
             id,
-            target: self.to.target,
             reader: self.from.reader,
         };
         world
@@ -567,6 +577,12 @@ impl From<ParseFloatError> for TransformationError {
 impl From<String> for TransformationError {
     fn from(s: String) -> Self {
         TransformationError(s)
+    }
+}
+
+impl std::fmt::Display for TransformationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Can't transform: {}", self.0)
     }
 }
 

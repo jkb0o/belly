@@ -8,7 +8,7 @@ use bevy::{
     utils::HashSet,
 };
 
-const DRAG_THRESHOLD: f32 = 2.;
+const DRAG_THRESHOLD: f32 = 0.;
 
 pub(crate) struct ElementsInputPlugin;
 impl Plugin for ElementsInputPlugin {
@@ -128,10 +128,10 @@ impl PointerInput {
     }
 
     pub fn drag_stop(&self) -> bool {
-        self.data == PointerInputData::DragStart
+        self.data == PointerInputData::DragStop
     }
 
-    pub fn dragging_from(&self, entity: Entity) -> bool {
+    pub fn is_dragging_from(&self, entity: Entity) -> bool {
         if let PointerInputData::Drag { from } = &self.data {
             for e in from.iter() {
                 if *e == entity {
@@ -141,6 +141,14 @@ impl PointerInput {
             false
         } else {
             false
+        }
+    }
+
+    pub fn dragging_from(&self) -> &[Entity] {
+        if let PointerInputData::Drag { from } = &self.data {
+            from
+        } else {
+            &[]
         }
     }
 
@@ -536,8 +544,6 @@ pub fn active_system(
 ) {
     add_active.clear();
     remove_active.clear();
-    let mut add_active = HashSet::default();
-    let mut remove_active = HashSet::default();
     for event in events.iter() {
         match &event.data {
             PointerInputData::Drag { from } => {
@@ -558,18 +564,25 @@ pub fn active_system(
         }
     }
     for entity in add_active.iter() {
+        if active_elements.contains(entity) {
+            continue;
+        }
+        active_elements.insert(*entity);
         elements.invalidate(*entity);
         if let Ok(mut element) = elements.get_mut(*entity) {
             element.state.insert(tags::active());
         }
     }
     for entity in remove_active.iter() {
+        if !active_elements.contains(entity) {
+            continue;
+        }
+        active_elements.remove(entity);
         elements.invalidate(*entity);
         if let Ok(mut element) = elements.get_mut(*entity) {
             element.state.remove(&tags::active());
         }
     }
-    *active_elements = &(&*active_elements | &add_active) - &remove_active;
 }
 
 pub fn tab_focus_system(

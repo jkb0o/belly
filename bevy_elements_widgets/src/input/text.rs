@@ -414,7 +414,7 @@ fn process_mouse(
             if evt.down() && !evt.contains(entity) {
                 continue;
             }
-            if evt.dragging() && !evt.dragging_from(entity) {
+            if evt.dragging() && !evt.is_dragging_from(entity) {
                 continue;
             }
             let Ok((container, tr, node)) = styles.get(input.container) else { continue };

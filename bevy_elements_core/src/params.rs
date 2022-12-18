@@ -196,10 +196,7 @@ impl Params {
             param_commands(commands)
         }
     }
-    pub fn try_get<T: TryFrom<Variant, Error = E>, E: Display>(
-        &mut self,
-        param: &str,
-    ) -> Option<T> {
+    pub fn try_get<T: TryFrom<Variant, Error = impl Display>>(&mut self, param: &str) -> Option<T> {
         if let Some(value) = self.drop_variant(param.as_tag()) {
             match T::try_from(value) {
                 Ok(value) => Some(value),

@@ -12,9 +12,16 @@ impl From<String> for Variant {
 impl TryFrom<Variant> for String {
     type Error = String;
     fn try_from(variant: Variant) -> Result<Self, Self::Error> {
-        variant
-            .take::<String>()
-            .ok_or("Can't cast variant to String".to_string())
+        match variant {
+            Variant::Undefined => Ok("".to_string()),
+            Variant::String(value) => Ok(value),
+            Variant::Boxed(b) => b
+                .downcast::<String>()
+                .map(|b| *b)
+                .or_else(|b| b.downcast::<&str>().map(|s| s.to_string()))
+                .map_err(|_| "Not a valid String".to_string()),
+            _ => Err("Not a valid String".to_string()),
+        }
     }
 }
 
@@ -46,6 +53,7 @@ impl TryFrom<Variant> for bool {
     type Error = String;
     fn try_from(variant: Variant) -> Result<Self, Self::Error> {
         match variant {
+            Variant::Undefined => Ok(false),
             Variant::Bool(v) => Ok(v),
             Variant::String(s) if &s == "yes" => Ok(true),
             Variant::String(s) if &s == "Yes" => Ok(true),

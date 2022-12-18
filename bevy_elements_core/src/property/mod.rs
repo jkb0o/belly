@@ -18,12 +18,54 @@ use bevy::{
 };
 use itertools::Itertools;
 
+pub struct ManagedPropertyValue(StyleProperty);
+
+pub fn managed() -> PropertyValue {
+    PropertyValue::new_managed()
+}
+
+pub fn managed_default(default: &str) -> PropertyValue {
+    match StyleProperty::try_from(default) {
+        Ok(val) => PropertyValue::new_managed_with_default(val),
+        Err(e) => {
+            error!("Error parsing default managed value '{default}': {e}");
+            PropertyValue::new_managed()
+        }
+    }
+}
 #[derive(Deref, Debug)]
 pub struct PropertyValue(Box<dyn Any + Send + Sync + 'static>);
 
 impl PropertyValue {
     pub fn new<T: Any + Send + Sync + 'static>(value: T) -> PropertyValue {
         PropertyValue(Box::new(value))
+    }
+
+    pub fn new_managed() -> PropertyValue {
+        PropertyValue::new(ManagedPropertyValue(Default::default()))
+    }
+    pub fn new_managed_with_default(default: StyleProperty) -> PropertyValue {
+        PropertyValue::new(ManagedPropertyValue(default))
+    }
+
+    pub fn is_managed(&self) -> bool {
+        self.0.is::<ManagedPropertyValue>()
+    }
+
+    pub fn managed_default(&self) -> Option<&StyleProperty> {
+        self.0.downcast_ref::<ManagedPropertyValue>().and_then(|s| {
+            if s.0.is_empty() {
+                None
+            } else {
+                Some(&s.0)
+            }
+        })
+    }
+}
+
+impl From<PropertyValue> for Variant {
+    fn from(v: PropertyValue) -> Self {
+        Variant::Property(v)
     }
 }
 
@@ -136,6 +178,7 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
         if components.is_empty() {
             return;
         }
+        // info!("[prop] changed {}", components.iter().count());
         // TODO: this should be cached
         let mut rules: Vec<_> = styles
             .iter()
@@ -170,6 +213,9 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
                 } else {
                     break;
                 }
+            }
+            if default.is_some() && default.unwrap().is_managed() {
+                continue;
             }
 
             // compute branch

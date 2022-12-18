@@ -101,7 +101,7 @@ fn create_command_stmts(expr: &Expr) -> TokenStream {
     };
     let expr_span = expr.span();
     quote_spanned! {expr_span=>
-        __ctx.params.add(::bevy_elements_core::Variant::from_commands("with", ::std::boxed::Box::new(move |c| {
+        __ctx.params.add(::bevy_elements_core::Param::from_commands("with", ::std::boxed::Box::new(move |c| {
             #with_body
         })));
     }
@@ -506,11 +506,7 @@ fn prepare_construct_instance(ast: &syn::DeriveInput) -> syn::Result<TokenStream
             } else {
                 quote! {
                     #construct_body
-                    #field_ident: ::bevy_elements_core::eml::build::FromWorldAndParam::from_world_and_param(
-                        world, params.drop_variant(#field_str.as_tag()).unwrap_or(
-                            ::bevy_elements_core::Variant::Undefined
-                        )
-                    ),
+                    #field_ident:  ::std::default::Default::default(),
                 }
             };
             continue;

@@ -25,9 +25,11 @@ pub trait FromWorldAndParam {
     fn from_world_and_param(world: &mut World, param: Variant) -> Self;
 }
 
-impl<T: Default + 'static> FromWorldAndParam for T {
+impl<T: TryFrom<Variant, Error = impl std::fmt::Display> + Default + 'static> FromWorldAndParam
+    for T
+{
     fn from_world_and_param(_world: &mut World, param: Variant) -> Self {
-        if let Some(value) = param.take::<Self>() {
+        if let Some(value) = param.try_get::<Self>() {
             value
         } else {
             Self::default()

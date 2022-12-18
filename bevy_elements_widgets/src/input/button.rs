@@ -249,7 +249,7 @@ impl WidgetBuilder for Btn {
 
     fn styles() -> &'static str {
         r##"
-            .button {
+            button {
                 align-content: center;
                 min-width: 40px;
                 min-height: 40px;
@@ -398,6 +398,7 @@ fn handle_input_system(
     mut btn_groups: Query<&mut BtnGroup>,
     mut state_changes: Local<HashMap<BtnModeGroup, Entity>>,
     mut repeat_state: Local<RepeatState>,
+    mut instant_pressed: Local<HashSet<Entity>>,
     time: Res<Time>,
 ) {
     state_changes.clear();
@@ -418,13 +419,33 @@ fn handle_input_system(
                     repeat_state.pause();
                 }
             }
+            if event.up() {
+                for instant in instant_pressed.iter() {
+                    if let Ok(mut button) = buttons.get_mut(*instant) {
+                        if button.pressed {
+                            button.pressed = false;
+                        }
+                    }
+                }
+                instant_pressed.clear()
+            }
 
             let Ok(mut button) = buttons.get_mut(*entity) else {
                 continue;
             };
+
             match (&button.mode, &event.data) {
-                (BtnMode::Instant, PointerInputData::Down { presses: _ })
-                | (BtnMode::Press, PointerInputData::Pressed { presses: _ }) => {
+                (BtnMode::Instant, PointerInputData::Down { presses: _ }) => {
+                    if !button.pressed {
+                        button.pressed = true;
+                    }
+                    instant_pressed.insert(*entity);
+                    button_events.send(BtnEvent::Pressed([*entity]));
+                }
+                (BtnMode::Instant, PointerInputData::Pressed { presses: _ }) => {
+                    button_events.send(BtnEvent::Pressed([*entity]));
+                }
+                (BtnMode::Press, PointerInputData::Pressed { presses: _ }) => {
                     button_events.send(BtnEvent::Pressed([*entity]));
                 }
                 (BtnMode::Repeat(repeat), PointerInputData::Down { presses: _ }) => {
@@ -485,7 +506,7 @@ fn handle_states_system(
     drop_pressed.clear();
     for (entity, mut btn) in buttons.iter_mut() {
         match &btn.mode {
-            BtnMode::Instant => elements.set_state(entity, tags::pressed(), false),
+            // BtnMode::Instant => elements.set_state(entity, tags::pressed(), false),
             BtnMode::Press => elements.set_state(entity, tags::pressed(), false),
             _ => elements.set_state(entity, tags::pressed(), btn.pressed),
         }

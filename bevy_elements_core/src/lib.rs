@@ -36,6 +36,7 @@ pub use crate::eml::content::ExpandElementsExt;
 pub use crate::eml::content::IntoContent;
 pub use crate::input::PointerInput;
 pub use crate::input::PointerInputData;
+pub use crate::property::managed;
 pub use crate::relations::Connect;
 pub use crate::relations::ConnectionTo;
 pub use crate::relations::Signal;
@@ -51,6 +52,7 @@ pub use crate::relations::transform::ColorTransformerExtension;
 
 pub use element::Element;
 pub use element::Elements;
+pub use params::Param;
 pub use params::Params;
 pub use property::Property;
 pub use tagstr::*;
