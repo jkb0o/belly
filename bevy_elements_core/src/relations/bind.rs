@@ -547,6 +547,9 @@ impl TransformationError {
     pub fn new(value: String) -> TransformationError {
         TransformationError(value)
     }
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
 }
 
 impl From<Infallible> for TransformationError {

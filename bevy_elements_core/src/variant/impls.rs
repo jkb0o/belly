@@ -27,9 +27,12 @@ impl From<bool> for Variant {
 impl TryFrom<Variant> for f32 {
     type Error = String;
     fn try_from(variant: Variant) -> Result<Self, Self::Error> {
-        variant
-            .take::<f32>()
-            .ok_or("Can't cast variant to f32".to_string())
+        match variant {
+            Variant::String(s) => s.parse().map_err(|e| format!("Can't parse {e} as f32")),
+            variant => variant
+                .take::<f32>()
+                .ok_or_else(|| format!("Can't cast Variant to f32")),
+        }
     }
 }
 

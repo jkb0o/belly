@@ -73,6 +73,25 @@ where
         .bind_component(self)
     }
 }
+// impl<R, W, T, E> std::ops::Shr<ToComponentWithoutTransformer<W, T>> for FromComponent<R, String>
+// where
+//     E: Into<TransformationError>,
+//     R: Component,
+//     W: Component,
+//     T: BindableTarget + std::str::FromStr<Err = E>,
+// {
+//     type Output = ComponentToComponent<R, W, String, T>;
+//     fn shr(self, to: ToComponentWithoutTransformer<W, T>) -> Self::Output {
+//         ToComponent {
+//             id: to.id,
+//             target: to.target,
+//             reader: to.reader,
+//             writer: to.writer,
+//             transformer: |s, t| Ok(())
+//         }
+//         .bind_component(self)
+//     }
+// }
 // to!(entity, Component:property) << from!(entity, Component:property)
 impl<R, W, S, T, E> std::ops::Shl<FromComponent<R, S>> for ToComponentWithoutTransformer<W, T>
 where

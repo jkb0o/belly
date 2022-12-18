@@ -1,5 +1,6 @@
 pub mod bind;
 mod connect;
+pub mod convert;
 pub mod ops;
 pub mod transform;
 

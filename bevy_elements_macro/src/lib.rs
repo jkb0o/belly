@@ -4,6 +4,44 @@ extern crate proc_macro;
 use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Error, Expr, ExprPath};
 use syn_rsx::{parse, Node, NodeAttribute};
 
+enum Param {
+    Direct(syn::Ident),
+    Proxy(syn::Ident, syn::Type, syn::Ident),
+}
+
+impl syn::parse::Parse for Param {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let name = input.parse::<syn::Ident>()?;
+        input.parse::<syn::Token![:]>()?;
+        let prop_type = input.parse::<syn::Type>()?;
+        let target = if input.is_empty() {
+            name.clone()
+        } else {
+            input.parse::<syn::Token![=>]>()?;
+            input.parse::<syn::Ident>()?
+        };
+        Ok(Param::Proxy(name, prop_type, target))
+    }
+}
+
+impl Param {
+    fn from_field(field: &syn::Field) -> syn::Result<Vec<Param>> {
+        let span = field.span();
+        let Some(field_ident) = field.ident.as_ref() else {
+            return  Err(syn::Error::new(span, "Tuple Structs not yet supported by Widget derive."));
+        };
+        let mut result = vec![];
+        for attr in field.attrs.iter().filter(|a| a.path.is_ident("param")) {
+            if attr.tokens.is_empty() {
+                result.push(Param::Direct(field_ident.clone()));
+            } else {
+                result.push(attr.parse_args::<Param>()?);
+            }
+        }
+        Ok(result)
+    }
+}
+
 fn create_single_command_stmt(expr: &ExprPath) -> TokenStream {
     let component_span = expr.span();
     if let Some(component) = expr.path.get_ident() {
@@ -324,24 +362,39 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
         let Some(field_ident) = field.ident.as_ref() else {
             return  err(span, "Tuple Structs not yet supported by Widget derive.");
         };
-        let field_name = format!("{field_ident}");
-        let prop_name = format!("{field_ident}").replace("_", "-");
-        for attr in field.attrs.iter() {
-            let attr_name = attr.path.get_ident().unwrap().to_string();
-            let field_type = &field.ty;
-            if attr.path.is_ident("param") {
-                bind_body = quote! {
-                    #bind_body
-                    if let ::std::option::Option::Some(value) = ctx.param(::tagstr::tag!(#prop_name)) {
-                        match #field_type::try_from(value) {
-                            Ok(value) => self.#field_ident = value,
-                            Err(err) => {
-                                error!("Invalid value for '{}' param: {}", #prop_name, err)
-                            }
+        let params = match Param::from_field(field) {
+            Ok(params) => params,
+            Err(e) => {
+                return err(
+                    e.span(),
+                    &format!("Invalid #[param] definition: {}", e.to_string()),
+                )
+            }
+        };
+        for param in params {
+            let (param_name, param_setter) = match param {
+                Param::Direct(ident) => (ident.to_string(), quote! { = value }),
+                Param::Proxy(_ident, _prop_type, prop_target) => {
+                    let setter = format_ident!("set_{prop_target}");
+                    (prop_target.to_string(), quote! { .#setter(value)})
+                }
+            };
+            bind_body = quote! {
+                #bind_body
+                if let ::std::option::Option::Some(value) = ctx.param(::tagstr::tag!(#param_name)) {
+                    match ::bevy_elements_core::convert!(value) {
+                        Ok(value) => self.#field_ident #param_setter,
+                        Err(err) => {
+                            error!("Invalid value for '{}' param: {}", #param_name, err.as_str())
                         }
                     }
                 }
             }
+        }
+
+        let field_name = format!("{field_ident}");
+        for attr in field.attrs.iter() {
+            let attr_name = attr.path.get_ident().unwrap().to_string();
             if attr.path.is_ident("bindto") || attr.path.is_ident("bindfrom") {
                 let bind_type = attr_name.strip_prefix("bind").unwrap();
                 let Ok(bind) = attr.parse_args::<TokenStream>() else {
@@ -466,37 +519,60 @@ fn parse_binds(ast: &syn::DeriveInput) -> syn::Result<TokenStream> {
         return Err(syn::Error::new(span, "Widget could be derived only for structs"));
     };
     for field in data.fields.iter() {
-        let Some(field_ident) = field.ident.as_ref() else {
+        let Some(target_field) = field.ident.as_ref() else {
             return  Err(syn::Error::new(span, "Tuple Structs not yet supported by Widget derive."));
         };
-        if field
-            .attrs
-            .iter()
-            .filter(|a| a.path.is_ident("param"))
-            .next()
-            .is_none()
-        {
-            continue;
+        // let params = match Param::from_field(field) {
+        //     Ok(params) => params,
+        //     Err(err) =>
+        // }
+        for param in Param::from_field(field)? {
+            // let (param, setter, getter) = if let Ok(field) = attr.parse_args::<syn::Ident>() {
+            //     (field.clone(), quote!(|#field), quote!(.#field()))
+            // } else {
+            //     (target_field.clone(), quote! {}, quote!{})
+            // };
+            let field_type = &field.ty;
+            let target = match &param {
+                Param::Direct(ident) => ident,
+                Param::Proxy(ident, _, _) => ident,
+            };
+            let (bind_to_type, bind_to_type_params, bind_to_transformer) = match &param {
+                Param::Direct(_ident) => (
+                    quote! { ToComponentWithoutTransformer },
+                    quote! { #field_type },
+                    quote! {},
+                ),
+                Param::Proxy(_ident, param_type, param_target) => (
+                    quote! { ToComponent },
+                    quote! { #param_type, #field_type },
+                    quote! { |#param_target },
+                ),
+            };
+            let (from_type, from_getter) = match &param {
+                Param::Direct(_) => (field_type, quote! {}),
+                Param::Proxy(_ident, param_type, param_target) => {
+                    (param_type, quote! { .#param_target() })
+                }
+            };
+            let bind_to_ident = format_ident!("bind_to_{target}");
+            let bind_from_ident = format_ident!("bind_from_{target}");
+            binds = quote! {
+                #binds
+
+                pub fn #bind_to_ident(&self, target: ::bevy::prelude::Entity)
+                -> ::bevy_elements_core::relations::bind::#bind_to_type<#component, #bind_to_type_params>
+                {
+                    ::bevy_elements_core::to!(target, #component:#target_field #bind_to_transformer)
+                }
+
+                pub fn #bind_from_ident(&self, source: ::bevy::prelude::Entity)
+                -> ::bevy_elements_core::relations::bind::FromComponent<#component, #from_type>
+                {
+                    ::bevy_elements_core::from!(source, #component:#target_field #from_getter)
+                }
+            };
         }
-
-        let field_type = &field.ty;
-        let bind_to_ident = format_ident!("bind_to_{field_ident}");
-        let bind_from_ident = format_ident!("bind_from_{field_ident}");
-        binds = quote! {
-            #binds
-
-            pub fn #bind_to_ident(&self, target: ::bevy::prelude::Entity)
-            -> ::bevy_elements_core::relations::bind::ToComponentWithoutTransformer<#component, #field_type>
-            {
-                ::bevy_elements_core::to!(target, #component:#field_ident)
-            }
-
-            pub fn #bind_from_ident(&self, source: ::bevy::prelude::Entity)
-            -> ::bevy_elements_core::relations::bind::FromComponent<#component, #field_type>
-            {
-                ::bevy_elements_core::from!(source, #component:#field_ident)
-            }
-        };
     }
     Ok(binds)
 }
