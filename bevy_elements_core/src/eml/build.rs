@@ -21,11 +21,33 @@ use crate::{
     tags, Element, PropertyExtractor, PropertyTransformer, Variant,
 };
 
+pub trait FromWorldAndParam {
+    fn from_world_and_param(world: &mut World, param: Variant) -> Self;
+}
+
+impl<T: Default + 'static> FromWorldAndParam for T {
+    fn from_world_and_param(_world: &mut World, param: Variant) -> Self {
+        if let Some(value) = param.take::<Self>() {
+            value
+        } else {
+            Self::default()
+        }
+    }
+}
+
+pub fn entity_from_world_and_param(world: &mut World, param: Variant) -> Entity {
+    if let Some(entity) = param.take::<Entity>() {
+        entity
+    } else {
+        world.spawn_empty().id()
+    }
+}
+
 pub trait Widget: Sized + Component + 'static {
     fn names() -> &'static [&'static str];
 
     #[allow(unused_variables)]
-    fn construct_component(world: &mut World) -> Option<Self> {
+    fn construct_component(world: &mut World, params: &mut Params) -> Option<Self> {
         None
     }
 
@@ -47,8 +69,8 @@ pub trait WidgetBuilder: Widget {
         ""
     }
 
-    fn build(world: &mut World, data: ElementContextData) {
-        let component = Self::construct_component(world);
+    fn build(world: &mut World, mut data: ElementContextData) {
+        let component = Self::construct_component(world, &mut data.params);
         let mut queue = CommandQueue::default();
         let commands = Commands::new(&mut queue, world);
         let asset_server = world.resource::<AssetServer>().clone();
@@ -77,7 +99,7 @@ pub trait WidgetBuilder: Widget {
         // println!("adding tag {}", names.ite
         ctx.apply_commands();
         let focus_policy = match ctx.param(tag!("interactable")) {
-            Some(Variant::Empty) => Some(FocusPolicy::Block),
+            Some(Variant::Bool(true)) => Some(FocusPolicy::Block),
             Some(Variant::String(s)) if &s == "block" => Some(FocusPolicy::Block),
             Some(Variant::String(s)) if &s == "pass" => Some(FocusPolicy::Pass),
             _ => None,

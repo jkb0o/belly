@@ -42,6 +42,22 @@ impl Param {
     }
 }
 
+trait FieldExt {
+    fn is_entity(&self) -> bool;
+}
+
+impl FieldExt for syn::Field {
+    fn is_entity(&self) -> bool {
+        let syn::Type::Path(path) = &self.ty else {
+            return false;
+        };
+        let Some(last) = path.path.segments.iter().last() else {
+            return false;
+        };
+        &last.ident.to_string() == "Entity"
+    }
+}
+
 fn create_single_command_stmt(expr: &ExprPath) -> TokenStream {
     let component_span = expr.span();
     if let Some(component) = expr.path.get_ident() {
@@ -98,7 +114,7 @@ fn create_attr_stmt(attr: &NodeAttribute) -> TokenStream {
             return quote! {
                 __ctx.params.add(::bevy_elements_core::params::Param::new(
                     #attr_name.into(),
-                    ::bevy_elements_core::Variant::Empty
+                    ::bevy_elements_core::Variant::Bool(true)
                 ));
             };
         }
@@ -302,7 +318,6 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
     let mut alias_expr = quote! { #component_str };
     let mod_descriptor = format_ident!("{}_widget_descriptor", component_str.to_lowercase());
     let extension_ident = format_ident!("{component}WidgetExtension");
-    let mut construct_body = quote! {};
 
     // TODO: use `doclines` to generate XSD docs like extension docs
     let (_doclines, docs) = parse_docs(&ast.attrs);
@@ -324,37 +339,11 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
         let Some(field_ident) = field.ident.as_ref() else {
             return err(span, "Tuple Structs not yet supported by Widget derive.")
         };
-        let field_str = format!("{field_ident}");
-
-        if let syn::Type::Path(path) = &field.ty {
-            let type_repr = path.clone().into_token_stream().to_string();
-            if &type_repr == "Entity" {
-                if &field_str == "ctx" {
-                    return err(
-                        field.span(),
-                        "Using `ctx` as field name may lead to Widget's unexpected behaviour.",
-                    );
-                }
-                if &field_str == "this" {
-                    return err(
-                        field.span(),
-                        "Using `this` as field name may lead to Widget's unexpected behaviour.",
-                    );
-                }
-                construct_body = quote! {
-                    #construct_body
-                    #field_ident: world.spawn_empty().id(),
-                };
-                bind_body = quote! {
-                    #bind_body
-                    let #field_ident = self.#field_ident;
-                };
-                continue;
-            }
-        }
-        construct_body = quote! {
-            #construct_body
-            #field_ident: ::std::default::Default::default(),
+        if field.is_entity() {
+            bind_body = quote! {
+                #bind_body
+                let #field_ident = self.#field_ident;
+            };
         }
     }
 
@@ -362,35 +351,6 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
         let Some(field_ident) = field.ident.as_ref() else {
             return  err(span, "Tuple Structs not yet supported by Widget derive.");
         };
-        let params = match Param::from_field(field) {
-            Ok(params) => params,
-            Err(e) => {
-                return err(
-                    e.span(),
-                    &format!("Invalid #[param] definition: {}", e.to_string()),
-                )
-            }
-        };
-        for param in params {
-            let (param_name, param_setter) = match param {
-                Param::Direct(ident) => (ident.to_string(), quote! { = value }),
-                Param::Proxy(_ident, _prop_type, prop_target) => {
-                    let setter = format_ident!("set_{prop_target}");
-                    (prop_target.to_string(), quote! { .#setter(value)})
-                }
-            };
-            bind_body = quote! {
-                #bind_body
-                if let ::std::option::Option::Some(value) = ctx.param(::tagstr::tag!(#param_name)) {
-                    match ::bevy_elements_core::convert!(value) {
-                        Ok(value) => self.#field_ident #param_setter,
-                        Err(err) => {
-                            error!("Invalid value for '{}' param: {}", #param_name, err.as_str())
-                        }
-                    }
-                }
-            }
-        }
 
         let field_name = format!("{field_ident}");
         for attr in field.attrs.iter() {
@@ -454,6 +414,11 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
         Ok(tokens) => tokens,
         Err(e) => return proc_macro::TokenStream::from(e.to_compile_error()),
     };
+
+    let construct_body = match prepare_construct_instance(&ast) {
+        Ok(tokens) => tokens,
+        Err(e) => return proc_macro::TokenStream::from(e.to_compile_error()),
+    };
     // panic!("binds: {}", bind_descriptors.to_string());
 
     proc_macro::TokenStream::from(quote! {
@@ -477,7 +442,7 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
             fn names() -> &'static [&'static str] {
                 &[#alias_expr]
             }
-            fn construct_component(world: &mut ::bevy::prelude::World) -> ::std::option::Option<Self> {
+            fn construct_component(world: &mut ::bevy::prelude::World, params: &mut ::bevy_elements_core::Params) -> ::std::option::Option<Self> {
                 ::std::option::Option::Some(#component {
                     #construct_body
                 })
@@ -509,6 +474,87 @@ fn capitalize(s: &str) -> String {
         None => String::new(),
         Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
     }
+}
+
+fn prepare_construct_instance(ast: &syn::DeriveInput) -> syn::Result<TokenStream> {
+    let mut construct_body = quote! {};
+    let span = ast.span();
+    let syn::Data::Struct(data) = &ast.data else {
+        return Err(syn::Error::new(span, "Widget could be derived only for structs"));
+    };
+    for field in data.fields.iter() {
+        let span = field.span();
+        let Some(field_ident) = field.ident.as_ref() else {
+            return Err(syn::Error::new(span, "Tuple Structs not yet supported by Widget derive."))
+        };
+        let field_str = format!("{field_ident}");
+        if &field_str == "ctx" || &field_str == "this" {
+            return Err(syn::Error::new(
+                span,
+                format!(
+                    "Using `{field_str}` as field name may lead to Widget's unexpected behaviour."
+                ),
+            ));
+        }
+        let params = Param::from_field(&field)?;
+        if params.len() == 0 {
+            construct_body = if field.is_entity() {
+                quote! {
+                    #construct_body
+                    #field_ident: world.spawn_empty().id(),
+                }
+            } else {
+                quote! {
+                    #construct_body
+                    #field_ident: ::bevy_elements_core::eml::build::FromWorldAndParam::from_world_and_param(
+                        world, params.drop_variant(#field_str.as_tag()).unwrap_or(
+                            ::bevy_elements_core::Variant::Undefined
+                        )
+                    ),
+                }
+            };
+            continue;
+        }
+        let mut proxy_body = quote! {};
+        for param in params {
+            match param {
+                Param::Direct(ident) => {
+                    let param_str = format!("{ident}");
+                    construct_body = quote! {
+                        #construct_body
+                        #ident: ::bevy_elements_core::eml::build::FromWorldAndParam::from_world_and_param(
+                            world, params.drop_variant(#param_str.as_tag()).unwrap_or(
+                                ::bevy_elements_core::Variant::Undefined
+                            )
+                        ),
+                    };
+                }
+                Param::Proxy(ident, _param_type, param_target) => {
+                    let param_str = format!("{ident}");
+                    let target_str = format! {"{param_target}"};
+                    proxy_body = quote! {
+                        #proxy_body
+                        if let Some(param) = params.drop_variant(#param_str.as_tag()) {
+                            proxy_params.insert(#target_str, param);
+                        }
+                    };
+                }
+            }
+        }
+        if !proxy_body.is_empty() {
+            construct_body = quote! {
+                #construct_body
+                #field_ident: ::bevy_elements_core::eml::build::FromWorldAndParam::from_world_and_param(world, ::bevy_elements_core::Variant::Params({
+                    let mut proxy_params = ::bevy_elements_core::Params::default();
+                    #proxy_body
+                    proxy_params
+                })),
+            }
+        }
+    }
+    Ok(quote! {
+        #construct_body
+    })
 }
 
 fn parse_binds(ast: &syn::DeriveInput) -> syn::Result<TokenStream> {

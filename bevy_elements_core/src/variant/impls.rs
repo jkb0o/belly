@@ -20,7 +20,7 @@ impl TryFrom<Variant> for String {
 
 impl From<bool> for Variant {
     fn from(v: bool) -> Self {
-        Variant::boxed(v)
+        Variant::Bool(v)
     }
 }
 
@@ -46,7 +46,7 @@ impl TryFrom<Variant> for bool {
     type Error = String;
     fn try_from(variant: Variant) -> Result<Self, Self::Error> {
         match variant {
-            Variant::Empty => Ok(true),
+            Variant::Bool(v) => Ok(v),
             Variant::String(s) if &s == "yes" => Ok(true),
             Variant::String(s) if &s == "Yes" => Ok(true),
             Variant::String(s) if &s == "YES" => Ok(true),

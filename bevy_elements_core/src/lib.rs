@@ -51,6 +51,7 @@ pub use crate::relations::transform::ColorTransformerExtension;
 
 pub use element::Element;
 pub use element::Elements;
+pub use params::Params;
 pub use property::Property;
 pub use tagstr::*;
 pub use variant::Variant;

@@ -1,9 +1,11 @@
+use std::fmt::Display;
 use std::{fmt::Debug, mem};
 
 use crate::property::*;
 use crate::tags;
 use crate::variant::ApplyCommands;
 use crate::Variant;
+use bevy::prelude::error;
 use bevy::prelude::Deref;
 use bevy::prelude::DerefMut;
 use bevy::{
@@ -39,7 +41,7 @@ impl Param {
         if name.starts_with("c:") {
             Param {
                 name: name.strip_prefix("c:").unwrap().as_tag(),
-                value: Variant::Empty,
+                value: Variant::Undefined,
                 target: ParamTarget::Class,
             }
         } else if name.starts_with("s:") {
@@ -101,6 +103,9 @@ pub struct Params {
 }
 
 impl Params {
+    pub fn insert(&mut self, name: &str, value: Variant) {
+        self.add(Param::new(name, value))
+    }
     pub fn add(&mut self, mut attr: Param) {
         if attr.name == tags::params() {
             if let Some(mut attrs) = attr.take::<Params>() {
@@ -191,6 +196,22 @@ impl Params {
             param_commands(commands)
         }
     }
+    pub fn try_get<T: TryFrom<Variant, Error = E>, E: Display>(
+        &mut self,
+        param: &str,
+    ) -> Option<T> {
+        if let Some(value) = self.drop_variant(param.as_tag()) {
+            match T::try_from(value) {
+                Ok(value) => Some(value),
+                Err(e) => {
+                    error!("Invalid value for '{param}' param: {e}");
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    }
 
     // pub fn contains(&self, tag: Tag) -> bool {
     //     self.rest.contains_key(&tag)
@@ -250,7 +271,7 @@ mod test {
     fn test_c_not_overrides_class() {
         let mut attrs = Params::default();
         attrs.add(Param::new("class", "class1 class2".into()));
-        attrs.add(Param::new("c:some-other-class", Variant::Empty));
+        attrs.add(Param::new("c:some-other-class", Variant::Undefined));
         assert_eq!(
             attrs.classes(),
             ["class1", "class2", "some-other-class"]
@@ -263,7 +284,7 @@ mod test {
     #[test]
     fn test_class_not_overrides_c() {
         let mut attrs = Params::default();
-        attrs.add(Param::new("c:some-other-class", Variant::Empty));
+        attrs.add(Param::new("c:some-other-class", Variant::Undefined));
         attrs.add(Param::new("class", "class1 class2".into()));
         assert_eq!(
             attrs.classes(),

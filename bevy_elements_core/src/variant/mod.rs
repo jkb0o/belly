@@ -19,7 +19,8 @@ pub type ApplyCommands = Box<dyn FnOnce(&mut EntityCommands)>;
 pub enum Variant {
     #[default]
     /// Empty Variant contains no value
-    Empty,
+    Undefined,
+    Bool(bool),
     /// Contains String value.
     String(String),
     /// Contains Entity value
@@ -38,7 +39,8 @@ pub enum Variant {
 impl Debug for Variant {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Variant::Empty => write!(f, "Variant::Empty"),
+            Variant::Undefined => write!(f, "Variant::Undefined"),
+            Variant::Bool(v) => write!(f, "Variant::Bool({v})"),
             Variant::String(v) => write!(f, "Variant::String({:?})", v),
             Variant::Entity(v) => write!(f, "Variant::Entity({:?})", v),
             Variant::Style(v) => write!(f, "Variant::Style({})", v.to_string()),
@@ -88,7 +90,8 @@ impl Variant {
     }
     pub fn is<T: 'static>(&self) -> bool {
         match self {
-            Variant::Empty => false,
+            Variant::Undefined => false,
+            Variant::Bool(_) => TypeId::of::<T>() == TypeId::of::<bool>(),
             Variant::String(_) => TypeId::of::<T>() == TypeId::of::<String>(),
             Variant::Entity(_) => TypeId::of::<T>() == TypeId::of::<Entity>(),
             Variant::Style(_) => TypeId::of::<T>() == TypeId::of::<StyleProperty>(),
@@ -102,7 +105,8 @@ impl Variant {
 
     pub fn get<T: 'static>(&self) -> Option<&T> {
         match self {
-            Variant::Empty => None,
+            Variant::Undefined => None,
+            Variant::Bool(v) => try_cast::<T, bool>(v),
             Variant::String(v) => try_cast::<T, String>(v),
             Variant::Entity(v) => try_cast::<T, Entity>(v),
             Variant::Style(v) => try_cast::<T, StyleProperty>(v),
@@ -115,7 +119,8 @@ impl Variant {
     }
     pub fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
         match self {
-            Variant::Empty => None,
+            Variant::Undefined => None,
+            Variant::Bool(v) => try_cast_mut::<T, bool>(v),
             Variant::String(v) => try_cast_mut::<T, String>(v),
             Variant::Entity(v) => try_cast_mut::<T, Entity>(v),
             Variant::Style(v) => try_cast_mut::<T, StyleProperty>(v),
@@ -129,7 +134,8 @@ impl Variant {
 
     pub fn take<T: 'static>(self) -> Option<T> {
         match self {
-            Variant::Empty => None,
+            Variant::Undefined => None,
+            Variant::Bool(v) => try_take::<T, bool>(v),
             Variant::String(v) => try_take::<T, String>(v),
             Variant::Entity(v) => try_take::<T, Entity>(v),
             Variant::Style(v) => try_take::<T, StyleProperty>(v),
