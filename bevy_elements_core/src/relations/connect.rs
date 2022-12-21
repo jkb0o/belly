@@ -89,27 +89,33 @@ impl<'a, 'w, 's, 'c, S: Signal> DerefMut for ConnectionEntityContext<'a, 'w, 's,
 
 pub enum ConnectionTo<C: Component, S: Signal> {
     General {
-        handler: fn(&mut ConnectionGeneralContext<S>),
+        handler: Box<dyn Fn(&mut ConnectionGeneralContext<S>)>,
     },
     Entity {
         target: Entity,
-        handler: fn(&mut ConnectionEntityContext<S>),
+        handler: Box<dyn Fn(&mut ConnectionEntityContext<S>)>,
     },
     Component {
         target: Entity,
-        handler: fn(&mut ConnectionEntityContext<S>, &mut Mut<C>),
+        handler: Box<dyn Fn(&mut ConnectionEntityContext<S>, &mut Mut<C>)>,
     },
 }
+
+unsafe impl<C: Component, S: Signal> Send for ConnectionTo<C, S> {}
+unsafe impl<C: Component, S: Signal> Sync for ConnectionTo<C, S> {}
 
 #[derive(Component)]
 pub struct WithoutComponent;
 
 impl<C: Component, S: Signal> ConnectionTo<C, S> {
-    pub fn component(
+    pub fn component<F: 'static + Fn(&mut ConnectionEntityContext<S>, &mut Mut<C>)>(
         target: Entity,
-        handler: fn(&mut ConnectionEntityContext<S>, &mut Mut<C>),
+        handler: F,
     ) -> ConnectionTo<C, S> {
-        ConnectionTo::Component { target, handler }
+        ConnectionTo::Component {
+            target,
+            handler: Box::new(handler),
+        }
     }
 
     pub fn filter(self, filter: fn(&S) -> bool) -> Connection<C, S> {
@@ -129,17 +135,22 @@ impl<C: Component, S: Signal> ConnectionTo<C, S> {
 }
 
 impl<S: Signal> ConnectionTo<WithoutComponent, S> {
-    pub fn entity(
+    pub fn entity<F: 'static + Fn(&mut ConnectionEntityContext<S>)>(
         target: Entity,
-        handler: fn(&mut ConnectionEntityContext<S>),
+        handler: F,
     ) -> ConnectionTo<WithoutComponent, S> {
-        ConnectionTo::Entity { target, handler }
+        ConnectionTo::Entity {
+            target,
+            handler: Box::new(handler),
+        }
     }
 
-    pub fn general(
-        handler: fn(&mut ConnectionGeneralContext<S>),
+    pub fn general<F: 'static + Fn(&mut ConnectionGeneralContext<S>)>(
+        handler: F,
     ) -> ConnectionTo<WithoutComponent, S> {
-        ConnectionTo::General { handler }
+        ConnectionTo::General {
+            handler: Box::new(handler),
+        }
     }
 }
 
@@ -243,28 +254,28 @@ macro_rules! connect {
     ($entity:expr, |$ctx:ident, $arg:ident: $typ:ty| $cb:expr) => {
         $crate::relations::ConnectionTo::component(
             $entity,
-            |$ctx, $arg: &mut ::bevy::prelude::Mut<$typ>| $cb,
+            move |$ctx, $arg: &mut ::bevy::prelude::Mut<$typ>| $cb,
         )
     };
     ($entity:expr, |$ctx:ident, $arg:ident: $typ:ty| $cb:block) => {
         $crate::relations::ConnectionTo::component(
             $entity,
-            |$ctx, $arg: &mut ::bevy::prelude::Mut<$typ>| $cb,
+            move |$ctx, $arg: &mut ::bevy::prelude::Mut<$typ>| $cb,
         )
     };
     ($entity:expr, |$arg:ident: $typ:ty| $cb:expr) => {
         $crate::relations::ConnectionTo::component(
             $entity,
-            |_, $arg: &mut ::bevy::prelude::Mut<$typ>| $cb,
+            move |_, $arg: &mut ::bevy::prelude::Mut<$typ>| $cb,
         )
     };
     ($entity:expr, |$arg:ident: $typ:ty| $cb:block) => {
-        $crate::relations::ConnectionTo::component($entity, |_, $arg| $cb)
+        $crate::relations::ConnectionTo::component($entity, move |_, $arg| $cb)
     };
     ($entity:expr, |$ctx:ident| $cb:expr) => {
-        $crate::relations::ConnectionTo::entity($entity, |$ctx| $cb)
+        $crate::relations::ConnectionTo::entity($entity, move |$ctx| $cb)
     };
     (|$ctx:ident| $cb:expr) => {
-        $crate::relations::ConnectionTo::general(|$ctx| $cb)
+        $crate::relations::ConnectionTo::general(move |$ctx| $cb)
     };
 }
