@@ -1,4 +1,4 @@
-mod colors;
+pub mod colors;
 pub(crate) mod impls;
 mod style;
 use std::any::{type_name, Any};

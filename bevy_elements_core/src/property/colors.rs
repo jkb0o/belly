@@ -1,5 +1,13 @@
 use bevy::prelude::Color;
 
+pub trait ColorFromHexExtension {
+    fn from_hex<T: AsRef<str>>(color: T) -> Color {
+        let color = color.as_ref().trim().trim_start_matches('#');
+        parse_hex_color(color).unwrap_or_else(|| Color::WHITE)
+    }
+}
+impl ColorFromHexExtension for Color {}
+
 pub(super) fn parse_hex_color(hex: &str) -> Option<Color> {
     if let Ok(cssparser::Color::RGBA(cssparser::RGBA {
         red,
