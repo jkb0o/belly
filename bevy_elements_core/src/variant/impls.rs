@@ -94,6 +94,12 @@ impl From<Entity> for Variant {
     }
 }
 
+impl From<Color> for Variant {
+    fn from(v: Color) -> Self {
+        Variant::boxed(v)
+    }
+}
+
 impl From<ApplyCommands> for Variant {
     fn from(commands: ApplyCommands) -> Self {
         Variant::Commands(commands)

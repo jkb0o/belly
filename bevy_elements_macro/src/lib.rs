@@ -2,7 +2,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::*;
 extern crate proc_macro;
 use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Error, Expr, ExprPath};
-use syn_rsx::{parse, Node, NodeAttribute};
+use syn_rsx::{parse, Node, NodeAttribute, NodeElement};
 
 enum Param {
     Direct(syn::Ident),
@@ -135,6 +135,50 @@ fn create_attr_stmt(attr: &NodeAttribute) -> TokenStream {
     }
 }
 
+fn process_for_loop(node: &NodeElement) -> TokenStream {
+    let span = node.span();
+    if node.attributes.len() != 2 {
+        return err2(
+            span,
+            "<for> tag should have exactly 2 attributes: <for item in=iter>",
+        );
+    }
+    let Node::Attribute(item_attr) = &node.attributes[0] else {
+        return err2(span, "Can't threat node ast Node::Attribute")
+    };
+    if item_attr.value.is_some() {
+        return err2(
+            span,
+            "The first attribute of <for> tag shouldn't has any value: <for item in=iter>",
+        );
+    }
+    let item_ident = syn::Ident::new(&item_attr.key.to_string(), item_attr.span());
+    let Node::Attribute(iter_attr) = &node.attributes[1] else {
+        return err2(span, "Can't threat node as Node::Attribute")
+    };
+    if iter_attr.value.is_none() {
+        return err2(
+            span,
+            "The second attribute of <for> tag shold has some value: <for item in=iter>",
+        );
+    }
+    let iter_value = iter_attr.value.as_ref().unwrap().as_ref();
+
+    let mut loop_content = quote! {};
+    for ch in node.children.iter() {
+        let expr = walk_nodes(ch, true);
+        loop_content = quote! {
+            #loop_content
+            __ctx.children.push( #expr );
+        }
+    }
+    quote! {
+        for #item_ident in #iter_value {
+            #loop_content
+        }
+    }
+}
+
 fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
     let mut children = quote! {};
     let mut connections = quote! {};
@@ -225,12 +269,20 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
         }
         for child in element.children.iter() {
             match child {
-                Node::Element(_) => {
-                    let expr = walk_nodes(child, true);
-                    children = quote! {
-                        #children
-                        __ctx.children.push( #expr );
-                    };
+                Node::Element(element) => {
+                    if element.name.to_string() == "for" {
+                        let loop_children = process_for_loop(element);
+                        children = quote! {
+                            #children
+                            #loop_children
+                        }
+                    } else {
+                        let expr = walk_nodes(child, true);
+                        children = quote! {
+                            #children
+                            __ctx.children.push( #expr );
+                        };
+                    }
                 }
                 Node::Text(text) => {
                     let text = text.value.as_ref();
@@ -303,6 +355,9 @@ pub fn eml(tree: proc_macro::TokenStream) -> proc_macro::TokenStream {
     }
 }
 
+fn err2(span: Span, message: &str) -> TokenStream {
+    return syn::Error::new(span, message).into_compile_error();
+}
 fn err(span: Span, message: &str) -> proc_macro::TokenStream {
     proc_macro::TokenStream::from(syn::Error::new(span, message).to_compile_error())
 }
