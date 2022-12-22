@@ -118,6 +118,13 @@ impl<C: Component, S: Signal> ConnectionTo<C, S> {
         }
     }
 
+    pub fn all(self) -> Connection<C, S> {
+        Connection {
+            target: self,
+            filter: |_| true,
+        }
+    }
+
     pub fn filter(self, filter: fn(&S) -> bool) -> Connection<C, S> {
         Connection {
             target: self,

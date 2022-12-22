@@ -3,6 +3,7 @@ use bevy::text::TextLayoutInfo;
 use bevy::utils::HashMap;
 use bevy::{ecs::system::EntityCommands, prelude::*};
 use bevy_inspector_egui::egui::mutex::RwLock;
+use eml::build::BuildPligin;
 use eml::EmlPlugin;
 use ess::{EssPlugin, StyleSheet, StyleSheetParser};
 use input::ElementsInputPlugin;
@@ -68,6 +69,7 @@ impl Plugin for ElementsCorePlugin {
             .insert_resource(Defaults::default())
             .add_plugin(ElementsInputPlugin)
             .add_plugin(RelationsPlugin)
+            .add_plugin(BuildPligin)
             .add_plugin(EssPlugin)
             .add_plugin(EmlPlugin);
 

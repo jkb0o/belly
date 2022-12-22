@@ -18,10 +18,35 @@ pub use self::connect::{
 
 pub struct RelationsPlugin;
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+pub enum RelationsStage {
+    PreUpdate,
+    Update,
+    PostUpdate,
+}
+
 impl Plugin for RelationsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ChangesState>();
-        app.add_system_to_stage(CoreStage::PreUpdate, process_relations_system);
+        app.add_stage_after(
+            CoreStage::PreUpdate,
+            RelationsStage::PreUpdate,
+            SystemStage::parallel(),
+        );
+        app.add_stage_after(
+            CoreStage::Update,
+            RelationsStage::Update,
+            SystemStage::parallel(),
+        );
+        app.add_stage_after(
+            CoreStage::PostUpdate,
+            RelationsStage::PostUpdate,
+            SystemStage::parallel(),
+        );
+        // app.add_stage_after(target, label, stage)
+        app.add_system_to_stage(RelationsStage::PreUpdate, process_relations_system);
+        app.add_system_to_stage(RelationsStage::Update, process_relations_system);
+        app.add_system_to_stage(RelationsStage::PostUpdate, process_relations_system);
     }
 }
 
