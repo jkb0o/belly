@@ -1,4 +1,4 @@
-use crate::params::Params;
+use crate::{params::Params, property::colors::ColorFromHexExtension};
 use bevy::prelude::*;
 
 use super::{ApplyCommands, Variant};
@@ -97,6 +97,20 @@ impl From<Entity> for Variant {
 impl From<Color> for Variant {
     fn from(v: Color) -> Self {
         Variant::boxed(v)
+    }
+}
+
+impl TryFrom<Variant> for Color {
+    type Error = String;
+    fn try_from(value: Variant) -> Result<Self, Self::Error> {
+        match value {
+            Variant::String(s) => Color::try_from_hex(s),
+            Variant::Boxed(v) => v
+                .downcast::<Color>()
+                .map(|b| *b)
+                .map_err(|e| format!("Can't extract Color from {:?}", e)),
+            e => Err(format!("Can't extract Color from {:?}", e)),
+        }
     }
 }
 

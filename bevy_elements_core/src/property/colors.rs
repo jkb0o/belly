@@ -5,6 +5,10 @@ pub trait ColorFromHexExtension {
         let color = color.as_ref().trim().trim_start_matches('#');
         parse_hex_color(color).unwrap_or_else(|| Color::WHITE)
     }
+    fn try_from_hex<T: AsRef<str>>(color: T) -> Result<Color, String> {
+        let color = color.as_ref().trim().trim_start_matches('#');
+        parse_hex_color(color).ok_or_else(|| format!("Can't parse '{color}' as Color"))
+    }
 }
 impl ColorFromHexExtension for Color {}
 

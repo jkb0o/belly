@@ -24,6 +24,7 @@ pub use bevy_elements_macro::eml;
 // traits
 pub use bevy_elements_core::eml::build::WidgetBuilder;
 pub use bevy_elements_core::eml::content::IntoContent;
+pub use bevy_elements_core::property::colors::ColorFromHexExtension;
 pub use bevy_elements_core::relations::transform::ColorTransformerExtension;
 pub use bevy_elements_core::ExpandElementsExt;
 pub use bevy_elements_core::WithElements;
