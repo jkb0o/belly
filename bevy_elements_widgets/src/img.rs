@@ -118,6 +118,9 @@ pub struct Img {
     pub src: String,
     #[param]
     pub mode: ImgMode,
+    #[param]
+    #[bindto(entity, BackgroundColor:0)]
+    pub modulate: Color,
     handle: Handle<Image>,
     entity: Entity,
     size: Vec2,
@@ -125,6 +128,7 @@ pub struct Img {
 
 impl WidgetBuilder for Img {
     fn setup(&mut self, ctx: &mut ElementContext) {
+        let content = ctx.content();
         ctx.commands().entity(self.entity).insert(ImageBundle {
             style: Style {
                 display: Display::None,
@@ -134,6 +138,7 @@ impl WidgetBuilder for Img {
         });
         ctx.insert(ElementBundle::default())
             .push_children(&[self.entity]);
+        ctx.commands().entity(self.entity).push_children(&content);
     }
 }
 
@@ -164,6 +169,7 @@ fn load_img(
                 .entry(handle.clone_weak())
                 .or_default()
                 .insert(entity);
+            img.handle = handle.clone();
         }
         let (mut image, mut style) = images.get_mut(img.entity).unwrap();
         image.0 = handle.clone();
