@@ -28,32 +28,58 @@ fn setup(mut commands: Commands) {
             background-color: grey;
             margin-bottom: 20px;
         }
-        buttongroup { 
+        .group { 
             width: 600px;
             align-content: center;
             align-items: center;
         }
+        .group .sliders {
+            flex-grow: 1.0;
+            justify-content: space-around;
+        }
+        slider {
+            width: 150px;
+        }
         buttongroup button {
             flex-grow: 1.0;
+        }
+        .red .slider-low {
+            background-color: #F54C36;
+        }
+        .green .slider-low {
+            background-color: #40B052;
+        }
+        .blue .slider-low {
+            background-color: #69A1F5;
+        }
+        .header {
+            min-width: 90px;
         }
     "#,
     ));
     commands.add(eml! {
         <body>
             <img {img} src="icon.png" mode="fit"/>
-            <buttongroup bind:value=to!(img, Img:mode)>
-                <span s:min-width="80px">"Mode:"</span>
-                <button value="fit">"fit"</button>
-                <button value="cover">"cover"</button>
-                <button value="stretch">"stretch"</button>
-                <button value="source">"source"</button>
+            <buttongroup bind:value=to!(img, Img:mode) c:group>
+                <span c:header>"Mode:"</span>
+                <for mode in = &["fit", "cover", "stretch", "source"]>
+                    <button value=mode>{mode}</button>
+                </for>
             </buttongroup>
-            <buttongroup bind:value=to!(img, Img:src)>
-                <span s:min-width="80px">"Source:"</span>
+            <buttongroup bind:value=to!(img, Img:src) c:group>
+                <span c:header>"Source:"</span>
                 <button value="icon.png">"Bevy icon"</button>
                 <button value="bevy_logo_light.png">"Bevy logo light"</button>
                 <button pressed value="bevy_logo_dark.png">"Bevy logo dark"</button>
             </buttongroup>
+            <span c:group>
+                <span c:header>"Modulate:"</span>
+                <span c:sliders>
+                    <slider c:red value=1.0 bind:value=to!(img, Img:modulate|color:r)/>
+                    <slider c:green value=1.0 bind:value=to!(img, Img:modulate|color:g)/>
+                    <slider c:blue value=1.0 bind:value=to!(img, Img:modulate|color:b)/>
+                </span>
+            </span>
         </body>
     });
 }
