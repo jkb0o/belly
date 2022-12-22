@@ -72,12 +72,12 @@ impl WidgetBuilder for TextInput {
             <div interactable="block" c:text-input c:text-input-border>
                 <div c:text-input-background>
                     <div {container} c:text-input-container>
-                        <div {selection} c:text-input-selection s:display="none"/>
+                        <div {selection} c:text-input-selection s:display=managed()/>
                         <label {text} c:text-input-value/>
                         <div {cursor} c:text-input-cursor
                             s:position-type="absolute"
                             s:width=format!("{:.0}px", CURSOR_WIDTH)
-                            s:display="none"
+                            s:display=managed()
                         />
                     </div>
                 </div>
@@ -379,6 +379,11 @@ fn process_cursor_focus(
                 .entity(input.cursor)
                 .insert(TextInputCursor::default());
         }
+        if !element.focused() && !cursors.contains(input.cursor) {
+            if let Ok(mut style) = styles.get_mut(input.cursor) {
+                style.display = Display::None;
+            }
+        }
         if !element.focused() && cursors.contains(input.cursor) {
             input.index = 0;
             commands.entity(input.cursor).remove::<TextInputCursor>();
@@ -467,7 +472,7 @@ fn process_mouse(
                 selected.start(0);
                 selected.extend(input.value.chars().count());
                 index = selected.max;
-            } else if evt.dragging() || evt.down() && shift {
+            } else if evt.dragging() || evt.drag_stop() || evt.down() && shift {
                 selected.extend(index);
             } else if evt.down() {
                 selected.stop();
