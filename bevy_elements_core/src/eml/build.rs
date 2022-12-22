@@ -1,16 +1,14 @@
-use std::{
-    mem,
-    sync::{Arc, RwLock},
-};
-
 use bevy::{
     asset::Asset,
     ecs::system::{Command, CommandQueue, EntityCommands},
-    prelude::{
-        error, App, AssetServer, Bundle, Commands, Component, Entity, Handle, Resource, World,
-    },
-    ui::{FocusPolicy, Interaction},
+    prelude::*,
+    ui::FocusPolicy,
     utils::{HashMap, HashSet},
+};
+use itertools::Itertools;
+use std::{
+    mem,
+    sync::{Arc, RwLock},
 };
 use tagstr::*;
 
@@ -18,8 +16,17 @@ use crate::{
     ess::StyleRule,
     ess::StyleSheetParser,
     params::{Params, StyleParams},
-    tags, Element, PropertyExtractor, PropertyTransformer, Variant,
+    tags, ConnectionTo, Element, PropertyExtractor, PropertyTransformer, Signal, Variant,
 };
+
+pub struct BuildPligin;
+impl Plugin for BuildPligin {
+    fn build(&self, app: &mut App) {
+        app.add_event::<RequestReadyEvent>();
+        app.add_event::<ReadyEvent>();
+        app.add_system_to_stage(CoreStage::PostUpdate, emit_ready_signal);
+    }
+}
 
 pub trait FromWorldAndParam {
     fn from_world_and_param(world: &mut World, param: Variant) -> Self;
@@ -130,6 +137,12 @@ pub trait WidgetBuilder: Widget {
                     }
                 }
             }
+        });
+        let entity = ctx.entity();
+        ctx.commands.add(move |world: &mut World| {
+            world
+                .resource_mut::<Events<RequestReadyEvent>>()
+                .send(RequestReadyEvent(entity));
         });
         ctx.update_element(move |element| {
             element.names = names;
@@ -337,5 +350,40 @@ impl RegisterWidgetExtension for App {
             registry.add_builder(name, W::as_builder());
         }
         self
+    }
+}
+
+pub struct DefaultDescriptor;
+impl DefaultDescriptor {
+    pub fn get_instance() -> &'static DefaultDescriptor {
+        &&DefaultDescriptor
+    }
+
+    pub fn ready<C: Component>(
+        &self,
+        world: &mut World,
+        source: Entity,
+        target: ConnectionTo<C, ReadyEvent>,
+    ) {
+        target.all().from(source).write(world)
+    }
+}
+
+#[derive(PartialEq, Eq, Hash)]
+pub struct RequestReadyEvent(Entity);
+pub struct ReadyEvent([Entity; 1]);
+
+impl Signal for ReadyEvent {
+    fn sources(&self) -> &[Entity] {
+        &self.0
+    }
+}
+
+fn emit_ready_signal(
+    mut requests: EventReader<RequestReadyEvent>,
+    mut writer: EventWriter<ReadyEvent>,
+) {
+    for req in requests.iter().unique() {
+        writer.send(ReadyEvent([req.0]))
     }
 }

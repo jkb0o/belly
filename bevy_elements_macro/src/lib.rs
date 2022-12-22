@@ -751,15 +751,23 @@ fn parse_signals(attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStream> {
 }
 
 fn parse_extends(ident: &syn::Ident, attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStream> {
+    let this_str = ident.to_string();
+    let this_mod = format_ident!("{}_widget_descriptor", this_str.to_lowercase());
     let Some(attr) = attrs.iter().filter(|a| a.path.is_ident("extends")).next() else {
-        return Ok(quote! {})
+        return Ok(quote! {
+            impl ::std::ops::Deref for #this_mod::Descriptor {
+                type Target = ::bevy_elements_core::eml::build::DefaultDescriptor;
+                fn deref(&self) -> &::bevy_elements_core::eml::build::DefaultDescriptor {
+                    let instance = ::bevy_elements_core::eml::build::DefaultDescriptor::get_instance();
+                    instance
+                }
+            }
+        })
     };
     let Ok(extends) = attr.parse_args::<syn::Ident>() else {
         return Err(syn::Error::new(attr.span(), "#[extends] should be defined using token: `#[extends(button)]"));
     };
-    let this_str = ident.to_string();
     let extends = extends.to_string();
-    let this_mod = format_ident!("{}_widget_descriptor", this_str.to_lowercase());
     let extends = format_ident!("{}WidgetExtension", capitalize(&extends));
     let derive = quote! {
         impl ::std::ops::Deref for #this_mod::Descriptor {
