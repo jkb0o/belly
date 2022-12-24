@@ -179,6 +179,57 @@ fn process_for_loop(node: &NodeElement) -> TokenStream {
     }
 }
 
+fn process_slots(node: &NodeElement) -> TokenStream {
+    let span = node.span();
+    if node.attributes.len() != 1 {
+        return err2(
+            span,
+            "<slot> tag should have exactly 1 attribute: <slot grabber> or <slot name=\"grabber\">",
+        );
+    }
+    let Node::Attribute(attr) = &node.attributes[0] else {
+        return err2(span, "Can't threat node ast Node::Attribute")
+    };
+    let mut slot_content = quote! {};
+    for ch in node.children.iter() {
+        let expr = walk_nodes(ch, true);
+        slot_content = quote! {
+            #slot_content
+            __slot_value.push( #expr );
+        }
+    }
+    if attr.value.is_none() {
+        let slot_name = attr.key.to_string();
+        quote! {
+            let mut __slot_value = vec![];
+            #slot_content
+            __world.resource::<::bevy_elements_core::eml::build::Slots>()
+                .clone()
+                .insert(::tagstr::Tag::new(#slot_name), __slot_value);
+        }
+    } else {
+        if &attr.key.to_string() != "define" {
+            return err2(
+                span,
+                "<slot> definition should have define attribute: <slot define=\"grabber\">",
+            );
+        }
+        let slot_name = attr.value.as_ref().unwrap().as_ref();
+        quote! {
+            let __slot_value = __world.resource::<::bevy_elements_core::eml::build::Slots>()
+                .clone()
+                .remove(::tagstr::Tag::new(#slot_name));
+            if let Some(__slot_value) = __slot_value {
+                __ctx.children.extend(__slot_value);
+            } else {
+                let mut __slot_value = vec![];
+                #slot_content
+                __ctx.children.extend(__slot_value);
+            }
+        }
+    }
+}
+
 fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
     let mut children = quote! {};
     let mut connections = quote! {};
@@ -270,18 +321,20 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
         for child in element.children.iter() {
             match child {
                 Node::Element(element) => {
-                    if element.name.to_string() == "for" {
-                        let loop_children = process_for_loop(element);
-                        children = quote! {
-                            #children
-                            #loop_children
+                    let element_name = element.name.to_string();
+                    let expr = match element_name.as_str() {
+                        "for" => process_for_loop(element),
+                        "slot" => process_slots(element),
+                        _ => {
+                            let expr = walk_nodes(child, true);
+                            quote! {
+                                __ctx.children.push( #expr );
+                            }
                         }
-                    } else {
-                        let expr = walk_nodes(child, true);
-                        children = quote! {
-                            #children
-                            __ctx.children.push( #expr );
-                        };
+                    };
+                    children = quote! {
+                        #children
+                        #expr
                     }
                 }
                 Node::Text(text) => {
@@ -347,7 +400,21 @@ pub fn eml(tree: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         __world: &mut ::bevy::prelude::World,
                         __parent: ::bevy::prelude::Entity
                     | {
+                        let mut __slots_resource = __world.resource::<::bevy_elements_core::eml::build::Slots>().clone();
+                        let __defined_slots = __slots_resource.keys();
                         #body;
+                        for __slot in __slots_resource.keys() {
+                            if !__defined_slots.contains(&__slot) {
+                                warn!("Detected unused slot '{}', despawning it contnent.", __slot);
+                                use ::bevy::ecs::system::Command;
+                                for __entity in __slots_resource.remove(__slot).unwrap() {
+                                    let __despawn =  ::bevy::prelude::DespawnRecursive {
+                                        entity: __entity
+                                    };
+                                    __despawn.write(__world);
+                                }
+                            }
+                        }
                     }
             )};
             proc_macro::TokenStream::from(wraped)

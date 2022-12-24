@@ -24,6 +24,7 @@ impl Plugin for BuildPligin {
     fn build(&self, app: &mut App) {
         app.add_event::<RequestReadyEvent>();
         app.add_event::<ReadyEvent>();
+        app.init_resource::<Slots>();
         app.add_system_to_stage(CoreStage::PostUpdate, emit_ready_signal);
     }
 }
@@ -176,6 +177,23 @@ impl ElementContextData {
             children: vec![],
             params: Default::default(),
         }
+    }
+}
+
+#[derive(Resource, Default, Clone)]
+pub struct Slots(Arc<RwLock<HashMap<Tag, Vec<Entity>>>>);
+
+impl Slots {
+    pub fn insert(&self, tag: Tag, entities: Vec<Entity>) {
+        self.0.write().unwrap().insert(tag, entities);
+    }
+
+    pub fn remove(&self, tag: Tag) -> Option<Vec<Entity>> {
+        self.0.write().unwrap().remove(&tag)
+    }
+
+    pub fn keys(&self) -> HashSet<Tag> {
+        self.0.read().unwrap().keys().copied().collect()
     }
 }
 

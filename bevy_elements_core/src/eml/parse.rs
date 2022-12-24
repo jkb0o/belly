@@ -5,11 +5,11 @@ use tagstr::{AsTag, Tag};
 
 use crate::{property::StyleProperty, ElementsError, Variant};
 
-use super::{EmlElement, EmlLoader, EmlNode};
+use super::asset::{EmlElement, EmlLoader, EmlNode};
 
 const NS_STYLE: &str = "s";
 
-pub(crate) fn parse(source: &str, loader: &EmlLoader) -> Result<EmlElement, ParseError> {
+pub(crate) fn parse(source: &str, loader: &EmlLoader) -> Result<EmlNode, ParseError> {
     let source = EmlSource::new(source);
     parse_internal(&source, loader).map_err(|e| ParseError::new(e, &source))
 }
@@ -104,15 +104,15 @@ impl EmlSource {
     }
 }
 
-fn parse_internal(source: &EmlSource, loader: &EmlLoader) -> Result<EmlElement, Error> {
+fn parse_internal(source: &EmlSource, loader: &EmlLoader) -> Result<EmlNode, Error> {
     let document = roxmltree::Document::parse(&source.data);
     match document {
         Err(e) => Err(Error::Internal(e)),
-        Ok(doc) => walk(doc.root(), loader),
+        Ok(doc) => parse_root(doc.root(), loader),
     }
 }
 
-fn walk(node: roxmltree::Node, loader: &EmlLoader) -> Result<EmlElement, Error> {
+fn parse_root(node: roxmltree::Node, loader: &EmlLoader) -> Result<EmlNode, Error> {
     let ns = node.tag_name().namespace();
     let doc = node.document();
     let pos = doc.text_pos_at(node.position());
@@ -124,54 +124,76 @@ fn walk(node: roxmltree::Node, loader: &EmlLoader) -> Result<EmlElement, Error> 
                 pos,
             ));
         }
-        return walk(children[0], loader);
+        parse_root(children[0], loader)
+    } else {
+        walk(node, loader)
     }
-    if !node.is_element() {
-        return Err(Error::InvalidDocumentStructure(
-            "Non-element node found".to_string(),
-            pos,
-        ));
-    }
-    let node_name = node.tag_name().name().as_tag();
-    if !loader.registry.has_builder(node_name) {
-        return Err(Error::InvalidElement(node_name.to_string(), pos));
-    }
+}
 
-    let mut elem = EmlElement::new(node_name);
-    for attr in node.attributes() {
-        let pos = doc.text_pos_at(attr.position());
-        let name = if let Some(ns) = attr.namespace() {
-            if ns == NS_STYLE {
-                validate_style(attr.name().as_tag(), attr.value(), loader).map_err(|e| {
-                    Error::InvalidStyleValue(
-                        format!(
-                            "Invalid value for {NS_STYLE}:{} attribute: {}",
-                            attr.name(),
-                            e
-                        ),
-                        pos,
-                    )
-                })?;
-            }
-            format!("{}:{}", ns, attr.name())
-        } else {
-            attr.name().to_string()
-        };
-        elem.params.insert(name, attr.value().to_string());
-    }
-    for ch in node.children() {
-        if ch.is_text() {
-            let text = ch.text().unwrap();
-            let text = text.trim();
-            let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
-            if text.len() > 0 {
-                elem.children.push(EmlNode::Text(text));
-            }
-        } else if ch.is_element() {
-            elem.children.push(EmlNode::Element(walk(ch, loader)?));
+fn walk(node: roxmltree::Node, loader: &EmlLoader) -> Result<EmlNode, Error> {
+    let doc = node.document();
+    let pos = doc.text_pos_at(node.position());
+    if node.is_text() {
+        let text = node.text().unwrap();
+        let text = text.trim();
+        let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        Ok(EmlNode::Text(text))
+    } else if node.is_element() && node.tag_name().name() == "slot" {
+        let slot_name = node.attribute("replace").ok_or_else(|| {
+            Error::InvalidElement(format!("<slot> tag should have 'for' attribute."), pos)
+        })?;
+        let mut slot_elements: Vec<EmlNode> = vec![];
+        for ch in node.children() {
+            slot_elements.push(walk(ch, loader)?);
         }
+        Ok(EmlNode::Slot(slot_name.as_tag(), slot_elements))
+    } else if node.is_element() {
+        let node_name = node.tag_name().name().as_tag();
+        if !loader.registry.has_builder(node_name) {
+            return Err(Error::InvalidElement(node_name.to_string(), pos));
+        }
+
+        let mut elem = EmlElement::new(node_name);
+        for attr in node.attributes() {
+            let pos = doc.text_pos_at(attr.position());
+            let name = if let Some(ns) = attr.namespace() {
+                if ns == NS_STYLE {
+                    validate_style(attr.name().as_tag(), attr.value(), loader).map_err(|e| {
+                        Error::InvalidStyleValue(
+                            format!(
+                                "Invalid value for {NS_STYLE}:{} attribute: {}",
+                                attr.name(),
+                                e
+                            ),
+                            pos,
+                        )
+                    })?;
+                }
+                format!("{}:{}", ns, attr.name())
+            } else {
+                attr.name().to_string()
+            };
+            elem.params.insert(name, attr.value().to_string());
+        }
+        for ch in node.children() {
+            if ch.is_text() {
+                let text = ch.text().unwrap();
+                let text = text.trim();
+                let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+                if text.len() > 0 {
+                    elem.children.push(EmlNode::Text(text));
+                }
+            } else if ch.is_element() {
+                elem.children.push(walk(ch, loader)?);
+            }
+        }
+        Ok(EmlNode::Element(elem))
+    } else {
+        Err(Error::InvalidDocumentStructure(
+            format!("Invalid element: {node:?}"),
+            pos,
+        ))
     }
-    Ok(elem)
 }
 
 fn validate_style(name: Tag, value: &str, loader: &EmlLoader) -> Result<(), ElementsError> {
