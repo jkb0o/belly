@@ -43,13 +43,13 @@ fn setup(mut commands: Commands) {
         buttongroup button {
             flex-grow: 1.0;
         }
-        .red .slider-low {
+        .red .range-low {
             background-color: #F54C36;
         }
-        .green .slider-low {
+        .green .range-low {
             background-color: #40B052;
         }
-        .blue .slider-low {
+        .blue .range-low {
             background-color: #69A1F5;
         }
         .header {

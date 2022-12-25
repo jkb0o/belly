@@ -12,7 +12,7 @@ fn main() {
 }
 
 #[widget]
-#[extends(Btn)]
+#[extends(descriptor=Btn)]
 #[style("background-color: darkorange")]
 #[style("padding: 5px")]
 #[style("color: #2f2f2f")]

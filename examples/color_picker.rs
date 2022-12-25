@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_elements::*;
+use bevy_elements_core::Widgets;
 
 fn main() {
     App::new()
@@ -30,6 +31,8 @@ const COLORS: &[&'static str] = &[
 ];
 
 fn setup(mut commands: Commands) {
+    let aliases: Vec<_> = Widgets::slider().get_builder().aliases().collect();
+    info!("aliases: {aliases:?}");
     commands.spawn(Camera2dBundle::default());
     let colorbox = commands.spawn_empty().id();
     commands.add(eml! {
@@ -50,7 +53,11 @@ fn setup(mut commands: Commands) {
                 <slider c:alpha
                     bind:value=to!(colorbox, BackgroundColor:0|color:a)
                     bind:value=from!(colorbox, BackgroundColor:0.a())
-                />
+                >
+                    <slot grabber>
+                        <span s:background-color="green" s:width="100%" s:height="100%"/>
+                    </slot>
+                </slider>
             </span>
             <img c:colorbox-holder src="trbg.png">
                 <span {colorbox} c:colorbox/>
@@ -97,13 +104,13 @@ fn setup(mut commands: Commands) {
             align-content: space-between;
             padding: -5px;
         }
-        .red .slider-low {
+        .red .range-low {
             background-color: #F54C36;
         }
-        .green .slider-low {
+        .green .range-low {
             background-color: #40B052;
         }
-        .blue .slider-low {
+        .blue .range-low {
             background-color: #69A1F5;
         }
     "#,
