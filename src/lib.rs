@@ -32,8 +32,8 @@ pub use belly_core::WithElements;
 // widgets
 pub use belly_widgets::prelude::*;
 
-pub struct ElementsPlugin;
-impl Plugin for ElementsPlugin {
+pub struct BellyPlugin;
+impl Plugin for BellyPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(ElementsCorePlugin);
         app.add_plugin(WidgetsPlugin);

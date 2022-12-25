@@ -8,7 +8,7 @@ fn main() {
             watch_for_changes: true,
             ..default()
         }))
-        .add_plugin(ElementsPlugin)
+        .add_plugin(BellyPlugin)
         .add_startup_system(setup)
         .run();
 }

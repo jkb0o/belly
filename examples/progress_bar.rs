@@ -4,7 +4,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(ElementsPlugin)
+        .add_plugin(BellyPlugin)
         .add_startup_system(setup)
         .run();
 }
