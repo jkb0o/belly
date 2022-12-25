@@ -180,7 +180,6 @@ pub struct Range {
 
 impl WidgetBuilder for Range {
     fn setup(&mut self, ctx: &mut ElementContext) {
-        info!("range seup");
         let holder = self.holder;
         let low = self.low_span;
         let hight = self.high_span;

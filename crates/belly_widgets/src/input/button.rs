@@ -1,10 +1,10 @@
 use crate::common::*;
+use belly_core::*;
+use belly_macro::*;
 use bevy::{
     prelude::*,
     utils::{HashMap, HashSet},
 };
-use belly_core::*;
-use belly_macro::*;
 use std::fmt::Debug;
 use std::hash::Hash;
 

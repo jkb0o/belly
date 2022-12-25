@@ -64,9 +64,9 @@ fn bind_content_system<T: BindableTarget + IntoContent + Clone + std::fmt::Debug
     // info!("bindsystem for {}", type_name::<T>());
     for (entity, bind) in binds.iter() {
         let content = bind.value.clone();
-        info!("bind value changed for {:?}", entity);
+        // info!("bind value changed for {:?}", entity);
         commands.add(move |world: &mut World| {
-            info!("setting value: bind value changed to {:?}", content);
+            // info!("setting value: bind value changed to {:?}", content);
             content.into_content(entity, world);
         })
     }

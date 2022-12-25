@@ -2,13 +2,12 @@ use std::ops::Range;
 
 use crate::common::*;
 use ab_glyph::ScaleFont;
+use belly_core::*;
+use belly_macro::*;
 use bevy::{
-    diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     input::keyboard::KeyboardInput,
     prelude::*,
 };
-use belly_core::*;
-use belly_macro::*;
 
 const CHAR_DELETE: char = '\u{7f}';
 const CURSOR_WIDTH: f32 = 2.;
@@ -214,13 +213,7 @@ fn process_keyboard_input(
     mut cursors: Query<&mut TextInputCursor>,
     mut styles: Query<&mut Style>,
     mut texts: Query<&Text>,
-    diag: Res<Diagnostics>,
 ) {
-    let frame = diag
-        .get(FrameTimeDiagnosticsPlugin::FRAME_COUNT)
-        .unwrap()
-        .average()
-        .unwrap_or_default();
     let Some((entity, mut input)) = inputs.iter_mut()
         .filter(|(_, _, e)| e.focused())
         .map(|(e, i, _)| (e, i))
@@ -267,7 +260,6 @@ fn process_keyboard_input(
             if ch.char == '\t' {
                 continue;
             }
-            info!("Pressed: '{}'", ch.char);
             if ch.char == CHAR_DELETE {
                 if !selected.is_empty() {
                     chars.drain(selected.range());
@@ -360,11 +352,6 @@ fn process_keyboard_input(
     if input.selected != selected {
         input.selected = selected;
     }
-
-    info!(
-        "{}:process_keyboard_input: Resulting index: {}, cursor: {}, selection: {:?}",
-        frame, input.index, cursor_position, selected
-    );
 }
 
 fn process_cursor_focus(
@@ -404,7 +391,6 @@ fn process_mouse(
     styles: Query<(&Style, &GlobalTransform, &Node)>,
     fonts: Res<Assets<Font>>,
     keyboard: Res<Input<KeyCode>>,
-    diag: Res<Diagnostics>,
 ) {
     for evt in events
         .iter()
@@ -463,7 +449,6 @@ fn process_mouse(
 
             let mut selected = input.selected.clone();
             let shift = keyboard.any_pressed([KeyCode::LShift, KeyCode::RShift]);
-            info!("presses: {}", evt.presses());
             if evt.down() && evt.presses() == 2 {
                 selected.start(word_start);
                 selected.extend(word_end);
@@ -485,12 +470,6 @@ fn process_mouse(
                 input.selected = selected;
                 element.invalidate();
             }
-            let frame = diag
-                .get(FrameTimeDiagnosticsPlugin::FRAME_COUNT)
-                .unwrap()
-                .average()
-                .unwrap_or_default();
-            info!("{}:process_mouse: Clicked relative: {:.2}, idx={}, offset={}, focused: {}, range: {:?}", frame, pos, index, offset, element.focused(), selected);
         }
     }
 }

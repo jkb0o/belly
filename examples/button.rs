@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use belly::build::*;
+use bevy::prelude::*;
 
 fn main() {
     App::new()
@@ -60,8 +60,7 @@ fn setup(mut commands: Commands) {
                 <button on:press=connect!(|ctx| {
                     info!(
                         "I was pressed at {}",
-                        ctx.time().elapsed_seconds(),
-                        // ctx.event().
+                        ctx.time().elapsed_seconds()
                     )
                 })>
                     "Press me and look at the logs!"

@@ -1,6 +1,5 @@
-use bevy::prelude::*;
 use belly::*;
-use belly_core::Widgets;
+use bevy::prelude::*;
 
 fn main() {
     App::new()
@@ -31,8 +30,6 @@ const COLORS: &[&'static str] = &[
 ];
 
 fn setup(mut commands: Commands) {
-    let aliases: Vec<_> = Widgets::slider().get_builder().aliases().collect();
-    info!("aliases: {aliases:?}");
     commands.spawn(Camera2dBundle::default());
     let colorbox = commands.spawn_empty().id();
     commands.add(eml! {

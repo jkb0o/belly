@@ -1,8 +1,8 @@
 use crate::input::button::*;
 use crate::range::*;
-use bevy::prelude::*;
 use belly_core::*;
 use belly_macro::*;
+use bevy::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
 enum Label {
