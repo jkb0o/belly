@@ -42,6 +42,98 @@ impl Param {
     }
 }
 
+enum Extend {
+    Styles(syn::Ident),
+    Descriptor(syn::Ident),
+    StylesAndDescriptor(syn::Ident, syn::Ident),
+}
+
+impl Extend {
+    fn span(&self) -> Span {
+        match self {
+            Extend::Styles(ident) => ident.span(),
+            Extend::Descriptor(ident) => ident.span(),
+            Extend::StylesAndDescriptor(ident, _) => ident.span(),
+        }
+    }
+    fn descriptor(&self) -> Option<syn::Ident> {
+        match self {
+            Extend::Descriptor(descriptor) | Extend::StylesAndDescriptor(_, descriptor) => {
+                Some(descriptor.clone())
+            }
+            _ => None,
+        }
+    }
+    fn styles(&self) -> Option<syn::Ident> {
+        match self {
+            Extend::Styles(styles) | Extend::StylesAndDescriptor(styles, _) => Some(styles.clone()),
+            _ => None,
+        }
+    }
+
+    fn from_attributes(attrs: &Vec<syn::Attribute>) -> syn::Result<Option<Extend>> {
+        let extends: Vec<_> = attrs
+            .iter()
+            .filter(|a| a.path.is_ident("extends"))
+            .map(|a| a.parse_args::<Extend>())
+            .collect();
+        let mut found = None;
+        for extend in extends {
+            let extend = extend?;
+            found = match (found, extend) {
+                (None, extend) => Some(extend),
+                (Some(Extend::Styles(styles)), Extend::Descriptor(descriptor))
+                | (Some(Extend::Descriptor(descriptor)), Extend::Styles(styles)) => {
+                    Some(Extend::StylesAndDescriptor(styles, descriptor))
+                }
+                (Some(found), _) => {
+                    return Err(syn::Error::new(
+                        found.span(),
+                        format!("Invalid #[extends] sequence."),
+                    ))
+                }
+            }
+        }
+        Ok(found)
+    }
+}
+
+impl syn::parse::Parse for Extend {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let span = input.span();
+        let mut styles: Option<syn::Ident> = None;
+        let mut descriptor: Option<syn::Ident> = None;
+        while !input.is_empty() {
+            let kind = input.parse::<syn::Ident>()?;
+            let target = if &kind.to_string() == "descriptor" {
+                &mut descriptor
+            } else if &kind.to_string() == "styles" {
+                &mut styles
+            } else {
+                return Err(syn::Error::new(
+                    span,
+                    "#[extend] support only `styles` and `descriptor` args",
+                ));
+            };
+            input.parse::<syn::Token![=]>()?;
+            let value = input.parse::<syn::Ident>()?;
+            *target = Some(value);
+            if !input.is_empty() {
+                input.parse::<syn::Token![,]>()?;
+            }
+        }
+        match (styles, descriptor) {
+            (Some(styles), None) => Ok(Extend::Styles(styles)),
+            (None, Some(descriptor)) => Ok(Extend::Descriptor(descriptor)),
+            (Some(styles), Some(descriptor)) => Ok(Extend::StylesAndDescriptor(styles, descriptor)),
+            _ => Err(syn::Error::new(
+                span,
+                "#[extend] should provide at least one argument: `styles` and/or `descriptor`",
+            )),
+        }
+    }
+}
+
 trait FieldExt {
     fn is_entity(&self) -> bool;
 }
@@ -122,14 +214,18 @@ fn create_attr_stmt(attr: &NodeAttribute) -> TokenStream {
             let attr_value = attr_value.as_ref();
             let attr_span = attr_value.span();
             if attr_name == "with" {
-                return create_command_stmts(attr_value);
+                create_command_stmts(attr_value)
+            } else if attr_name == "params" {
+                quote_spanned! {attr_span=>
+                    __ctx.params.merge(#attr_value);
+                }
             } else {
-                return quote_spanned! {attr_span=>
+                quote_spanned! {attr_span=>
                     __ctx.params.add(::bevy_elements_core::params::Param::new(
                         #attr_name.into(),
                         (#attr_value).into()
                     ));
-                };
+                }
             }
         }
     }
@@ -201,7 +297,7 @@ fn process_slots(node: &NodeElement) -> TokenStream {
     if attr.value.is_none() {
         let slot_name = attr.key.to_string();
         quote! {
-            let mut __slot_value = vec![];
+            let mut __slot_value: Vec<Entity> = vec![];
             #slot_content
             __world.resource::<::bevy_elements_core::eml::build::Slots>()
                 .clone()
@@ -222,7 +318,7 @@ fn process_slots(node: &NodeElement) -> TokenStream {
             if let Some(__slot_value) = __slot_value {
                 __ctx.children.extend(__slot_value);
             } else {
-                let mut __slot_value = vec![];
+                let mut __slot_value: Vec<Entity> = vec![];
                 #slot_content
                 __ctx.children.extend(__slot_value);
             }
@@ -429,7 +525,7 @@ fn err(span: Span, message: &str) -> proc_macro::TokenStream {
     proc_macro::TokenStream::from(syn::Error::new(span, message).to_compile_error())
 }
 
-#[proc_macro_derive(Widget, attributes(alias, param, signal, bindto, bindfrom))]
+#[proc_macro_derive(Widget, attributes(alias, param, signal, bindto, bindfrom, extends))]
 pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let span = ast.span();
@@ -437,7 +533,7 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
     let component = &ast.ident;
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     let component_str = format!("{component}");
-    let mut alias_expr = quote! { #component_str };
+    let mut names_expr = quote! { #component_str };
     let mod_descriptor = format_ident!("{}_widget_descriptor", component_str.to_lowercase());
     let extension_ident = format_ident!("{component}WidgetExtension");
 
@@ -516,7 +612,7 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 return err(attr.span(), "Alias should be defined using tokens: `#[alias(alias_name)]");
             };
             let alias_str = format!("{alias}");
-            alias_expr = quote! { #alias_expr, #alias_str };
+            names_expr = quote! { #names_expr, #alias_str };
             extension_body = quote! {
                 #extension_body
                 #docs
@@ -541,6 +637,14 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
         Ok(tokens) => tokens,
         Err(e) => return proc_macro::TokenStream::from(e.to_compile_error()),
     };
+    let aliases_decl = match prepare_extends_aliases(&ast.attrs) {
+        Ok(tokens) => tokens,
+        Err(e) => return proc_macro::TokenStream::from(e.to_compile_error()),
+    };
+    let extends_decl = match prepare_extends_descriptor(&component, &ast.attrs) {
+        Ok(tokens) => tokens,
+        Err(e) => return proc_macro::TokenStream::from(e.to_compile_error()),
+    };
     // panic!("binds: {}", bind_descriptors.to_string());
 
     proc_macro::TokenStream::from(quote! {
@@ -558,12 +662,18 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 #connect_signals
 
                 #bind_descriptors
+
             }
+
+            #extends_decl
         }
         impl #impl_generics ::bevy_elements_core::Widget for #component #ty_generics #where_clause {
             fn names() -> &'static [&'static str] {
-                &[#alias_expr]
+                &[#names_expr]
             }
+
+            #aliases_decl
+
             fn construct_component(world: &mut ::bevy::prelude::World, params: &mut ::bevy_elements_core::Params) -> ::std::option::Option<Self> {
                 ::std::option::Option::Some(#component {
                     #construct_body
@@ -817,24 +927,29 @@ fn parse_signals(attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStream> {
     Ok(connect_body)
 }
 
-fn parse_extends(ident: &syn::Ident, attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStream> {
+fn prepare_extends_descriptor(
+    ident: &syn::Ident,
+    attrs: &Vec<syn::Attribute>,
+) -> syn::Result<TokenStream> {
     let this_str = ident.to_string();
     let this_mod = format_ident!("{}_widget_descriptor", this_str.to_lowercase());
-    let Some(attr) = attrs.iter().filter(|a| a.path.is_ident("extends")).next() else {
-        return Ok(quote! {
-            impl ::std::ops::Deref for #this_mod::Descriptor {
-                type Target = ::bevy_elements_core::eml::build::DefaultDescriptor;
-                fn deref(&self) -> &::bevy_elements_core::eml::build::DefaultDescriptor {
-                    let instance = ::bevy_elements_core::eml::build::DefaultDescriptor::get_instance();
-                    instance
-                }
+    let default_descriptor = quote! {
+        impl ::std::ops::Deref for #this_mod::Descriptor {
+            type Target = ::bevy_elements_core::eml::build::DefaultDescriptor;
+            fn deref(&self) -> &::bevy_elements_core::eml::build::DefaultDescriptor {
+                let instance = ::bevy_elements_core::eml::build::DefaultDescriptor::get_instance();
+                instance
             }
-        })
+        }
     };
-    let Ok(extends) = attr.parse_args::<syn::Ident>() else {
-        return Err(syn::Error::new(attr.span(), "#[extends] should be defined using token: `#[extends(button)]"));
+    let Some(extends) = Extend::from_attributes(attrs)? else {
+        return Ok(default_descriptor)
     };
-    let extends = extends.to_string();
+    let Some(descriptor) = extends.descriptor() else {
+        return Ok(default_descriptor)
+    };
+
+    let extends = descriptor.to_string();
     let extends = format_ident!("{}WidgetExtension", capitalize(&extends));
     let derive = quote! {
         impl ::std::ops::Deref for #this_mod::Descriptor {
@@ -846,6 +961,33 @@ fn parse_extends(ident: &syn::Ident, attrs: &Vec<syn::Attribute>) -> syn::Result
         }
     };
     Ok(derive)
+}
+
+fn prepare_extends_aliases(attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStream> {
+    let default_styles = quote! {};
+    let Some(extends) = Extend::from_attributes(attrs)? else {
+        return Ok(default_styles)
+    };
+    let Some(styles) = extends.styles() else {
+        return Ok(default_styles)
+    };
+    let ext = styles.to_string();
+    let ext = format_ident!("{}WidgetExtension", capitalize(&ext));
+    Ok(quote! {
+        fn aliases() -> &'static [&'static str] {
+            unsafe {
+                static mut ALIASES: Vec<&'static str> = vec![];
+                static ONCE: ::std::sync::Once = ::std::sync::Once::new();
+                ONCE.call_once(|| {
+                    let instance = <::bevy_elements_core::Widgets as #ext>::Descriptor::get_instance();
+                    let builder = instance.get_builder();
+                    ALIASES.extend(builder.names().map(|t| *t));
+                    ALIASES.extend(builder.aliases().map(|t| *t));
+                });
+                &ALIASES
+            }
+         }
+    })
 }
 
 fn parse_styles(ident: &syn::Ident, attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStream> {
@@ -936,7 +1078,11 @@ pub fn widget(
         Ok(tokens) => tokens,
         Err(e) => return proc_macro::TokenStream::from(e.to_compile_error()),
     };
-    let extends_decl = match parse_extends(&fn_ident, &ast.attrs) {
+    let extends_decl = match prepare_extends_descriptor(&fn_ident, &ast.attrs) {
+        Ok(tokens) => tokens,
+        Err(e) => return proc_macro::TokenStream::from(e.to_compile_error()),
+    };
+    let aliases_decl = match prepare_extends_aliases(&ast.attrs) {
         Ok(tokens) => tokens,
         Err(e) => return proc_macro::TokenStream::from(e.to_compile_error()),
     };
@@ -971,6 +1117,7 @@ pub fn widget(
             fn names() -> &'static [&'static str] {
                 &[#alias]
             }
+            #aliases_decl
         }
 
         impl ::bevy_elements_core::WidgetBuilder for #fn_ident {

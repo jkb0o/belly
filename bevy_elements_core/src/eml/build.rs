@@ -55,6 +55,9 @@ pub fn entity_from_world_and_param(world: &mut World, param: Variant) -> Entity 
 
 pub trait Widget: Sized + Component + 'static {
     fn names() -> &'static [&'static str];
+    fn aliases() -> &'static [&'static str] {
+        &[]
+    }
 
     #[allow(unused_variables)]
     fn construct_component(world: &mut World, params: &mut Params) -> Option<Self> {
@@ -106,6 +109,7 @@ pub trait WidgetBuilder: Widget {
 
     fn post_process(ctx: &mut ElementContext) {
         let names = Self::names().iter().map(|n| n.as_tag()).collect();
+        let aliases = Self::aliases().iter().map(|n| n.as_tag()).collect();
         // println!("adding tag {}", names.ite
         ctx.apply_commands();
         let focus_policy = match ctx.param(tag!("interactable")) {
@@ -147,6 +151,7 @@ pub trait WidgetBuilder: Widget {
         });
         ctx.update_element(move |element| {
             element.names = names;
+            element.aliases = aliases;
             element.id = id;
             element.classes.extend(classes);
             element.styles.extend(styles);
@@ -158,6 +163,7 @@ pub trait WidgetBuilder: Widget {
             build_func: |world, ctx| Self::build(world, ctx),
             styles_func: Self::styles,
             names_func: Self::names,
+            aliases_func: Self::aliases,
         }
     }
 }
@@ -245,6 +251,10 @@ impl<'w, 's> ElementContext<'w, 's> {
         self.data.params.drop_variant(key)
     }
 
+    pub fn params(&mut self) -> Params {
+        mem::take(&mut self.data.params)
+    }
+
     pub fn id(&mut self) -> Option<Tag> {
         self.data.params.id()
     }
@@ -283,12 +293,17 @@ type Names = fn() -> &'static [&'static str];
 pub struct ElementBuilder {
     build_func: fn(&mut World, ElementContextData),
     styles_func: fn() -> &'static str,
+    aliases_func: Names,
     names_func: Names,
 }
 
 impl ElementBuilder {
     pub fn names(&self) -> impl Iterator<Item = Tag> {
         (self.names_func)().iter().map(|s| s.as_tag())
+    }
+
+    pub fn aliases(&self) -> impl Iterator<Item = Tag> {
+        (self.aliases_func)().iter().map(|s| s.as_tag())
     }
 
     pub fn build(&self, world: &mut World, ctx: ElementContextData) {

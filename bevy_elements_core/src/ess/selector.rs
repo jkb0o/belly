@@ -367,6 +367,7 @@ impl<'b, 'e> EmlNode for ElementNode<'b, 'e> {
         self.branch.0[self.idx]
             .names
             .iter()
+            .chain(self.branch.0[self.idx].aliases.iter())
             .filter(|t| *t == tag)
             .next()
             .is_some()

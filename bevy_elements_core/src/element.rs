@@ -21,7 +21,8 @@ pub enum DisplayElement {
 
 #[derive(Component, Default)]
 pub struct Element {
-    pub names: SmallVec<[Tag; 4]>,
+    pub names: SmallVec<[Tag; 2]>,
+    pub aliases: SmallVec<[Tag; 2]>,
     pub id: Option<Tag>,
     pub classes: HashSet<Tag>,
     pub state: HashSet<Tag>,
