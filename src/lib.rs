@@ -10,8 +10,8 @@ pub use bevy_elements_core::ImageElementBundle;
 pub use bevy_elements_core::TextElementBundle;
 
 // structs
-pub use bevy_elements_core::eml::EmlAsset;
-pub use bevy_elements_core::eml::EmlScene;
+pub use bevy_elements_core::eml::asset::EmlAsset;
+pub use bevy_elements_core::eml::asset::EmlScene;
 pub use bevy_elements_core::ess::StyleSheet;
 
 // macros

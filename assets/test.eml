@@ -1,6 +1,6 @@
 <body s:flex-direction="column">
-    <div s:height="15px"/>
-    <div s:width="50px" s:height="15px" s:background-color="rebeccapurple"/>
-    <div s:margin-left="50px" s:font-size="36px">Hello world!</div>
-    <div s:width="50px" s:height="15px" s:background-color="rebeccapurple"/>
+    <span s:height="15px"/>
+    <span s:width="50px" s:height="15px" s:background-color="rebeccapurple"/>
+    <span s:margin-left="50px" s:font-size="36px">Hello world!</span>
+    <span s:width="50px" s:height="15px" s:background-color="rebeccapurple"/>
 </body>
