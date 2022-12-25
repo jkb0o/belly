@@ -8,8 +8,6 @@ use bevy::{
     utils::HashSet,
 };
 
-const DRAG_THRESHOLD: f32 = 0.;
-
 pub(crate) struct ElementsInputPlugin;
 impl Plugin for ElementsInputPlugin {
     fn build(&self, app: &mut App) {
@@ -236,8 +234,6 @@ pub fn pointer_input_system(
         })
         .or_else(|| touches_input.first_pressed_position());
 
-    let mut send_drag_start = false;
-    let send_drag_stop = state.dragging && up;
     if down {
         state.press_position = cursor_position;
         state.drag_accumulator = Vec2::ZERO;
@@ -247,13 +243,6 @@ pub fn pointer_input_system(
         _ => Vec2::ZERO,
     };
     state.last_cursor_position = cursor_position;
-    if !state.press_position.is_none() && !state.dragging {
-        state.drag_accumulator += delta;
-        if state.drag_accumulator.length() > DRAG_THRESHOLD {
-            send_drag_start = true;
-            state.dragging = true;
-        }
-    }
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one.
@@ -312,10 +301,18 @@ pub fn pointer_input_system(
     let mut down_entities = vec![];
     let mut up_entities = vec![];
     let mut pressed_entities = vec![];
-    let mut drag_start_entities = vec![];
     let mut drag_entities = vec![];
-    let mut drag_stop_entities = vec![];
     let mut motion_entities = vec![];
+    let mut drag_start_entities = vec![];
+    if delta.length_squared() > 0.0 && !state.dragging && !state.pressed_entities.is_empty() {
+        state.dragging = true;
+        drag_start_entities = state.pressed_entities.clone();
+    }
+    let send_drag_stop = state.dragging && up;
+    let mut drag_stop_entities = vec![];
+    if send_drag_stop {
+        drag_stop_entities = state.dragging_from.clone();
+    }
 
     // set Clicked or Hovered on top nodes. as soon as a node with a `Block` focus policy is detected,
     // the iteration will stop on it because it "captures" the interaction.
@@ -341,9 +338,9 @@ pub fn pointer_input_system(
                 pressed_entities.push(entity);
             }
         }
-        if send_drag_start {
-            drag_start_entities.push(entity);
-        }
+        // if send_drag_start {
+        //     drag_start_entities.push(entity);
+        // }
         if delta != Vec2::ZERO {
             if state.dragging {
                 drag_entities.push(entity);
@@ -378,15 +375,6 @@ pub fn pointer_input_system(
             delta,
             entities: down_entities,
             data: PointerInputData::Down { presses },
-        });
-    }
-    if up_entities.len() > 0 {
-        let presses = state.presses;
-        events.send(PointerInput {
-            pos,
-            delta,
-            entities: up_entities,
-            data: PointerInputData::Up { presses },
         });
     }
     if pressed_entities.len() > 0 {
@@ -431,6 +419,15 @@ pub fn pointer_input_system(
             delta,
             entities: drag_stop_entities,
             data: PointerInputData::DragStop,
+        });
+    }
+    if up_entities.len() > 0 {
+        let presses = state.presses;
+        events.send(PointerInput {
+            pos,
+            delta,
+            entities: up_entities,
+            data: PointerInputData::Up { presses },
         });
     }
 
