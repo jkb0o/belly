@@ -1,5 +1,5 @@
 use bevy::{prelude::*, render::camera::ScalingMode, text::TextSettings};
-use bevy_elements::*;
+use belly::*;
 
 fn main() {
     App::new()

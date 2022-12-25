@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_elements::build::*;
+use belly::build::*;
 
 fn main() {
     App::new()

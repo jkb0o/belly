@@ -7,8 +7,8 @@ use bevy::{
     input::keyboard::KeyboardInput,
     prelude::*,
 };
-use bevy_elements_core::*;
-use bevy_elements_macro::*;
+use belly_core::*;
+use belly_macro::*;
 
 const CHAR_DELETE: char = '\u{7f}';
 const CURSOR_WIDTH: f32 = 2.;
@@ -29,7 +29,7 @@ impl Plugin for TextInputPlugin {
                 CoreStage::PreUpdate,
                 process_cursor_focus
                     .label(TextInputLabel::Focus)
-                    .after(bevy_elements_core::input::Label::Focus),
+                    .after(belly_core::input::Label::Focus),
             )
             .add_system_to_stage(
                 CoreStage::PreUpdate,

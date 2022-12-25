@@ -1,6 +1,6 @@
 use bevy::prelude::*;
-use bevy_elements::*;
-use bevy_elements_core::Widgets;
+use belly::*;
+use belly_core::Widgets;
 
 fn main() {
     App::new()

@@ -1,5 +1,5 @@
 [package]
-name = "bevy_elements"
+name = "belly"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,17 +7,17 @@ edition = "2021"
 
 [workspace]
 members = [
-    "bevy_elements_core",
-    "bevy_elements_macro",
-    "bevy_elements_widgets",
-    "tagstr",
-    "tagstr_core",
-    "tagstr_macro"
+    "crates/belly_core",
+    "crates/belly_macro",
+    "crates/belly_widgets",
+    "crates/tagstr",
+    "crates/tagstr_core",
+    "crates/tagstr_macro"
 ]
 
 [dependencies]
 bevy = "0.9.0"
-tagstr = { path = "tagstr" }
-bevy_elements_macro = { path = "bevy_elements_macro" }
-bevy_elements_core = { path = "bevy_elements_core" }
-bevy_elements_widgets = { path = "bevy_elements_widgets" }
+tagstr = { path = "crates/tagstr" }
+belly_macro = { path = "crates/belly_macro" }
+belly_core = { path = "crates/belly_core" }
+belly_widgets = { path = "crates/belly_widgets" }

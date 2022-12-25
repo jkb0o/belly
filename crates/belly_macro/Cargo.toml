@@ -1,5 +1,5 @@
 [package]
-name = "bevy_elements_macro"
+name = "belly_macro"
 version = "0.1.0"
 edition = "2021"
 
@@ -13,7 +13,7 @@ bevy = "0.9.0"
 quote = "1.0.21"
 syn-rsx = { git = "https://github.com/stoically/syn-rsx.git" }
 # syn-rsx = { git = "https://github.com/jkb0o/syn-rsx.git", branch = "add_syn_printing_feature" }
-bevy_elements_core = { path = "../bevy_elements_core" }
+belly_core = { path = "../belly_core" }
 proc-macro2 = "1.0.47"
 procout = "0.1.13"
 syn = "1.0.103"

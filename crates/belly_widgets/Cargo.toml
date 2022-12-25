@@ -1,5 +1,5 @@
 [package]
-name = "bevy_elements_widgets"
+name = "belly_widgets"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,8 +7,8 @@ edition = "2021"
 
 [dependencies]
 bevy = "0.9.0"
-bevy_elements_core = { path = "../bevy_elements_core" }
-bevy_elements_macro = { path = "../bevy_elements_macro" }
+belly_core = { path = "../belly_core" }
+belly_macro = { path = "../belly_macro" }
 tagstr = { path = "../tagstr" }
 tagstr_core = { path = "../tagstr_core" }
 itertools = "0.10.5"

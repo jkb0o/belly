@@ -1,5 +1,5 @@
 [package]
-name = "bevy_elements_core"
+name = "belly_core"
 version = "0.1.0"
 edition = "2021"
 

@@ -25,13 +25,13 @@ Prerequisites & Setup
 
 If you land here, it means you have some experience using `rust` & `cargo` and you already have a `bevy`-based project. The only step you need is:
 ```
-cargo add bevy_elements
+cargo add belly
 ```
 
 If you want just to play around it is better to get the sources & run the [examples](TODO):
 ```
-git clone https://github.com/jkb0o/bevy_elements.git
-cd bevy_elements
+git clone https://github.com/jkb0o/belly.git
+cd belly
 cargo run --example hello_world
 ```
 
@@ -42,7 +42,7 @@ Not another word! Let's write code:
 
 ```rust
 use bevy::prelude::*;
-use bevy_elements::*;
+use belly::*;
 
 fn main() {
     App::new()

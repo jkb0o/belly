@@ -2,8 +2,8 @@ use bevy::{
     prelude::*,
     utils::{HashMap, HashSet},
 };
-use bevy_elements_core::*;
-use bevy_elements_macro::*;
+use belly_core::*;
+use belly_macro::*;
 
 pub(crate) struct ImgPlugin;
 impl Plugin for ImgPlugin {

@@ -3,6 +3,41 @@ use std::str::FromStr;
 use bevy::{prelude::*, utils::HashMap};
 use belly_core::{eml::build::FromWorldAndParam, *};
 
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum LayoutMode {
+    Vertical,
+    Horizontal,
+}
+
+impl From<LayoutMode> for Variant {
+    fn from(m: LayoutMode) -> Self {
+        Variant::boxed(m)
+    }
+}
+
+impl FromStr for LayoutMode {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "vertical" => Ok(LayoutMode::Vertical),
+            "horizontal" => Ok(LayoutMode::Horizontal),
+            s => Err(format!("Don't know how to parse '{s}' as LayoutMode")),
+        }
+    }
+}
+
+impl TryFrom<Variant> for LayoutMode {
+    type Error = String;
+    fn try_from(value: Variant) -> Result<Self, Self::Error> {
+        value.get_or_parse()
+    }
+}
+
+impl FromWorldAndParam for LayoutMode {
+    fn from_world_and_param(_world: &mut World, param: Variant) -> Self {
+        param.get_or(LayoutMode::Horizontal)
+    }
+}
 
 pub trait VisibleProgress: Component {
     fn get_relative_value(&self) -> f32;

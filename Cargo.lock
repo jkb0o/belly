@@ -234,6 +234,58 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
+name = "belly"
+version = "0.1.0"
+dependencies = [
+ "belly_core",
+ "belly_macro",
+ "belly_widgets",
+ "bevy 0.9.0",
+ "tagstr",
+]
+
+[[package]]
+name = "belly_core"
+version = "0.1.0"
+dependencies = [
+ "bevy 0.9.0",
+ "bevy-inspector-egui",
+ "cssparser",
+ "itertools",
+ "lazy_static",
+ "roxmltree",
+ "smallvec",
+ "tagstr",
+ "tagstr_core",
+]
+
+[[package]]
+name = "belly_macro"
+version = "0.1.0"
+dependencies = [
+ "belly_core",
+ "bevy 0.9.0",
+ "proc-macro2",
+ "procout",
+ "quote",
+ "syn",
+ "syn-rsx",
+]
+
+[[package]]
+name = "belly_widgets"
+version = "0.1.0"
+dependencies = [
+ "ab_glyph",
+ "belly_core",
+ "belly_macro",
+ "bevy 0.9.0",
+ "itertools",
+ "tagstr",
+ "tagstr_core",
+]
+
+[[package]]
 name = "bevy"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -585,58 +637,6 @@ dependencies = [
  "egui",
  "thread_local",
  "webbrowser",
-]
-
-[[package]]
-name = "bevy_elements"
-version = "0.1.0"
-dependencies = [
- "bevy 0.9.0",
- "bevy_elements_core",
- "bevy_elements_macro",
- "bevy_elements_widgets",
- "tagstr",
-]
-
-[[package]]
-name = "bevy_elements_core"
-version = "0.1.0"
-dependencies = [
- "bevy 0.9.0",
- "bevy-inspector-egui",
- "cssparser",
- "itertools",
- "lazy_static",
- "roxmltree",
- "smallvec",
- "tagstr",
- "tagstr_core",
-]
-
-[[package]]
-name = "bevy_elements_macro"
-version = "0.1.0"
-dependencies = [
- "bevy 0.9.0",
- "bevy_elements_core",
- "proc-macro2",
- "procout",
- "quote",
- "syn",
- "syn-rsx",
-]
-
-[[package]]
-name = "bevy_elements_widgets"
-version = "0.1.0"
-dependencies = [
- "ab_glyph",
- "bevy 0.9.0",
- "bevy_elements_core",
- "bevy_elements_macro",
- "itertools",
- "tagstr",
- "tagstr_core",
 ]
 
 [[package]]
