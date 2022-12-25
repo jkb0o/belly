@@ -1,6 +1,8 @@
 pub mod common;
 pub mod img;
 pub mod input;
+pub mod range;
+pub mod visible_progress;
 use bevy::prelude::Plugin;
 
 #[derive(Default)]
@@ -11,6 +13,7 @@ impl Plugin for WidgetsPlugin {
         app.add_plugin(img::ImgPlugin);
         app.add_plugin(input::InputPlugins);
         app.add_plugin(common::CommonsPlugin);
+        app.add_plugin(range::RangePlugin);
     }
 }
 

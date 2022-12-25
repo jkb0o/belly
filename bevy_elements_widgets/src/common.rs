@@ -2,6 +2,8 @@ use bevy::prelude::*;
 use bevy_elements_core::*;
 use bevy_elements_macro::*;
 
+use super::range::*;
+
 #[doc(hidden)]
 pub(crate) struct CommonsPlugin;
 
@@ -12,6 +14,8 @@ impl Plugin for CommonsPlugin {
         app.register_widget::<brl>();
         app.register_widget::<div>();
         app.register_widget::<Label>();
+        app.register_widget::<progressbar>();
+        app.register_widget::<span>();
         app.register_widget::<strong>();
     }
 }
@@ -70,17 +74,7 @@ fn div(ctx: &mut ElementContext) {
 #[derive(Component, Widget)]
 #[alias(label)]
 /// The `<label>` tag is a binable single line of text. It consumes
-/// the children and renders the content of bindable `value` param:
-/// ```rust
-/// let input = commands.spawn_empty().id();
-/// commands.add(eml! {
-///     // just a single line of text
-///     <label value="Hello world!"/>
-///
-///     // bind textinput.value to label.value
-///     <textinput {input}/>
-///     <label bind:value=from(input, TextInput:value)/>
-/// });
+/// the children and renders the content of bindable `value` param.
 /// ```
 pub struct Label {
     #[param]
@@ -92,23 +86,18 @@ impl WidgetBuilder for Label {
     fn setup(&mut self, ctx: &mut ElementContext) {
         ctx.insert(TextElementBundle::default());
     }
+}
 
-    // fn connect<C:Component>(
-    //     world: &mut World,
-    //     signal: &'static str,
-    //     source: Entity,
-    //     target: ConnectionTo<C>
-    // ) {
-    //     match signal {
-    //         "press" => {
-    //             target
-    //                 .filter(|e: &PointerInput| e.pressed())
-    //                 .from(source)
-    //                 .write(world);
-    //         },
-    //         _ => error!("Don't know how to connect '{signal}' signal")
-    //     };
-    // }
+#[widget]
+#[extends(styles=Range)]
+#[extends(descriptor=Range)]
+#[style("min-width: 26px")]
+#[style("min-height: 26px")]
+fn progressbar(ctx: &mut ElementContext) {
+    let params = ctx.params();
+    ctx.render(eml! {
+        <range c:progress-bar params=params/>
+    })
 }
 
 #[widget]
