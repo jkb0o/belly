@@ -23,17 +23,16 @@ During plugin development I am guided by the following values:
 Prerequisites & Setup
 ---------------------
 
-If you land here, it means you have some experience using `rust` & `cargo` and you already have a `bevy`-based project. The only step you need is:
-```
-cargo add belly
-```
+As far as the project has no cargo release yet, the only way to discover functionality
+is to clone repo & play with examples:
 
-If you want just to play around it is better to get the sources & run the [examples](TODO):
 ```
 git clone https://github.com/jkb0o/belly.git
 cd belly
-cargo run --example hello_world
+cargo run --example color_picker
 ```
+
+If you are brave enough, you can connect the plugin by referencing github repo in your `Cargo.toml`.
 
 Basics
 ------
@@ -47,7 +46,7 @@ use belly::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(ElementsPlugin)
+        .add_plugin(BellyPlugin)
         .add_startup_system(setup)
         .run();
 }
