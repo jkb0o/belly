@@ -50,11 +50,7 @@ fn setup(mut commands: Commands) {
                 <slider c:alpha
                     bind:value=to!(colorbox, BackgroundColor:0|color:a)
                     bind:value=from!(colorbox, BackgroundColor:0.a())
-                >
-                    <slot grabber>
-                        <span s:background-color="green" s:width="100%" s:height="100%"/>
-                    </slot>
-                </slider>
+                />
             </span>
             <img c:colorbox-holder src="trbg.png">
                 <span {colorbox} c:colorbox/>
