@@ -2,14 +2,13 @@ use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::text::TextLayoutInfo;
 use bevy::utils::HashMap;
 use bevy::{ecs::system::EntityCommands, prelude::*};
-use bevy_inspector_egui::egui::mutex::RwLock;
 use eml::build::BuildPligin;
 use eml::EmlPlugin;
 use ess::{EssPlugin, StyleSheet, StyleSheetParser};
 use input::ElementsInputPlugin;
 use std::error::Error;
 use std::fmt::Display;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 // use focus::{Focused, update_focus};
 use property::{CompoundProperty, PropertyValue};
 
@@ -262,6 +261,7 @@ impl PropertyTransformer {
     ) -> Result<PropertyValue, ElementsError> {
         self.0
             .read()
+            .unwrap()
             .get(&name)
             .ok_or(ElementsError::UnsupportedProperty(name.to_string()))
             .and_then(|transform| transform(value))
@@ -279,7 +279,7 @@ impl PropertyExtractor {
         PropertyExtractor(Arc::new(RwLock::new(rules)))
     }
     pub(crate) fn is_compound_property(&self, name: Tag) -> bool {
-        self.0.read().contains_key(&name)
+        self.0.read().unwrap().contains_key(&name)
     }
 
     pub(crate) fn extract(
@@ -289,6 +289,7 @@ impl PropertyExtractor {
     ) -> Result<HashMap<Tag, PropertyValue>, ElementsError> {
         self.0
             .read()
+            .unwrap()
             .get(&name)
             .ok_or(ElementsError::UnsupportedProperty(name.to_string()))
             .and_then(|extractor| extractor(value))
@@ -306,6 +307,7 @@ impl RegisterProperty for bevy::prelude::App {
             .get_resource_or_insert_with(PropertyTransformer::default)
             .0
             .write()
+            .unwrap()
             .entry(T::name())
             .and_modify(|_| panic!("Property `{}` already registered.", T::name()))
             .or_insert(T::transform);
@@ -318,6 +320,7 @@ impl RegisterProperty for bevy::prelude::App {
             .get_resource_or_insert_with(PropertyExtractor::default)
             .0
             .write()
+            .unwrap()
             .entry(T::name())
             .and_modify(|_| panic!("CompoundProperty `{}` already registered", T::name()))
             .insert(T::extract);
