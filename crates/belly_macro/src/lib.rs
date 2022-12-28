@@ -22,7 +22,7 @@ fn core_path() -> TokenStream {
     let Some(pkg) = pkg.as_table() else { return default_path };
     let Some(pkg) = pkg.get("name") else { return default_path };
     let Some(pkg) = pkg.as_str() else { return default_path };
-    let path = if pkg.starts_with("belly_") {
+    let path = if pkg.trim() == "belly_widgets" {
         quote! { ::belly_core }
     } else {
         quote! { ::belly::core }
