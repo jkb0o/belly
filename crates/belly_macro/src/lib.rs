@@ -3,6 +3,32 @@ use quote::*;
 extern crate proc_macro;
 use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Error, Expr, ExprPath};
 use syn_rsx::{parse, Node, NodeAttribute, NodeElement};
+use toml;
+
+fn core_path() -> TokenStream {
+    let default_path = quote! { ::belly_core };
+    let Some(manifest_path) = std::env::var_os("CARGO_MANIFEST_DIR")
+        .map(std::path::PathBuf::from)
+        .map(|mut path| { path.push("Cargo.toml"); path })
+        else { return default_path };
+    let Ok(manifest) = std::fs::read_to_string(&manifest_path) else {
+        return default_path
+    };
+    let Ok(manifest) = toml::from_str::<toml::map::Map<String, toml::Value>>(&manifest) else {
+        return default_path
+    };
+
+    let Some(pkg) = manifest.get("package") else { return default_path };
+    let Some(pkg) = pkg.as_table() else { return default_path };
+    let Some(pkg) = pkg.get("name") else { return default_path };
+    let Some(pkg) = pkg.as_str() else { return default_path };
+    let path = if pkg.starts_with("belly_") {
+        quote! { ::belly_core }
+    } else {
+        quote! { ::belly::core }
+    };
+    path
+}
 
 enum Param {
     Direct(syn::Ident),
@@ -168,6 +194,7 @@ fn create_single_command_stmt(expr: &ExprPath) -> TokenStream {
 }
 
 fn create_command_stmts(expr: &Expr) -> TokenStream {
+    let core = core_path();
     let with_body = match expr {
         Expr::Path(path) => create_single_command_stmt(path),
         Expr::Tuple(components) => {
@@ -193,20 +220,21 @@ fn create_command_stmts(expr: &Expr) -> TokenStream {
     };
     let expr_span = expr.span();
     quote_spanned! {expr_span=>
-        __ctx.params.add(::belly_core::Param::from_commands("with", ::std::boxed::Box::new(move |c| {
+        __ctx.params.add(#core::Param::from_commands("with", ::std::boxed::Box::new(move |c| {
             #with_body
         })));
     }
 }
 
 fn create_attr_stmt(attr: &NodeAttribute) -> TokenStream {
+    let core = core_path();
     let attr_name = attr.key.to_string();
     match &attr.value {
         None => {
             return quote! {
-                __ctx.params.add(::belly_core::params::Param::new(
+                __ctx.params.add(#core::params::Param::new(
                     #attr_name.into(),
-                    ::belly_core::Variant::Bool(true)
+                    #core::Variant::Bool(true)
                 ));
             };
         }
@@ -221,7 +249,7 @@ fn create_attr_stmt(attr: &NodeAttribute) -> TokenStream {
                 }
             } else {
                 quote_spanned! {attr_span=>
-                    __ctx.params.add(::belly_core::params::Param::new(
+                    __ctx.params.add(#core::params::Param::new(
                         #attr_name.into(),
                         (#attr_value).into()
                     ));
@@ -276,6 +304,7 @@ fn process_for_loop(node: &NodeElement) -> TokenStream {
 }
 
 fn process_slots(node: &NodeElement) -> TokenStream {
+    let core = core_path();
     let span = node.span();
     if node.attributes.len() != 1 {
         return err2(
@@ -299,9 +328,9 @@ fn process_slots(node: &NodeElement) -> TokenStream {
         quote! {
             let mut __slot_value: Vec<Entity> = vec![];
             #slot_content
-            __world.resource::<::belly_core::eml::build::Slots>()
+            __world.resource::<#core::eml::build::Slots>()
                 .clone()
-                .insert(::tagstr::Tag::new(#slot_name), __slot_value);
+                .insert(#core::tagstr::Tag::new(#slot_name), __slot_value);
         }
     } else {
         if &attr.key.to_string() != "define" {
@@ -312,9 +341,9 @@ fn process_slots(node: &NodeElement) -> TokenStream {
         }
         let slot_name = attr.value.as_ref().unwrap().as_ref();
         quote! {
-            let __slot_value = __world.resource::<::belly_core::eml::build::Slots>()
+            let __slot_value = __world.resource::<#core::eml::build::Slots>()
                 .clone()
-                .remove(::tagstr::Tag::new(#slot_name));
+                .remove(#core::tagstr::Tag::new(#slot_name));
             if let Some(__slot_value) = __slot_value {
                 __ctx.children.extend(__slot_value);
             } else {
@@ -327,6 +356,7 @@ fn process_slots(node: &NodeElement) -> TokenStream {
 }
 
 fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
+    let core = core_path();
     let mut children = quote! {};
     let mut connections = quote! {};
     let mut parent = if create_entity {
@@ -445,7 +475,7 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                                 ),
                                 ..default()
                             })
-                            .insert(::belly_core::Element::inline())
+                            .insert(#core::Element::inline())
                             .id()
                         );
                     };
@@ -469,10 +499,10 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
         quote! {
             {
                 #parent
-                let mut __ctx = ::belly_core::eml::build::ElementContextData::new(__parent);
+                let mut __ctx = #core::eml::build::ElementContextData::new(__parent);
 
                 #children
-                let __builder = ::belly_core::Widgets::#tag();
+                let __builder = #core::Widgets::#tag();
                 __builder.get_builder().build(__world, __ctx);
                 #connections
                 __parent
@@ -485,18 +515,19 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
 
 #[proc_macro]
 pub fn eml(tree: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let core = core_path();
     match parse(tree.into()) {
         Err(err) => err.to_compile_error().into(),
         Ok(nodes) => {
             let body = walk_nodes(&nodes[0], false);
             // nodes[0]
             let wraped = quote! {
-                ::belly_core::ElementsBuilder::new(
+                #core::ElementsBuilder::new(
                     move |
                         __world: &mut ::bevy::prelude::World,
                         __parent: ::bevy::prelude::Entity
                     | {
-                        let mut __slots_resource = __world.resource::<::belly_core::eml::build::Slots>().clone();
+                        let mut __slots_resource = __world.resource::<#core::eml::build::Slots>().clone();
                         let __defined_slots = __slots_resource.keys();
                         #body;
                         for __slot in __slots_resource.keys() {
@@ -527,6 +558,7 @@ fn err(span: Span, message: &str) -> proc_macro::TokenStream {
 
 #[proc_macro_derive(Widget, attributes(alias, param, signal, bindto, bindfrom, extends))]
 pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let core = core_path();
     let ast = parse_macro_input!(input as DeriveInput);
     let span = ast.span();
 
@@ -587,7 +619,7 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                     quote! {
                         #bind_body
                         ctx.commands().add(move |world: &mut ::bevy::prelude::World| {
-                            (::belly_core::to!(#bind) << #bind_from).write(world);
+                            (#core::to!(#bind) << #bind_from).write(world);
                         });
                     }
                 } else {
@@ -598,7 +630,7 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                     quote! {
                         #bind_body
                         ctx.commands().add(move |world: &mut ::bevy::prelude::World| {
-                            (::belly_core::from!(#bind) >> #bind_to).wrote(world);
+                            (#core::from!(#bind) >> #bind_to).wrote(world);
                         });
                     }
                 }
@@ -656,7 +688,7 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                     &&Descriptor
                 }
 
-                pub fn get_builder(&self) -> ::belly_core::ElementBuilder {
+                pub fn get_builder(&self) -> #core::ElementBuilder {
                     #component::as_builder()
                 }
                 #connect_signals
@@ -667,20 +699,20 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
             #extends_decl
         }
-        impl #impl_generics ::belly_core::Widget for #component #ty_generics #where_clause {
+        impl #impl_generics #core::Widget for #component #ty_generics #where_clause {
             fn names() -> &'static [&'static str] {
                 &[#names_expr]
             }
 
             #aliases_decl
 
-            fn construct_component(world: &mut ::bevy::prelude::World, params: &mut ::belly_core::Params) -> ::std::option::Option<Self> {
+            fn construct_component(world: &mut ::bevy::prelude::World, params: &mut #core::Params) -> ::std::option::Option<Self> {
                 ::std::option::Option::Some(#component {
                     #construct_body
                 })
             }
             #[allow(unused_variables)]
-            fn bind_component(&mut self, ctx: &mut ::belly_core::ElementContext) {
+            fn bind_component(&mut self, ctx: &mut #core::ElementContext) {
                 #bind_body
             }
         }
@@ -691,7 +723,7 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
             #extension_body
         }
 
-        impl #extension_ident for ::belly_core::Widgets {
+        impl #extension_ident for #core::Widgets {
             type Descriptor = #mod_descriptor::Descriptor;
             fn descriptor() -> Self::Descriptor {
                 #mod_descriptor::Descriptor
@@ -709,6 +741,7 @@ fn capitalize(s: &str) -> String {
 }
 
 fn prepare_construct_instance(ast: &syn::DeriveInput) -> syn::Result<TokenStream> {
+    let core = core_path();
     let mut construct_body = quote! {};
     let span = ast.span();
     let syn::Data::Struct(data) = &ast.data else {
@@ -750,9 +783,9 @@ fn prepare_construct_instance(ast: &syn::DeriveInput) -> syn::Result<TokenStream
                     let param_str = format!("{ident}");
                     construct_body = quote! {
                         #construct_body
-                        #ident: ::belly_core::eml::build::FromWorldAndParam::from_world_and_param(
+                        #ident: #core::eml::build::FromWorldAndParam::from_world_and_param(
                             world, params.drop_variant(#param_str.as_tag()).unwrap_or(
-                                ::belly_core::Variant::Undefined
+                                #core::Variant::Undefined
                             )
                         ),
                     };
@@ -772,8 +805,8 @@ fn prepare_construct_instance(ast: &syn::DeriveInput) -> syn::Result<TokenStream
         if !proxy_body.is_empty() {
             construct_body = quote! {
                 #construct_body
-                #field_ident: ::belly_core::eml::build::FromWorldAndParam::from_world_and_param(world, ::belly_core::Variant::Params({
-                    let mut proxy_params = ::belly_core::Params::default();
+                #field_ident: #core::eml::build::FromWorldAndParam::from_world_and_param(world, #core::Variant::Params({
+                    let mut proxy_params = #core::Params::default();
                     #proxy_body
                     proxy_params
                 })),
@@ -786,6 +819,7 @@ fn prepare_construct_instance(ast: &syn::DeriveInput) -> syn::Result<TokenStream
 }
 
 fn parse_binds(ast: &syn::DeriveInput) -> syn::Result<TokenStream> {
+    let core = core_path();
     let component = &ast.ident;
     let span = ast.span();
     let mut binds = quote! {};
@@ -835,15 +869,15 @@ fn parse_binds(ast: &syn::DeriveInput) -> syn::Result<TokenStream> {
                 #binds
 
                 pub fn #bind_to_ident(&self, target: ::bevy::prelude::Entity)
-                -> ::belly_core::relations::bind::#bind_to_type<#component, #bind_to_type_params>
+                -> #core::relations::bind::#bind_to_type<#component, #bind_to_type_params>
                 {
-                    ::belly_core::to!(target, #component:#target_field #bind_to_transformer)
+                    #core::to!(target, #component:#target_field #bind_to_transformer)
                 }
 
                 pub fn #bind_from_ident(&self, source: ::bevy::prelude::Entity)
-                -> ::belly_core::relations::bind::FromComponent<#component, #from_type>
+                -> #core::relations::bind::FromComponent<#component, #from_type>
                 {
-                    ::belly_core::from!(source, #component:#target_field #from_getter)
+                    #core::from!(source, #component:#target_field #from_getter)
                 }
             };
         }
@@ -869,6 +903,7 @@ fn parse_docs(attrs: &Vec<syn::Attribute>) -> (Vec<String>, TokenStream) {
 }
 
 fn parse_signals(attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStream> {
+    let core = core_path();
     let mut connect_body = quote! {};
     for attr in attrs.iter() {
         if attr.path.is_ident("signal") {
@@ -914,7 +949,7 @@ fn parse_signals(attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStream> {
                     &self,
                     world: &mut ::bevy::prelude::World,
                     source: ::bevy::prelude::Entity,
-                    target: ::belly_core::ConnectionTo<C, #event>
+                    target: #core::ConnectionTo<C, #event>
                 ) {
                     target
                         .filter(|e| e.#filter())
@@ -931,13 +966,14 @@ fn prepare_extends_descriptor(
     ident: &syn::Ident,
     attrs: &Vec<syn::Attribute>,
 ) -> syn::Result<TokenStream> {
+    let core = core_path();
     let this_str = ident.to_string();
     let this_mod = format_ident!("{}_widget_descriptor", this_str.to_lowercase());
     let default_descriptor = quote! {
         impl ::std::ops::Deref for #this_mod::Descriptor {
-            type Target = ::belly_core::eml::build::DefaultDescriptor;
-            fn deref(&self) -> &::belly_core::eml::build::DefaultDescriptor {
-                let instance = ::belly_core::eml::build::DefaultDescriptor::get_instance();
+            type Target = #core::eml::build::DefaultDescriptor;
+            fn deref(&self) -> &#core::eml::build::DefaultDescriptor {
+                let instance = #core::eml::build::DefaultDescriptor::get_instance();
                 instance
             }
         }
@@ -953,9 +989,9 @@ fn prepare_extends_descriptor(
     let extends = format_ident!("{}WidgetExtension", capitalize(&extends));
     let derive = quote! {
         impl ::std::ops::Deref for #this_mod::Descriptor {
-            type Target = <::belly_core::Widgets as #extends>::Descriptor;
-            fn deref(&self) -> &<::belly_core::Widgets as #extends>::Descriptor {
-                let instance = <::belly_core::Widgets as #extends>::Descriptor::get_instance();
+            type Target = <#core::Widgets as #extends>::Descriptor;
+            fn deref(&self) -> &<#core::Widgets as #extends>::Descriptor {
+                let instance = <#core::Widgets as #extends>::Descriptor::get_instance();
                 instance
             }
         }
@@ -964,6 +1000,7 @@ fn prepare_extends_descriptor(
 }
 
 fn prepare_extends_aliases(attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStream> {
+    let core = core_path();
     let default_styles = quote! {};
     let Some(extends) = Extend::from_attributes(attrs)? else {
         return Ok(default_styles)
@@ -979,7 +1016,7 @@ fn prepare_extends_aliases(attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStre
                 static mut ALIASES: Vec<&'static str> = vec![];
                 static ONCE: ::std::sync::Once = ::std::sync::Once::new();
                 ONCE.call_once(|| {
-                    let instance = <::belly_core::Widgets as #ext>::Descriptor::get_instance();
+                    let instance = <#core::Widgets as #ext>::Descriptor::get_instance();
                     let builder = instance.get_builder();
                     ALIASES.extend(builder.names().map(|t| *t));
                     ALIASES.extend(builder.aliases().map(|t| *t));
@@ -1066,6 +1103,7 @@ pub fn widget(
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     let ast = parse_macro_input!(input as syn::ItemFn);
+    let core = core_path();
     let fn_ident = ast.sig.ident;
     let fn_args = ast.sig.inputs;
     let fn_body = ast.block;
@@ -1106,21 +1144,21 @@ pub fn widget(
                 &&Descriptor
             }
 
-            pub fn get_builder(&self) -> ::belly_core::ElementBuilder {
+            pub fn get_builder(&self) -> #core::ElementBuilder {
                 #fn_ident::as_builder()
             }
             #styles_decl
             #connect_signals
         }
 
-        impl ::belly_core::Widget for #fn_ident {
+        impl #core::Widget for #fn_ident {
             fn names() -> &'static [&'static str] {
                 &[#alias]
             }
             #aliases_decl
         }
 
-        impl ::belly_core::WidgetBuilder for #fn_ident {
+        impl #core::WidgetBuilder for #fn_ident {
             #styles_decl
             fn construct(#fn_args) {
                 #fn_body
@@ -1137,7 +1175,7 @@ pub fn widget(
             fn descriptor() -> Self::Descriptor;
         }
 
-        impl #extension for ::belly_core::Widgets {
+        impl #extension for #core::Widgets {
             type Descriptor = Descriptor;
             fn descriptor() -> Self::Descriptor {
                 Descriptor

@@ -55,6 +55,7 @@ pub use element::Elements;
 pub use params::Param;
 pub use params::Params;
 pub use property::Property;
+pub use tagstr;
 pub use tagstr::*;
 pub use variant::Variant;
 

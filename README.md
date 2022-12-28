@@ -41,7 +41,7 @@ Not another word! Let's write code:
 
 ```rust
 use bevy::prelude::*;
-use belly::*;
+use belly::prelude::*;
 
 fn main() {
     App::new()

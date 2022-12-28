@@ -17,4 +17,5 @@ belly_core = { path = "../belly_core" }
 proc-macro2 = "1.0.47"
 procout = "0.1.13"
 syn = "1.0.103"
+toml = "0.5.10"
 # syn = { version = "1.0.105", features = ["full", "parsing", "printing", "extra-traits"] }

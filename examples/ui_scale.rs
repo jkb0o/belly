@@ -1,4 +1,4 @@
-use belly::*;
+use belly::prelude::*;
 use bevy::{prelude::*, render::camera::ScalingMode, text::TextSettings};
 
 fn main() {
