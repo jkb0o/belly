@@ -1,0 +1,35 @@
+/* selectors.ess */
+* {
+    font: bold;
+    color: darkgrey;
+}
+body {
+    padding: 20px;
+}
+
+button {
+    width: 100px;
+    height: 100px;
+}
+
+button .content {
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    align-items: center;
+}
+
+.red .content {
+    background-color: lightcoral;
+}
+.green .content {
+    background-color: lightgreen;
+}
+
+.blue .content {
+    background-color: lightblue;
+}
+
+button:hover .content {
+    background-color: white;
+}

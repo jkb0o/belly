@@ -1,3 +1,5 @@
+// examples/for-loop.rs
+// cargo run --example for-loop
 use belly::prelude::*;
 use bevy::prelude::*;
 
@@ -11,9 +13,12 @@ fn main() {
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
+    let names = &["Alice", "Cart", "François", "Yasha"];
     commands.add(eml! {
         <body s:padding="50px">
-            "Hello, "<strong>"world"</strong>"!"
+            <for name in=names>
+                <div>"My name is "{name}</div>
+            </for>
         </body>
     });
 }

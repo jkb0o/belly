@@ -1,0 +1,15 @@
+body {
+    padding: 5px;
+}
+span {
+    padding: 25px;
+    margin: 5px;
+    background-color: black;
+}
+div {
+    font: bold;
+    color: black;
+    padding: 3px;
+    background-color: white;
+    margin-left: 10%;
+}

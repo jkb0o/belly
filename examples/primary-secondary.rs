@@ -34,12 +34,12 @@ fn setup(mut commands: Commands) {
     ));
     commands.add(eml! {
         <body>
-            <div c:primary>"primary 1"<div>"primary 1 inner"</div>
-                <div c:secondary>"secondary 1"<div>"secondary 1 inner"</div>
-                    <div c:primary>"primary 2"<div>"primary 2 inner"</div>
-                        <div c:secondary>"secondary 2"<div>"secondary 2 inner"</div>
-                            <div c:primary>"primary 3"<div>"primary 3 inner"</div>
-                                <div c:secondary>"secondary 3"<div>"secondary 3 inner"</div>
+            <div c:primary>"bevy primary 1"<div>"bevy primary 1 inner"</div>
+                <div c:secondary>"bevy secondary 1"<div>"bevy secondary 1 inner"</div>
+                    <div c:primary>"bevy primary 2"<div>"bevy primary 2 inner"</div>
+                        <div c:secondary>"bevy secondary 2"<div>"beby secondary 2 inner"</div>
+                            <div c:primary>"bevy primary 3"<div>"bevy primary 3 inner"</div>
+                                <div c:secondary>"bevy secondary 3"<div>"bevy secondary 3 inner"</div>
                                 </div>
                             </div>
                         </div>
