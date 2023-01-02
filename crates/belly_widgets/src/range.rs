@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use super::common::*;
-use belly_core::{eml::build::FromWorldAndParam, relations::bind::Transformable, *};
+use belly_core::{eml::build::FromWorldAndParam, relations::bind::AsTransformer, *};
 use belly_macro::*;
 use bevy::{prelude::*, utils::HashMap};
 
@@ -94,9 +94,9 @@ impl LimitedValue {
     }
 }
 
-impl Transformable for LimitedValue {
+impl AsTransformer for LimitedValue {
     type Transformer = LimitedValueTransformer;
-    fn transformer() -> Self::Transformer {
+    fn as_transformer() -> Self::Transformer {
         LimitedValueTransformer
     }
 }

@@ -3,7 +3,7 @@ use std::any::TypeId;
 
 use crate::{
     relations::{
-        bind::{BindableSource, BindableTarget, FromComponent},
+        bind::{BindableSource, BindableTarget, FromComponent, FromResourceWithTransformer},
         *,
     },
     to, Element, ElementsBuilder,
@@ -53,6 +53,28 @@ impl<R: Component, S: BindableTarget + Clone + Default + IntoContent + std::fmt:
         let systems_ref = world.get_resource_or_insert_with(RelationsSystems::default);
         let mut systems = systems_ref.0.write().unwrap();
         systems.add_custom_system(TypeId::of::<BindContent<S>>(), bind_content_system::<S>);
+        vec![parent]
+    }
+}
+
+impl<
+        R: Resource,
+        S: BindableSource,
+        T: BindableTarget + Clone + Default + IntoContent + std::fmt::Debug,
+    > IntoContent for FromResourceWithTransformer<R, S, T>
+{
+    fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity> {
+        let bind = self >> to!(parent, BindContent<T>:value);
+        bind.write(world);
+        world
+            .entity_mut(parent)
+            .insert(NodeBundle::default())
+            .insert(BindContent {
+                value: T::default(),
+            });
+        let systems_ref = world.get_resource_or_insert_with(RelationsSystems::default);
+        let mut systems = systems_ref.0.write().unwrap();
+        systems.add_custom_system(TypeId::of::<BindContent<T>>(), bind_content_system::<T>);
         vec![parent]
     }
 }

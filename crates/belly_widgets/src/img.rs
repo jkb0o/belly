@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use belly_core::*;
 use belly_macro::*;
 use bevy::{
@@ -61,10 +63,10 @@ pub enum ImgMode {
     Source,
 }
 
-impl TryFrom<String> for ImgMode {
-    type Error = String;
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        match value.as_str() {
+impl FromStr for ImgMode {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
             "" => Ok(ImgMode::Fit),
             "fit" => Ok(ImgMode::Fit),
             "cover" => Ok(ImgMode::Cover),
@@ -75,23 +77,17 @@ impl TryFrom<String> for ImgMode {
     }
 }
 
+impl TryFrom<String> for ImgMode {
+    type Error = String;
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
 impl TryFrom<Variant> for ImgMode {
     type Error = String;
     fn try_from(value: Variant) -> Result<Self, Self::Error> {
-        match value {
-            Variant::String(s) if &s == "fit" => Ok(ImgMode::Fit),
-            Variant::String(s) if &s == "cover" => Ok(ImgMode::Cover),
-            Variant::String(s) if &s == "stretch" => Ok(ImgMode::Stretch),
-            Variant::String(s) if &s == "source" => Ok(ImgMode::Source),
-            Variant::String(s) => Err(format!("Can't parse `{}` as ImgMode", s)),
-            variant => {
-                if let Some(value) = variant.take::<ImgMode>() {
-                    Ok(value)
-                } else {
-                    Err("Invalid value for ImgMode".to_string())
-                }
-            }
-        }
+        value.get_or_parse()
     }
 }
 
@@ -119,6 +115,7 @@ pub struct Img {
     #[param]
     pub mode: ImgMode,
     #[param]
+    //#[bind(to entity@BacktroundColor:0)]
     #[bindto(entity, BackgroundColor:0)]
     pub modulate: Color,
     handle: Handle<Image>,

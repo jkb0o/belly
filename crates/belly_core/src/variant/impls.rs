@@ -167,3 +167,9 @@ impl TryFrom<&Variant> for JustifyContent {
         }
     }
 }
+
+impl From<Val> for Variant {
+    fn from(val: Val) -> Self {
+        Variant::boxed(val)
+    }
+}

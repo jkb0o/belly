@@ -398,19 +398,19 @@ impl<W: Component, T: BindableTarget> ToComponentWithoutTransformer<W, T> {
     // pub fn with_transormer<S: BindableSource>(self, transformator: fn())
 }
 
-pub trait Transformable {
+pub trait AsTransformer {
     type Transformer;
-    fn transformer() -> Self::Transformer;
+    fn as_transformer() -> Self::Transformer;
 }
 
-pub struct ToComponentTransformable<W: Component, T: BindableTarget + Transformable> {
+pub struct ToComponentTransformable<W: Component, T: BindableTarget + AsTransformer> {
     pub id: Tag,
     pub target: Entity,
     pub reader: RefReader<W, T>,
     pub writer: MutReader<W, T>,
 }
 
-impl<W: Component, T: BindableTarget + Transformable> ToComponentTransformable<W, T> {
+impl<W: Component, T: BindableTarget + AsTransformer> ToComponentTransformable<W, T> {
     pub fn transformed<S: BindableSource>(
         self,
         make_transformer: fn(T::Transformer) -> Transformer<S, T>,
@@ -420,7 +420,7 @@ impl<W: Component, T: BindableTarget + Transformable> ToComponentTransformable<W
             target: self.target,
             reader: self.reader,
             writer: self.writer,
-            transformer: make_transformer(T::transformer()),
+            transformer: make_transformer(T::as_transformer()),
         }
     }
 }
@@ -641,6 +641,7 @@ macro_rules! bind {
             writer: |c: &mut ::bevy::prelude::Mut<$cls>| &mut c.$($prop)+,
         }
     };
+    // to!(entity, Component:some.property | transform)
     (@bind to component $entity:expr, $cls:ty, { $($prop:tt)+ }, transformable $transformer:ident ) => {
         $crate::relations::bind::ToComponentTransformable {
             id: $crate::relations::bind::bind_id::<$cls>(stringify!($($prop)+)),
@@ -674,14 +675,19 @@ macro_rules! bind {
     };
     (@transform $converter:ident:$method:ident ) => {
         |s, t| {
-            $crate::Transformers::$converter().$method(s, t)
+            let transformer = $crate::Transformers::$converter().$method();
+            transformer(s, t)
         }
     };
-    (@transform $converter:ident:$method:ident($($args:tt)*) ) => {
-        |s, t| {
-            $crate::Transformers::$converter().$method(s, t, $($args)*)
-        }
-    };
+    // This works for global transformers, but while associated transformers
+    // do not support customr args, I'd preffer to disable this bind feature
+    // for a while.
+    //
+    // (@transform $converter:ident:$method:ident($($args:tt)*) ) => {
+    //     |s, t| {
+    //         $crate::Transformers::$converter().$method(s, t, $($args)*)
+    //     }
+    // };
 
     // only transformers here, can bind actually
     (@args {$mode:ident from $entity:expr, $cls:ty}, $prop:tt) => {
@@ -847,8 +853,6 @@ mod test {
         let _bind = from!(e, Health: percent()) >> to!(e, HealthBar: color | color: one_minus_r);
         let _bind = to!(e, HealthBar: color | color: r) << from!(e, Health: percent());
         let _bind = from!(e, Health: percent() | color: r) >> to!(e, HealthBar: color);
-        let _bind =
-            to!(e, HealthBar: color) << from!(e, Health: percent() | color:lerp_r(0.2, 0.8));
 
         let _bind = from!(e, HealthBar: output) >> to!(e, Btn: mode);
         let _bind = to!(e, Btn: mode) << from!(e, HealthBar: output);

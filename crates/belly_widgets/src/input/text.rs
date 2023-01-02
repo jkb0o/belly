@@ -4,10 +4,7 @@ use crate::common::*;
 use ab_glyph::ScaleFont;
 use belly_core::*;
 use belly_macro::*;
-use bevy::{
-    input::keyboard::KeyboardInput,
-    prelude::*,
-};
+use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
 const CHAR_DELETE: char = '\u{7f}';
 const CURSOR_WIDTH: f32 = 2.;
