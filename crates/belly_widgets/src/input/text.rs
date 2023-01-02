@@ -229,7 +229,7 @@ fn process_keyboard_input(
     let mut selected = input.selected.clone();
 
     let mut chars: Vec<_> = input.value.chars().collect();
-    if keyboard.just_pressed(KeyCode::Left) {
+    if keyboard.pressed(KeyCode::Left) {
         if !shift {
             selected.stop();
         }
@@ -240,7 +240,7 @@ fn process_keyboard_input(
                 selected.extend(index);
             }
         }
-    } else if keyboard.just_pressed(KeyCode::Right) {
+    } else if keyboard.pressed(KeyCode::Right) {
         if !shift {
             selected.stop();
         }
@@ -250,6 +250,26 @@ fn process_keyboard_input(
                 selected.extend(index - 1);
                 selected.extend(index);
             }
+        }
+    } else if keyboard.just_pressed(KeyCode::Up) {
+        if !shift {
+            selected.stop();
+        }
+        let prev_index = index;
+        index = 0;
+        if shift {
+            selected.extend(prev_index);
+            selected.extend(index);
+        }
+    } else if keyboard.just_pressed(KeyCode::Down) {
+        if !shift {
+            selected.stop();
+        }
+        let prev_index = index;
+        index = chars.len();
+        if shift {
+            selected.extend(prev_index);
+            selected.extend(index);
         }
     // } else if keyboard.just_pressed(KeyCode::Tab) {
     // continue
