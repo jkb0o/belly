@@ -7,6 +7,7 @@ use belly_macro::*;
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
 const CHAR_DELETE: char = '\u{7f}';
+const CHAR_BACKSPACE: char = '\u{8}';
 const CURSOR_WIDTH: f32 = 2.;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
@@ -257,7 +258,7 @@ fn process_keyboard_input(
             if ch.char == '\t' {
                 continue;
             }
-            if ch.char == CHAR_DELETE {
+            if ch.char == CHAR_BACKSPACE {
                 if !selected.is_empty() {
                     chars.drain(selected.range());
                     index = selected.min;
@@ -267,6 +268,18 @@ fn process_keyboard_input(
                     index -= 1;
                     chars.remove(index);
                     input.value = chars.iter().collect();
+                }
+            } else if ch.char == CHAR_DELETE {
+                if !selected.is_empty() {
+                    chars.drain(selected.range());
+                    index = selected.min;
+                    selected.stop();
+                    input.value = chars.iter().collect();
+                } else {
+                    if chars.len() > index {
+                        chars.remove(index);
+                        input.value = chars.iter().collect();
+                    }
                 }
             } else {
                 if !selected.is_empty() {
