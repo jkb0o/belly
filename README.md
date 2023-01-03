@@ -75,8 +75,12 @@ The main tasks the plugin is about to solve are:
 - allow to effectively separate the layout, styling, data & logic from each other
 - build the basis to provide various tools for *`game`* developers & designers
 
+---
+
 Prerequisites & Setup
 ---------------------
+
+---
 
 As far as the project has no cargo release yet, the only way to discover functionality is to clone the repo & play with examples:
 
@@ -88,8 +92,12 @@ cargo run --example color-picker
 
 If you are brave enough, you can connect the plugin by referencing the GitHub repo in your `Cargo.toml`.
 
+---
+
 Basics
 ------
+
+---
 
 In the `belly`, you define UI layout using `eml`. It is possible to do it directly from the code using the `eml!` macro or by loading the `.eml` asset and adding `EmlScene`. In the case of macro `eml` is more than just markup, but more like templating language, `jsx` from the javascript world. In the case of the `.eml` asset, `eml` is just an XML file with no special syntax. From now I'll focus on `eml!` macro:
 
@@ -120,7 +128,7 @@ fn setup(mut commands: Commands) {
 ```
 ![Hello World Example](docs/img/hello-world.png)
 
-The `eml!` macro expands its content into multiple calls which spawn entities with required components based on the tags and their attributes. Most of these tags in the `belly```` called` `Widgets`. When the `belly` builds the tree it unfolds each widget into one (or more) entities. The structure from the example above becomes something like this:
+The `eml!` macro expands its content into multiple calls which spawn entities with required components based on the tags and their attributes. Most of these tags in the `belly` called `Widgets`. When the `belly` builds the tree it unfolds each widget into one (or more) entities. The structure from the example above becomes something like this:
 
 - Node (body)
   - TextNode ("Hello, ")
@@ -139,8 +147,12 @@ For configuring widget style & behavior you can pass attributes within the tag. 
 - **entity** passed using curly braces: `<span {span_id}>` or using `entity` param: `<span entity=span_id>`
 - **components** passed using `with` param: `<button with=(MyComponent, another_component_instance)/>`
 
+---
+
 Tags, Widgets & Content
 -----------------------
+
+---
 
 As I said `eml` consists of tags with attributes. Everything between the open-closing tag pair (`<span>...</span>`) becomes the children of this tag. The tag also may have no children at all, the self-closing tag used in this case: `<button/>`. Every tag may have this kind of child:
 - other tags: `<span><button/></span>` 
@@ -151,15 +163,21 @@ Rust block can be any expression that returns `impl IntoContent`. `String` imple
 
 As I mentioned earlier, almost every tag meant to be `Widget`it produces one or more entities with their own set of components, styles, and states. I will talk about widgets all the time. Later I'll introduce to you non-widget tags & some templating features of `belly` but for now, let's focus on widgets and styling features.
 
+---
 
 Styling
 -------
 
+---
 Usually, in `bevy`, you define styles (how your content looks) by passing properties to UI bundles. Unfortunately, it can produce a lot of boilerplate. `belly` can help you to create more readable styling code/content in multiple ways. The core idea is to define some style properties (`width`, `background-color`, `flex-direction`, etc.) and map them somehow to the actual components and their properties. This mapping is done by the `Property` trait. Implementations of this trait define the style property name (`width`), how it should be parsed (to `Val`), and how to apply parsed value to the exact component (`Style`'s `size.width`)
 
 There are two ways to provide style properties to nodes: by passing style param directly to a widget or by declaring the `StyleSheet`: the sets of style properties and rules that determine which nodes these sets should apply to.
 
+---
+
 ### Style Params
+
+---
 
 The easiest way to provide some style to your UI using `belly` is to pass some params directly
 to widgets:
@@ -206,7 +224,11 @@ When you passing style (or common) param to the node, `belly` converts the value
 
 A `Variant` is used only for passing params and converting them to concrete types at the building stage and not used afterward, so performance loss is minimal. `belly` also will warn you about any failed conversion cases.
 
+---
+
 ### StyleSheets
+
+---
 
 Adding styles using params is easy to write, but difficult to maintain. You also need to recompile your project to see the changes. This is time for the `StyleSheet` to come out:
 
@@ -269,7 +291,11 @@ commands.add(StyleSheet::parse(r"#
 #"));
 ```
 
+---
+
 ### Selectors
+
+---
 
 A `StyleSheet` contains the list of rules (selector with properties). In the example above the `body` is the selector and everything inside curly braces are properties. The `body` selector picks all nodes defined by the `body` tag. It is useful for some cases, but not enough for the rest when you want to select exact nodes to apply properties. In this case, you need a more complex selector, which consists of subselectors, `button:pressed .colored-area` for example. `belly` comes with this types of subselectors:
 - `name` selects elements by tag name (`body`, `span`)
@@ -355,7 +381,11 @@ I'd like to explain some selectors:
 
 The interesting thing here is that at some point multiple selectors are valid for the same node: when I hover the red button both `button:hover .content` and `.red .content` pick the same node. Why the hovered button is always white but not red? How `belly` resolves this kind of conflict? I'm glad you asked!
 
+---
+
 ### Selectors weights & resolving order
+
+---
 
 When some `Element` is added or changed (you add/remove state or class for example), the `belly` begins the style resolving and applying process. This process is done for each property separately and consists of four main steps:
 - check if `Element` has defined by param style property
@@ -426,8 +456,11 @@ commands.add(eml! {
 |---------------------------------------|-------------------------------------|
 | ![Bevy](docs/img/resolving-bevy.png)  | ![Web](docs/img/resolving-web.png)  |
 
+---
 
 ### Managed properties
+
+---
 
 The one important thing I want to notice is `managed` properties. Sooner or later, if you choose to work with the `belly`, you'll find it can hurt you in many ways. There is one of them. While the `belly` takes control of how and when styles are applied to components, you may meet the situation when you miss this control and wish to take it back. For example, you may need to control some positioning by code and be sure the `belly` doesn't override your work in any way.
 
@@ -439,16 +472,26 @@ commands.add(eml! {
 ```
 From this point this span's `margin-right` property is your responsibility, `belly` hurts less from now.
 
+---
+
 ### Default styles
 
 Work in progress...
 
+---
+
 Data flow & relations
 ---------------------
 
+---
+
 Now, when you know something about styling & layout in the `belly` it is time to react somehow to user input, other events, or data changes, and modify components data. The way data flows in the `belly` is the responsibility of the `relations` subsystem. The first step is to learn how to react to events.
 
+---
+
 ### Signals & Connections
+
+---
 
 Widgets in the `belly` among other things create entry points for connecting signals (events associated with entities) to handlers (closures):
 
@@ -517,7 +560,11 @@ When I press the buttons, the `Counter.count` property changes. To make these ch
 
 This kind of system (change property ComponentA.a when ComponentB.b changed) is so common that `belly` can prepare this system for you. It is called `bindings`.
 
+---
+
 ### Data Bindnings Introduction
+
+---
 
 Let's try to get rid of the rudimental system from the previous example:
 
@@ -548,7 +595,7 @@ fn setup(mut commands: Commands) {
             <button on:press=connect!(counter, |c: Counter| c.count += 1)>"+"</button>
             <span s:width="150px" s:justify-content="center">
                 // bind Counter.count property at counter entity to Label.value proeprty
-                <label bind:value=from!(counter, Counter:count|fmt:c("Value: {c}"))/>
+                <label bind:value=from!(counter, Counter:count|fmt.c("Value: {c}"))/>
             </span>
             <button on:press=connect!(counter, |c: Counter| c.count -= 1)>"-"</button>
         </body>
@@ -562,7 +609,7 @@ The result is the same as the result from the previous example, but the implemen
 
 Let's take a closer look at this piece of code:
 ```rust
-<label bind:value=from!(counter, Counter:count|fmt:c("Value: {c}"))/>
+<label bind:value=from!(counter, Counter:count|fmt.c("Value: {c}"))/>
 ```
 
 The thing I want to notice is the `<label>` widget has a `value` param, so you can use the label like this: `<label value="Hello world!/>`. The node produced by `<label>` widget has a `Label` component attached as well. `<label>`'s value param is mapped to `Label.value` component property. It is like `Text.sections[0].value`, but much simpler to type and think.
@@ -577,7 +624,11 @@ There is an explanation of each part of the `from!` bind:
 - `count` is the property of the component you want to bind from, it may be any valid property expression of any level of depth including enum fields, struct fields, indexes & methods, like `ComplexComponent:0.values[2].get("item")`
 - everything next to the pipe toke `|` is a transformer declaration and it deserves a separate chapter
 
+---
+
 ### Data transformers
+
+---
 
 To be able to describe what transformers are and how it works I have to notice one thing:
 
@@ -585,7 +636,7 @@ The binding system doesn't depend on `eml`. The way I bind `Counter.count` to `L
 
 ```rust
 commands.add(
-    from!(counter, Counter:count|fmt:c("{c}")) >> to!(label, Label:value)
+    from!(counter, Counter:count|fmt.c("{c}")) >> to!(label, Label:value)
 );
 ```
 
@@ -596,11 +647,15 @@ So, you can bind any component's (or resource's) property to any other component
 Transformers can be used just to convert types between each other (like the `fmt` transformer converts everything to `String`) or to change just part of the value (for example change the `r` channel of `Color` based on `f32` value, and do not touch other channels).
 
 There are three types of transformers:
-- format transformer (`fmt:token("There is {token}")`)
-- global transformers (`color:r`)
+- format transformer (`fmt.token("There is {token}")`)
+- global transformers (`color.r`)
 - associated transformers (`r`)
 
-#### Format transformer
+---
+
+### Format transformer
+
+---
 
 Format transformer converts everything to string using `format!` macro. The syntax for the format transformer is:
 
@@ -614,19 +669,23 @@ fmt:<ident>(<args>)
 There are examples of format transformer:
 
 ```rust
-fmt:val("{val}")
-fmt:val("{}", val)
-fmt:vec("{vec:?}")
-fmt:some_vec("({}, {})", some_vec.x, some_vec.y)
+fmt.val("{val}")
+fmt.val("{}", val)
+fmt.vec("{vec:?}")
+fmt.some_vec("({}, {})", some_vec.x, some_vec.y)
 ```
 
-#### Global transformers
+---
+
+### Global transformers
+
+---
 
 `belly` comes with `Transformers` namespace struct so you can define extension trait and implement your trait for `Transformers` struct. Bind macros expand global transformers to calls on this struct. For example, you may need to change `Color.r` value when some `f32` value is changed (change the color of the health's progress bar when the player's health changes). Unfortunately `Color` provides only methods for changing color channels while fields are left private. To make such transformation possible, `belly` implements for you `ColorTransformerExt` and implements it for `Transformers`. So you can modify color values like this:
 
 ```rust
 commands.add(
-    from!(player, Health:value) >> to!(health, BackgroundColor:0|color:r)
+    from!(player, Health:value) >> to!(health, BackgroundColor:0|color.r)
 )
 ```
 
@@ -639,20 +698,23 @@ This bind says: when `value` of `Health` component on `player` entity changes, c
 The last thing I want to notice here: you can pass global transformers to any `from!` or `to!` macro, but not both. The previous piece of code could be written like this:
 ```rust
 commands.add(
-    from!(player, Health:value|color:r) >> to!(health, BackgroundColor:0)
+    from!(player, Health:value|color.r) >> to!(health, BackgroundColor:0)
 )
 ```
 
+---
 
-#### Associated transformers
+### Associated transformers
+
+---
 
 Let's look at the first piece of code from the previous chapter closer:
 ```rust
 commands.add(
-    from!(player, Health:value) >> to!(health, BackgroundColor:0|color:r)
+    from!(player, Health:value) >> to!(health, BackgroundColor:0|color.r)
 )
 ```
-Look at this part: `BackgroundColor:0|color:r`. You may notice that writing `color` is unnecessary because you (and the compiler) know that `BackroundColor:0` is a type of `Color`` and you are about to use the `color` transformer here. Actually you can omit the the `color` part and write this bind like this:
+Look at this part: `BackgroundColor:0|color.r`. You may notice that writing `color` is unnecessary because you (and the compiler) know that `BackroundColor:0` is a type of `Color` and you are about to use the `color` transformer here. Actually you can omit the the `color` part and write this bind like this:
 
 ```rust
 commands.add(
@@ -676,7 +738,11 @@ Unfortunately, when you use `from!` macro the target type is unknown. This is wh
 
 `belly` comes with some predefined associated transformers listed [here](docs/transformers.md). The other ones you can implement for your types by yourself when needed. I'll give you detailed instruction on how to implement associated transformers later.
 
+---
+
 ### Binding from Resources
+
+---
 
 In the examples above I showed you how to bind Component to Component. `belly` also provides you with a way to bind Resource to Component. Binding from Resource is all the same as binding from Component except you do not need to pass entity to `from!` macro:
 
@@ -705,7 +771,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
     commands.add(eml! {
         <body s:padding="50px">
-            "Elapsed seconds: "{from!(Time:elapsed_seconds() | fmt:s("{s:0.2}"))}
+            "Elapsed seconds: "{from!(Time:elapsed_seconds() | fmt.s("{s:0.2}"))}
         </body>
     });
 }
@@ -714,8 +780,11 @@ fn setup(mut commands: Commands) {
 
 Pay attention to how the bind is written in this example. I do not use `<label>` here, but put `from!` bind as a direct child of the body. I've mentioned earlier that rust blocks may be passed as children to tags and it is also an example of how this feature may be used: binds produced by `from!` macro implements the `IntoContent` trait and can be added as content.
 
+---
 
 ### Forms of `from!`, `to!`, and `connect!` macros
+
+---
 
 To make the `Data relations` part looks complete I'd like to summarize the experience above and write down all possible forms of relation macro invocations.
 
@@ -755,13 +824,20 @@ connect!(|| info!("Just happened"))
 connect!(|ctx| info!("Happened at {}", ctx.time().elapsed_seconds())
 ```
 
+---
 
 Templating
 ----------
 
+---
+
 All this time I've been talking about widgets: the `eml` tags expanded into one or more entities. `belly` is charged with some templating features exposed as template tags. Template tags in the `belly` don't produce entities by themself but control how the tree or widgets is built. There are two of them supported by `belly` right now: `<for>` loops and `<slot>`s.
 
+---
+
 ### Loops
+
+---
 
 You won't repeat yourself. At least sometimes. This is why `belly` gives your an instrument to express loops inside `eml!`:
 
@@ -804,7 +880,11 @@ This is the syntax for `eml!` loops. `ident` is the identifier that will be used
 
 Last thing I want to notice about the `<for>` loops is: it is supported only by `eml!` macro and not supported within `eml` assets. 
 
+---
+
 ### Slots
+
+---
 
 At some point, you will find you want to alternate some parts of widgets. For example, you'd like to add some custom separator of the `<progressbar>` widget. This is when `<slot>` comes to the light.
 
@@ -856,6 +936,8 @@ The slot replacement and definition are supported within `eml!` macro as well as
 
 To demonstrate the way slots are defined I need to take a break and tell how to build widgets first (finally).
 
+---
+
 Building Widgets
 ----------------
 
@@ -871,9 +953,13 @@ Writing Transformers
 
 Coming soon
 
+---
 
 License
 -------
+
+---
+
 The `belly` is dual-licensed under either:
 
 - MIT License ([LICENSE-MIT](LICENSE-MIT) or [http://opensource.org/licenses/MIT](http://opensource.org/licenses/MIT))
