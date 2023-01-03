@@ -222,6 +222,9 @@ fn process_keyboard_input(
     let Ok(text) = texts.get_mut(input.text)
         else { return };
 
+    // not shure how it behaves on Windows or *nix,
+    // may be platform dependent compilation here?
+    let cmd = keyboard.any_pressed([KeyCode::LWin, KeyCode::RWin]);
     let shift = keyboard.any_pressed([KeyCode::LShift, KeyCode::RShift]);
     let mut index = input.index;
     let mut selected = input.selected.clone();
@@ -235,7 +238,7 @@ fn process_keyboard_input(
             continue
         };
         match code {
-            KeyCode::Left => {
+            KeyCode::Left if !cmd => {
                 if !shift {
                     selected.stop();
                 }
@@ -247,7 +250,7 @@ fn process_keyboard_input(
                     }
                 }
             }
-            KeyCode::Right => {
+            KeyCode::Right if !cmd => {
                 if !shift {
                     selected.stop();
                 }
@@ -259,7 +262,8 @@ fn process_keyboard_input(
                     }
                 }
             }
-            KeyCode::Up | KeyCode::Home => {
+
+            KeyCode::Up | KeyCode::Home | KeyCode::Left => {
                 if !shift {
                     selected.stop();
                 }
@@ -270,7 +274,7 @@ fn process_keyboard_input(
                     selected.extend(index);
                 }
             }
-            KeyCode::Down | KeyCode::End => {
+            KeyCode::Down | KeyCode::End | KeyCode::Right => {
                 if !shift {
                     selected.stop();
                 }
