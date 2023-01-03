@@ -594,6 +594,11 @@ pub fn bind_id<T>(field: &str) -> Tag {
     ))
 }
 
+#[deprecated(
+    note = "The colon form of transformer is deprecated, use dot notation: |fmt.val(\"{val}\""
+)]
+pub fn deprecated_transformer() {}
+
 #[macro_export]
 macro_rules! bind {
     // from!(entity, Component:some.property)
@@ -664,6 +669,7 @@ macro_rules! bind {
 
     (@transform fmt:$val:ident( $($fmt:tt)* ) ) => {
         |s, mut t| {
+            $crate::relations::bind::deprecated_transformer();
             let $val = s;
             let $val = format!($($fmt)*);
             if $val != *t {
@@ -673,8 +679,26 @@ macro_rules! bind {
             Ok(())
         }
     };
+    (@transform fmt.$val:ident( $($fmt:tt)* ) ) => {
+        |s, mut t| {
+            let $val = s;
+            let $val = format!($($fmt)*);
+            if $val != *t {
+                *t = $val;
+
+            }
+            Ok(())
+        }
+    };
+    (@transform $converter:ident.$method:ident ) => {
+        |s, t| {
+            let transformer = $crate::Transformers::$converter().$method();
+            transformer(s, t)
+        }
+    };
     (@transform $converter:ident:$method:ident ) => {
         |s, t| {
+            $crate::relations::bind::deprecated_transformer();
             let transformer = $crate::Transformers::$converter().$method();
             transformer(s, t)
         }
@@ -847,12 +871,12 @@ mod test {
         let _bind = from!(e, Health: current) >> to!(e, HealthBar: value);
         let _bind = to!(e, HealthBar: value) << from!(e, Health: current);
 
-        let _bind = from!(e, Health: current) >> to!(e, HealthBar:output | fmt:val("{val}"));
-        let _bind = from!(e, Health:current  | fmt:val("{val}")) >> to!(e, HealthBar: output);
+        let _bind = from!(e, Health: current) >> to!(e, HealthBar: output | fmt.val("{val}"));
+        let _bind = from!(e, Health: current | fmt.val("{val}")) >> to!(e, HealthBar: output);
 
-        let _bind = from!(e, Health: percent()) >> to!(e, HealthBar: color | color: one_minus_r);
-        let _bind = to!(e, HealthBar: color | color: r) << from!(e, Health: percent());
-        let _bind = from!(e, Health: percent() | color: r) >> to!(e, HealthBar: color);
+        let _bind = from!(e, Health: percent()) >> to!(e, HealthBar: color | color.one_minus_r);
+        let _bind = to!(e, HealthBar: color | color.r) << from!(e, Health: percent());
+        let _bind = from!(e, Health: percent() | color.r) >> to!(e, HealthBar: color);
 
         let _bind = from!(e, HealthBar: output) >> to!(e, Btn: mode);
         let _bind = to!(e, Btn: mode) << from!(e, HealthBar: output);
@@ -863,9 +887,9 @@ mod test {
         // resources
         let _bind = from!(Time: elapsed_seconds()) >> to!(e, Health: current);
         let _bind = to!(e, Health: current) << from!(Time: elapsed_seconds());
-        let _bind = from!(Time:elapsed_seconds() | fmt:val("{val}")) >> to!(e, HealthBar: output);
+        let _bind = from!(Time: elapsed_seconds() | fmt.val("{val}")) >> to!(e, HealthBar: output);
         let _bind =
-            to!(e, HealthBar: output) << from!(Time:elapsed_seconds() | fmt:val("{val:0.3}"));
+            to!(e, HealthBar: output) << from!(Time: elapsed_seconds() | fmt.val("{val:0.3}"));
     }
 
     #[test]

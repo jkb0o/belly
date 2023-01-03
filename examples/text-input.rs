@@ -29,7 +29,7 @@ fn setup(mut commands: Commands) {
     commands.add(eml! {
         <body s:padding="50px">
             <span>"Type input some text:"</span>
-            <textinput {input} bind:value=to!(label, Label:value | fmt:val("I'm bound to label, {val}!")) s:width="150px"/>
+            <textinput {input} bind:value=to!(label, Label:value | fmt.val("I'm bound to label, {val}!")) s:width="150px"/>
             <brl/>
 
             <span>"Bind input to label:"</span>
@@ -37,7 +37,7 @@ fn setup(mut commands: Commands) {
             <br/>
 
             <span>"Bind label from input:"</span>
-            <label bind:value=from!(input, TextInput:value | fmt:val("I'm bound from input, {val}!"))/>
+            <label bind:value=from!(input, TextInput:value | fmt.val("I'm bound from input, {val}!"))/>
             <br/>
 
             <span>"Bind content from input:"</span>

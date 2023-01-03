@@ -24,7 +24,7 @@ fn setup(mut commands: Commands) {
                 value=1.
                 maximum=12.0
                 bind:value=from!(Time:elapsed_seconds())
-                bind:value=to!(label, Label:value|fmt:v("Slider value: {v:0.2}"))
+                bind:value=to!(label, Label:value|fmt.v("Slider value: {v:0.2}"))
             />
             <br/>
             <label {label}/>

@@ -75,9 +75,9 @@ fn setup(mut commands: Commands) {
             <span c:group>
                 <span c:header>"Modulate:"</span>
                 <span c:sliders>
-                    <slider c:red value=1.0 bind:value=to!(img, Img:modulate|color:r)/>
-                    <slider c:green value=1.0 bind:value=to!(img, Img:modulate|color:g)/>
-                    <slider c:blue value=1.0 bind:value=to!(img, Img:modulate|color:b)/>
+                    <slider c:red value=1.0 bind:value=to!(img, Img:modulate|color.r)/>
+                    <slider c:green value=1.0 bind:value=to!(img, Img:modulate|color.g)/>
+                    <slider c:blue value=1.0 bind:value=to!(img, Img:modulate|color.b)/>
                 </span>
             </span>
         </body>

@@ -13,7 +13,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
     commands.add(eml! {
         <body s:padding="50px">
-            "Elapsed seconds: "{from!(Time:elapsed_seconds() | fmt:s("{s:0.2}"))}
+            "Elapsed seconds: "{from!(Time:elapsed_seconds() | fmt.s("{s:0.2}"))}
         </body>
     });
 }

@@ -24,7 +24,7 @@ fn setup(mut commands: Commands) {
             <button on:press=connect!(counter, |c: Counter| c.count += 1)>"+"</button>
             <span s:width="150px" s:justify-content="center">
                 // bind Counter.count property at counter entity to Label.value proeprty
-                <label bind:value=from!(counter, Counter:count|fmt:c("Value: {c}"))/>
+                <label bind:value=from!(counter, Counter:count|fmt.c("Value: {c}"))/>
             </span>
             <button on:press=connect!(counter, |c: Counter| c.count -= 1)>"-"</button>
         </body>
