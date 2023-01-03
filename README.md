@@ -76,9 +76,78 @@ The main tasks the plugin is about to solve are:
 - allow to effectively separate the layout, styling, data & logic from each other
 - build the basis to provide various tools for *`game`* developers & designers
 
+Features:
+- Hierarcy definition using `eml` macro or asset
+- Style definition using direct attributes or `ess` stylesheet assets
+- Hot-reloading for `eml` and `ess` assets
+- Data bindings for resources, components, params and content
+- Event -> handler connections
+- Predefined styles properties for every piece os UI
+- Basic templating (for-loops, slots)
+- Out of the box default styles & fonts
+- Ability to define custom widgets, properties, and bind transformers
+- Style & behaviour extending
+- Predefined widgets for configuring layout, generating content and handling input:
+  - body, div, span, br, strong
+  - img, progressbar, label
+  - textinput, slider, button, buttongroup
+
+Upcoming features:
+- Styleboxes (9-patch-slices/`image-border-*`)
+- Complete rich-text processing
+- True inline/block/inline-block elements
+- Binding transitions (changing values over time)
+- Style transitions (changing style properties over time)
+- Scene-based widgets
+- Styled drawing primitives (lines, rects, curves, shapes)
+- Asset validation tools
+- In-game developer panel with UI tree & style inspector
+- More widgets (tabview, scrollarea, checkbox, attach, line, popup, tooltip)
+- Developer tools (vscode plugin)
+- Localization
+- Scripting
+- Theming
+- Asset loading progress handling
+- More templating (if/else)
+
 ---
 
-## Prerequisites & Setup
+## <a name="table-of-contents">↪️</a> Table of contents
+
+---
+
+- [About](#about)
+- [Table of contents](#table-of-contents)
+- [Prerequisites & Setup](#prerequisites--setup)
+- [Basics](#basics)
+- [Tags, Widgets & Content](#tags-widgets--content)
+- [Styling](#styling)
+  - [Style Params](#style-params)
+  - [StyleSheets](#stylesheets)
+  - [Selectors](#selectors)
+  - [Selectors weights & resolving order](#selector-weights)
+  - [Managed properties](#managed-properties)
+  - [Default styles](#default-styles)
+- [Data flow & relations](#data-flow)
+  - [Signals & Connections](#signals)
+  - [Data Bindnings Introduction](#data-bindnings)
+  - [Data transformers](#data-transformers)
+  - [Format transformer](#format-transformer)
+  - [Global transformers](#global-transformers)
+  - [Associated transformers](#associated-transformers)
+  - [Binding from Resources](#binding-from-resources)
+  - [Forms of `from!`, `to!`, and `connect!` macros](#forms-of-relations)
+- [Templating](#templating)
+  - [Loops](#loops)
+  - [Slots](#slots)
+- [Building Widgets](#building-widgets)
+- [Implementing custom Styles](#implementing-custom-styles)
+- [Writing Transformers](#writing-transformers)
+- [License](#license)
+
+---
+
+## <a name="setup">↪️</a> Prerequisites & Setup
 
 ---
 
@@ -94,7 +163,7 @@ If you are brave enough, you can connect the plugin by referencing the GitHub re
 
 ---
 
-## Basics
+## <a name="basics">↪️</a> Basics
 
 ---
 
@@ -148,7 +217,7 @@ For configuring widget style & behavior you can pass attributes within the tag. 
 
 ---
 
-## Tags, Widgets & Content
+## <a name="tags-widgets-content">↪️</a> Tags, Widgets & Content
 
 ---
 
@@ -163,7 +232,7 @@ As I mentioned earlier, almost every tag meant to be `Widget`it produces one or 
 
 ---
 
-## Styling
+## <a name="styling">↪️</a> Styling
 
 ---
 Usually, in `bevy`, you define styles (how your content looks) by passing properties to UI bundles. Unfortunately, it can produce a lot of boilerplate. `belly` can help you to create more readable styling code/content in multiple ways. The core idea is to define some style properties (`width`, `background-color`, `flex-direction`, etc.) and map them somehow to the actual components and their properties. This mapping is done by the `Property` trait. Implementations of this trait define the style property name (`width`), how it should be parsed (to `Val`), and how to apply parsed value to the exact component (`Style`'s `size.width`)
@@ -172,7 +241,7 @@ There are two ways to provide style properties to nodes: by passing style param 
 
 ---
 
-### Style Params
+### <a name="style-params">↪️</a> Style Params
 
 ---
 
@@ -223,7 +292,7 @@ A `Variant` is used only for passing params and converting them to concrete type
 
 ---
 
-### StyleSheets
+### <a name="stylesheets">↪️</a> StyleSheets
 
 ---
 
@@ -290,7 +359,7 @@ commands.add(StyleSheet::parse(r"#
 
 ---
 
-### Selectors
+### <a name="selectors">↪️</a> Selectors
 
 ---
 
@@ -380,7 +449,7 @@ The interesting thing here is that at some point multiple selectors are valid fo
 
 ---
 
-### Selectors weights & resolving order
+### <a name="selector-weights">↪️</a> Selectors weights & resolving order
 
 ---
 
@@ -455,7 +524,7 @@ commands.add(eml! {
 
 ---
 
-### Managed properties
+### <a name="managed-properties">↪️</a> Managed properties
 
 ---
 
@@ -471,13 +540,13 @@ From this point this span's `margin-right` property is your responsibility, `bel
 
 ---
 
-### Default styles
+### <a name="default-styles">↪️</a> Default styles
 
 Work in progress...
 
 ---
 
-## Data flow & relations
+## <a name="data-flow">↪️</a> Data flow & relations
 
 ---
 
@@ -485,7 +554,7 @@ Now, when you know something about styling & layout in the `belly` it is time to
 
 ---
 
-### Signals & Connections
+### <a name="signals">↪️</a> Signals & Connections
 
 ---
 
@@ -558,7 +627,7 @@ This kind of system (change property ComponentA.a when ComponentB.b changed) is 
 
 ---
 
-### Data Bindnings Introduction
+### <a name="bindings-intro">↪️</a> Data Bindnings Introduction
 
 ---
 
@@ -622,7 +691,7 @@ There is an explanation of each part of the `from!` bind:
 
 ---
 
-### Data transformers
+### <a name="data-transformers">↪️</a> Data transformers
 
 ---
 
@@ -649,7 +718,7 @@ There are three types of transformers:
 
 ---
 
-### Format transformer
+### <a name="format-transfomer">↪️</a> Format transformer
 
 ---
 
@@ -673,7 +742,7 @@ fmt.some_vec("({}, {})", some_vec.x, some_vec.y)
 
 ---
 
-### Global transformers
+### <a name="global-transformers">↪️</a> Global transformers
 
 ---
 
@@ -700,7 +769,7 @@ commands.add(
 
 ---
 
-### Associated transformers
+### <a name="associated-transformers">↪️</a> Associated transformers
 
 ---
 
@@ -736,7 +805,7 @@ Unfortunately, when you use `from!` macro the target type is unknown. This is wh
 
 ---
 
-### Binding from Resources
+### <a name="binding-from-resources">↪️</a> Binding from Resources
 
 ---
 
@@ -778,7 +847,7 @@ Pay attention to how the bind is written in this example. I do not use `<label>`
 
 ---
 
-### Forms of `from!`, `to!`, and `connect!` macros
+### <a name="forms-of-relations">↪️</a> Forms of `from!`, `to!`, and `connect!` macros
 
 ---
 
@@ -822,7 +891,7 @@ connect!(|ctx| info!("Happened at {}", ctx.time().elapsed_seconds())
 
 ---
 
-## Templating
+## <a name="templating">↪️</a> Templating
 
 ---
 
@@ -830,7 +899,7 @@ All this time I've been talking about widgets: the `eml` tags expanded into one 
 
 ---
 
-### Loops
+### <a name="loops">↪️</a> Loops
 
 ---
 
@@ -877,7 +946,7 @@ Last thing I want to notice about the `<for>` loops is: it is supported only by 
 
 ---
 
-### Slots
+### <a name="slots">↪️</a> Slots
 
 ---
 
@@ -933,22 +1002,22 @@ To demonstrate the way slots are defined I need to take a break and tell how to 
 
 ---
 
-## Building Widgets
+## <a name="building-widgets">↪️</a> Building Widgets
 
 
 Coming soon
 
-## Implementing custom Styles
+## <a name="custom-styles">↪️</a> Implementing custom Styles
 
 Coming soon
 
-## Writing Transformers
+## <a name="writing-transformers">↪️</a> Writing Transformers
 
 Coming soon
 
 ---
 
-## License
+## <a name="license">↪️</a> License
 
 ---
 
