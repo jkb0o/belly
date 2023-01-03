@@ -4,9 +4,14 @@ use crate::common::*;
 use ab_glyph::ScaleFont;
 use belly_core::*;
 use belly_macro::*;
-use bevy::{input::keyboard::KeyboardInput, prelude::*};
+use bevy::{input::keyboard::KeyboardInput, prelude::*, utils::Duration};
 
+#[cfg(target_os = "macos")]
+const CHAR_BACKSPACE: char = '\u{7f}';
+#[cfg(not(target_os = "macos"))]
+const CHAR_BACKSPACE: char = '\u{8}';
 const CHAR_DELETE: char = '\u{7f}';
+const CHAR_LAST_CONTROL: char = '\u{1f}';
 const CURSOR_WIDTH: f32 = 2.;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
@@ -199,6 +204,14 @@ fn get_char_advance(ch: char, font: &Font, font_size: f32) -> f32 {
     font.h_advance(glyph)
 }
 
+#[derive(Deref, DerefMut)]
+struct RepeatInputTimer(Timer);
+impl Default for RepeatInputTimer {
+    fn default() -> Self {
+        RepeatInputTimer(Timer::new(Duration::from_millis(10), TimerMode::Once))
+    }
+}
+
 fn process_keyboard_input(
     changed_elements: Query<(), Changed<Element>>,
     keyboard_input: EventReader<KeyboardInput>,
@@ -210,7 +223,10 @@ fn process_keyboard_input(
     mut cursors: Query<&mut TextInputCursor>,
     mut styles: Query<&mut Style>,
     mut texts: Query<&Text>,
+    mut timer: Local<RepeatInputTimer>,
+    time: Res<Time>,
 ) {
+    timer.tick(time.delta());
     let Some((entity, mut input)) = inputs.iter_mut()
         .filter(|(_, _, e)| e.focused())
         .map(|(e, i, _)| (e, i))
@@ -228,27 +244,54 @@ fn process_keyboard_input(
     let mut selected = input.selected.clone();
 
     let mut chars: Vec<_> = input.value.chars().collect();
-    if keyboard.just_pressed(KeyCode::Left) {
+    if keyboard.pressed(KeyCode::Left) {
+        if timer.finished() {
+            timer.reset();
+            if !shift {
+                selected.stop();
+            }
+            if index > 0 {
+                index -= 1;
+                if shift {
+                    selected.extend(index + 1);
+                    selected.extend(index);
+                }
+            }
+        }
+    } else if keyboard.pressed(KeyCode::Right) {
+        timer.tick(time.delta());
+        if timer.finished() {
+            timer.reset();
+            if !shift {
+                selected.stop();
+            }
+            if index < chars.len() {
+                index += 1;
+                if shift {
+                    selected.extend(index - 1);
+                    selected.extend(index);
+                }
+            }
+        }
+    } else if keyboard.just_pressed(KeyCode::Up) {
         if !shift {
             selected.stop();
         }
-        if index > 0 {
-            index -= 1;
-            if shift {
-                selected.extend(index + 1);
-                selected.extend(index);
-            }
+        let prev_index = index;
+        index = 0;
+        if shift {
+            selected.extend(prev_index);
+            selected.extend(index);
         }
-    } else if keyboard.just_pressed(KeyCode::Right) {
+    } else if keyboard.just_pressed(KeyCode::Down) {
         if !shift {
             selected.stop();
         }
-        if index < chars.len() {
-            index += 1;
-            if shift {
-                selected.extend(index - 1);
-                selected.extend(index);
-            }
+        let prev_index = index;
+        index = chars.len();
+        if shift {
+            selected.extend(prev_index);
+            selected.extend(index);
         }
     // } else if keyboard.just_pressed(KeyCode::Tab) {
     // continue
@@ -257,7 +300,7 @@ fn process_keyboard_input(
             if ch.char == '\t' {
                 continue;
             }
-            if ch.char == CHAR_DELETE {
+            if ch.char == CHAR_BACKSPACE {
                 if !selected.is_empty() {
                     chars.drain(selected.range());
                     index = selected.min;
@@ -268,7 +311,19 @@ fn process_keyboard_input(
                     chars.remove(index);
                     input.value = chars.iter().collect();
                 }
-            } else {
+            } else if ch.char == CHAR_DELETE {
+                if !selected.is_empty() {
+                    chars.drain(selected.range());
+                    index = selected.min;
+                    selected.stop();
+                    input.value = chars.iter().collect();
+                } else {
+                    if chars.len() > index {
+                        chars.remove(index);
+                        input.value = chars.iter().collect();
+                    }
+                }
+            } else if ch.char > CHAR_LAST_CONTROL {
                 if !selected.is_empty() {
                     chars.drain(selected.range());
                     index = selected.min;
