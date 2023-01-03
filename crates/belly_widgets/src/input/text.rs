@@ -11,6 +11,7 @@ const CHAR_BACKSPACE: char = '\u{7f}';
 #[cfg(not(target_os = "macos"))]
 const CHAR_BACKSPACE: char = '\u{8}';
 const CHAR_DELETE: char = '\u{7f}';
+const CHAR_LAST_CONTROL: char = '\u{1f}';
 const CURSOR_WIDTH: f32 = 2.;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
@@ -322,14 +323,12 @@ fn process_keyboard_input(
                         input.value = chars.iter().collect();
                     }
                 }
-            } else {
+            } else if ch.char > CHAR_LAST_CONTROL {
                 if !selected.is_empty() {
                     chars.drain(selected.range());
                     index = selected.min;
                     selected.stop();
                 }
-                // this will try to insert anything, even if it doesnt have a textual representaion
-                // (escape for exampe will be inserted as a space) some constraint would be useful
                 chars.insert(index, ch.char);
                 input.value = chars.iter().collect();
                 index += 1;
