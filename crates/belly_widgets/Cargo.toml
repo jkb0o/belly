@@ -10,6 +10,5 @@ bevy = "0.9"
 belly_core = { path = "../belly_core" }
 belly_macro = { path = "../belly_macro" }
 tagstr = { path = "../tagstr" }
-tagstr_core = { path = "../tagstr_core" }
 itertools = "0.10.5"
 ab_glyph = "0.2.18"

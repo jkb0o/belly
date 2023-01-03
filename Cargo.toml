@@ -11,8 +11,6 @@ members = [
     "crates/belly_macro",
     "crates/belly_widgets",
     "crates/tagstr",
-    "crates/tagstr_core",
-    "crates/tagstr_macro"
 ]
 
 [dependencies]

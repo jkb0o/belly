@@ -13,4 +13,3 @@ lazy_static = "1.4.0"
 roxmltree = "0.16.0"
 smallvec = "1.10.0"
 tagstr = { path = "../tagstr" }
-tagstr_core = { path = "../tagstr_core" }

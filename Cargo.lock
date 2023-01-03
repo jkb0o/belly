@@ -221,7 +221,6 @@ dependencies = [
  "roxmltree",
  "smallvec",
  "tagstr",
- "tagstr_core",
 ]
 
 [[package]]
@@ -248,7 +247,6 @@ dependencies = [
  "bevy",
  "itertools",
  "tagstr",
- "tagstr_core",
 ]
 
 [[package]]
@@ -3068,25 +3066,8 @@ dependencies = [
 name = "tagstr"
 version = "0.1.0"
 dependencies = [
- "tagstr_core",
- "tagstr_macro",
-]
-
-[[package]]
-name = "tagstr_core"
-version = "0.1.0"
-dependencies = [
  "hashbrown 0.13.1",
  "lazy_static",
-]
-
-[[package]]
-name = "tagstr_macro"
-version = "0.1.0"
-dependencies = [
- "quote",
- "syn",
- "tagstr_core",
 ]
 
 [[package]]

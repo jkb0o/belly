@@ -6,6 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tagstr_core = { path = "../tagstr_core" }
-tagstr_macro = { path = "../tagstr_macro" }
+hashbrown = "0.13.1"
+lazy_static = "1.4.0"
 
