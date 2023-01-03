@@ -9,7 +9,7 @@ proc-macro = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = "0.9.0"
+bevy = "0.9"
 quote = "1.0.21"
 syn-rsx = { git = "https://github.com/stoically/syn-rsx.git" }
 # syn-rsx = { git = "https://github.com/jkb0o/syn-rsx.git", branch = "add_syn_printing_feature" }

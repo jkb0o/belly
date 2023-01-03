@@ -16,7 +16,7 @@ members = [
 ]
 
 [dependencies]
-bevy = "0.9.0"
+bevy = "0.9"
 tagstr = { path = "crates/tagstr" }
 belly_macro = { path = "crates/belly_macro" }
 belly_core = { path = "crates/belly_core" }
