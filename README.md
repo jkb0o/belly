@@ -1,5 +1,6 @@
-About
------
+## About
+
+---
 
 The `belly` is a plugin for a `bevy` game engine that helps to declaratively define a user interface with `eml` markup (macros & asset), style it with a very CSS-like `ess` syntax, and define data flow using `from!` & `to!` bind macros and/or connect to signals (events) with `connect!` macro.
 
@@ -77,8 +78,7 @@ The main tasks the plugin is about to solve are:
 
 ---
 
-Prerequisites & Setup
----------------------
+## Prerequisites & Setup
 
 ---
 
@@ -94,8 +94,7 @@ If you are brave enough, you can connect the plugin by referencing the GitHub re
 
 ---
 
-Basics
-------
+## Basics
 
 ---
 
@@ -149,8 +148,7 @@ For configuring widget style & behavior you can pass attributes within the tag. 
 
 ---
 
-Tags, Widgets & Content
------------------------
+## Tags, Widgets & Content
 
 ---
 
@@ -165,8 +163,7 @@ As I mentioned earlier, almost every tag meant to be `Widget`it produces one or 
 
 ---
 
-Styling
--------
+## Styling
 
 ---
 Usually, in `bevy`, you define styles (how your content looks) by passing properties to UI bundles. Unfortunately, it can produce a lot of boilerplate. `belly` can help you to create more readable styling code/content in multiple ways. The core idea is to define some style properties (`width`, `background-color`, `flex-direction`, etc.) and map them somehow to the actual components and their properties. This mapping is done by the `Property` trait. Implementations of this trait define the style property name (`width`), how it should be parsed (to `Val`), and how to apply parsed value to the exact component (`Style`'s `size.width`)
@@ -480,8 +477,7 @@ Work in progress...
 
 ---
 
-Data flow & relations
----------------------
+## Data flow & relations
 
 ---
 
@@ -826,8 +822,7 @@ connect!(|ctx| info!("Happened at {}", ctx.time().elapsed_seconds())
 
 ---
 
-Templating
-----------
+## Templating
 
 ---
 
@@ -938,25 +933,22 @@ To demonstrate the way slots are defined I need to take a break and tell how to 
 
 ---
 
-Building Widgets
-----------------
+## Building Widgets
+
 
 Coming soon
 
-Implementing custom Styles
---------------------------
+## Implementing custom Styles
 
 Coming soon
 
-Writing Transformers
---------------------
+## Writing Transformers
 
 Coming soon
 
 ---
 
-License
--------
+## License
 
 ---
 
