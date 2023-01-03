@@ -76,7 +76,7 @@ The main tasks the plugin is about to solve are:
 - allow to effectively separate the layout, styling, data & logic from each other
 - build the basis to provide various tools for *`game`* developers & designers
 
-<a name="features">#</a> Features:
+#### <a name="features"></a> Features:
 - Hierarcy definition using `eml` macro or asset
 - Style definition using direct attributes or `ess` stylesheet assets
 - Hot-reloading for `eml` and `ess` assets
@@ -92,7 +92,7 @@ The main tasks the plugin is about to solve are:
   - img, progressbar, label
   - textinput, slider, button, buttongroup
 
-<a name="upcoming-features">#</a> Upcoming features:
+#### <a name="upcoming-features"></a> Upcoming features:
 - Styleboxes (9-patch-slices/`image-border-*`)
 - Complete rich-text processing
 - True inline/block/inline-block elements
