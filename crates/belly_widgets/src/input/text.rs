@@ -4,14 +4,8 @@ use crate::common::*;
 use ab_glyph::ScaleFont;
 use belly_core::*;
 use belly_macro::*;
-use bevy::{input::keyboard::KeyboardInput, prelude::*, utils::Duration};
+use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
-#[cfg(target_os = "macos")]
-const CHAR_BACKSPACE: char = '\u{7f}';
-#[cfg(not(target_os = "macos"))]
-const CHAR_BACKSPACE: char = '\u{8}';
-const CHAR_DELETE: char = '\u{7f}';
-const CHAR_LAST_CONTROL: char = '\u{1f}';
 const CURSOR_WIDTH: f32 = 2.;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
@@ -204,17 +198,9 @@ fn get_char_advance(ch: char, font: &Font, font_size: f32) -> f32 {
     font.h_advance(glyph)
 }
 
-#[derive(Deref, DerefMut)]
-struct RepeatInputTimer(Timer);
-impl Default for RepeatInputTimer {
-    fn default() -> Self {
-        RepeatInputTimer(Timer::new(Duration::from_millis(10), TimerMode::Once))
-    }
-}
-
 fn process_keyboard_input(
     changed_elements: Query<(), Changed<Element>>,
-    keyboard_input: EventReader<KeyboardInput>,
+    mut keyboard_input: EventReader<KeyboardInput>,
     keyboard: Res<Input<KeyCode>>,
     fonts: Res<Assets<Font>>,
     nodes: Query<&Node>,
@@ -223,10 +209,7 @@ fn process_keyboard_input(
     mut cursors: Query<&mut TextInputCursor>,
     mut styles: Query<&mut Style>,
     mut texts: Query<&Text>,
-    mut timer: Local<RepeatInputTimer>,
-    time: Res<Time>,
 ) {
-    timer.tick(time.delta());
     let Some((entity, mut input)) = inputs.iter_mut()
         .filter(|(_, _, e)| e.focused())
         .map(|(e, i, _)| (e, i))
@@ -244,63 +227,61 @@ fn process_keyboard_input(
     let mut selected = input.selected.clone();
 
     let mut chars: Vec<_> = input.value.chars().collect();
-    if keyboard.pressed(KeyCode::Left) {
-        if timer.finished() {
-            timer.reset();
-            if !shift {
-                selected.stop();
+    for ch in keyboard_input.iter() {
+        if !ch.state.is_pressed() {
+            continue;
+        }
+        let Some(code) = ch.key_code else {
+            continue
+        };
+        match code {
+            KeyCode::Left => {
+                if !shift {
+                    selected.stop();
+                }
+                if index > 0 {
+                    index -= 1;
+                    if shift {
+                        selected.extend(index + 1);
+                        selected.extend(index);
+                    }
+                }
             }
-            if index > 0 {
-                index -= 1;
+            KeyCode::Right => {
+                if !shift {
+                    selected.stop();
+                }
+                if index < chars.len() {
+                    index += 1;
+                    if shift {
+                        selected.extend(index - 1);
+                        selected.extend(index);
+                    }
+                }
+            }
+            KeyCode::Up | KeyCode::Home => {
+                if !shift {
+                    selected.stop();
+                }
+                let prev_index = index;
+                index = 0;
                 if shift {
-                    selected.extend(index + 1);
+                    selected.extend(prev_index);
                     selected.extend(index);
                 }
             }
-        }
-    } else if keyboard.pressed(KeyCode::Right) {
-        timer.tick(time.delta());
-        if timer.finished() {
-            timer.reset();
-            if !shift {
-                selected.stop();
-            }
-            if index < chars.len() {
-                index += 1;
+            KeyCode::Down | KeyCode::End => {
+                if !shift {
+                    selected.stop();
+                }
+                let prev_index = index;
+                index = chars.len();
                 if shift {
-                    selected.extend(index - 1);
+                    selected.extend(prev_index);
                     selected.extend(index);
                 }
             }
-        }
-    } else if keyboard.just_pressed(KeyCode::Up) {
-        if !shift {
-            selected.stop();
-        }
-        let prev_index = index;
-        index = 0;
-        if shift {
-            selected.extend(prev_index);
-            selected.extend(index);
-        }
-    } else if keyboard.just_pressed(KeyCode::Down) {
-        if !shift {
-            selected.stop();
-        }
-        let prev_index = index;
-        index = chars.len();
-        if shift {
-            selected.extend(prev_index);
-            selected.extend(index);
-        }
-    // } else if keyboard.just_pressed(KeyCode::Tab) {
-    // continue
-    } else {
-        for ch in characters.iter() {
-            if ch.char == '\t' {
-                continue;
-            }
-            if ch.char == CHAR_BACKSPACE {
+            KeyCode::Back => {
                 if !selected.is_empty() {
                     chars.drain(selected.range());
                     index = selected.min;
@@ -311,7 +292,8 @@ fn process_keyboard_input(
                     chars.remove(index);
                     input.value = chars.iter().collect();
                 }
-            } else if ch.char == CHAR_DELETE {
+            }
+            KeyCode::Delete => {
                 if !selected.is_empty() {
                     chars.drain(selected.range());
                     index = selected.min;
@@ -323,17 +305,23 @@ fn process_keyboard_input(
                         input.value = chars.iter().collect();
                     }
                 }
-            } else if ch.char > CHAR_LAST_CONTROL {
-                if !selected.is_empty() {
-                    chars.drain(selected.range());
-                    index = selected.min;
-                    selected.stop();
-                }
-                chars.insert(index, ch.char);
-                input.value = chars.iter().collect();
-                index += 1;
             }
+            _ => (),
         }
+    }
+    for ch in characters
+        .iter()
+        .map(|c| c.char)
+        .filter(|c| !c.is_control())
+    {
+        if !selected.is_empty() {
+            chars.drain(selected.range());
+            index = selected.min;
+            selected.stop();
+        }
+        chars.insert(index, ch);
+        input.value = chars.iter().collect();
+        index += 1;
     }
 
     if let Ok(mut cursor) = cursors.get_mut(input.cursor) {
