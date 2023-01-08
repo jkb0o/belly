@@ -290,6 +290,17 @@ fn process_for_loop(node: &NodeElement) -> TokenStream {
 
     let mut loop_content = quote! {};
     for ch in node.children.iter() {
+        if let Node::Element(elem) = ch {
+            if &elem.name.to_string() == "for" {
+                let expr = process_for_loop(elem);
+                loop_content = quote! {
+                    #loop_content
+                    #expr
+                };
+                continue;
+            }
+        }
+
         let expr = walk_nodes(ch, true);
         loop_content = quote! {
             #loop_content
