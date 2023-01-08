@@ -1,4 +1,4 @@
-use crate::{ess::ColorFromHexExtension, params::Params};
+use crate::{eml::Params, ess::ColorFromHexExtension};
 use bevy::prelude::*;
 
 use super::{ApplyCommands, Variant};

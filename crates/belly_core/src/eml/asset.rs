@@ -8,7 +8,7 @@ use bevy::{
 };
 use tagstr::*;
 
-use crate::{Element, ElementBuilderRegistry, Param, PropertyExtractor, PropertyTransformer};
+use crate::{eml::Param, Element, ElementBuilderRegistry, PropertyExtractor, PropertyTransformer};
 
 use super::{
     build::{ElementContextData, Slots},

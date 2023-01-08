@@ -220,7 +220,7 @@ fn create_command_stmts(expr: &Expr) -> TokenStream {
     };
     let expr_span = expr.span();
     quote_spanned! {expr_span=>
-        __ctx.params.add(#core::Param::from_commands("with", ::std::boxed::Box::new(move |c| {
+        __ctx.params.add(#core::eml::Param::from_commands("with", ::std::boxed::Box::new(move |c| {
             #with_body
         })));
     }
@@ -232,7 +232,7 @@ fn create_attr_stmt(attr: &NodeAttribute) -> TokenStream {
     match &attr.value {
         None => {
             return quote! {
-                __ctx.params.add(#core::params::Param::new(
+                __ctx.params.add(#core::eml::Param::new(
                     #attr_name.into(),
                     #core::Variant::Bool(true)
                 ));
@@ -249,7 +249,7 @@ fn create_attr_stmt(attr: &NodeAttribute) -> TokenStream {
                 }
             } else {
                 quote_spanned! {attr_span=>
-                    __ctx.params.add(#core::params::Param::new(
+                    __ctx.params.add(#core::eml::Param::new(
                         #attr_name.into(),
                         (#attr_value).into()
                     ));
@@ -717,7 +717,7 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
             #aliases_decl
 
-            fn construct_component(world: &mut ::bevy::prelude::World, params: &mut #core::Params) -> ::std::option::Option<Self> {
+            fn construct_component(world: &mut ::bevy::prelude::World, params: &mut #core::eml::Params) -> ::std::option::Option<Self> {
                 ::std::option::Option::Some(#component {
                     #construct_body
                 })
@@ -817,7 +817,7 @@ fn prepare_construct_instance(ast: &syn::DeriveInput) -> syn::Result<TokenStream
             construct_body = quote! {
                 #construct_body
                 #field_ident: #core::eml::build::FromWorldAndParam::from_world_and_param(world, #core::Variant::Params({
-                    let mut proxy_params = #core::Params::default();
+                    let mut proxy_params = #core::eml::Params::default();
                     #proxy_body
                     proxy_params
                 })),

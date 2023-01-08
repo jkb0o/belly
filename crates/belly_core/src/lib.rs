@@ -15,7 +15,6 @@ pub mod element;
 pub mod eml;
 pub mod ess;
 pub mod input;
-pub mod params;
 pub mod relations;
 pub mod tags;
 
@@ -31,6 +30,8 @@ pub use crate::eml::build::WidgetBuilder;
 pub use crate::eml::content::ExpandElements;
 pub use crate::eml::content::ExpandElementsExt;
 pub use crate::eml::content::IntoContent;
+pub use crate::eml::Param;
+pub use crate::eml::Params;
 pub use crate::eml::Variant;
 pub use crate::ess::managed;
 pub use crate::ess::CompoundProperty;
@@ -55,8 +56,6 @@ pub use crate::relations::transform::ColorTransformerExtension;
 pub use element::Element;
 pub use element::Elements;
 pub use ess::Property;
-pub use params::Param;
-pub use params::Params;
 pub use tagstr;
 pub use tagstr::*;
 
