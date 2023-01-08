@@ -2,6 +2,7 @@ use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::text::TextLayoutInfo;
 use bevy::utils::HashMap;
 use bevy::{ecs::system::EntityCommands, prelude::*};
+use bevy_stylebox::Stylebox;
 use eml::build::BuildPligin;
 use eml::EmlPlugin;
 use ess::{EssPlugin, StyleSheet, StyleSheetParser};
@@ -169,6 +170,8 @@ pub struct Transformers;
 #[derive(Bundle)]
 pub struct ElementBundle {
     pub element: Element,
+    #[cfg(feature = "stylebox")]
+    pub stylebox: Stylebox,
     #[bundle]
     pub node: NodeBundle,
 }
@@ -177,6 +180,8 @@ impl Default for ElementBundle {
     fn default() -> Self {
         ElementBundle {
             element: Default::default(),
+            #[cfg(feature = "stylebox")]
+            stylebox: Stylebox::default(),
             node: NodeBundle {
                 background_color: BackgroundColor(Color::NONE),
                 ..default()

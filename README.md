@@ -91,9 +91,9 @@ The main tasks the plugin is about to solve are:
   - body, div, span, br, strong
   - img, progressbar, label
   - textinput, slider, button, buttongroup
+- Styleboxes (9-patch-slices/`image-border`)
 
 #### <a name="upcoming-features"></a> Upcoming features:
-- Styleboxes (9-patch-slices/`image-border-*`)
 - Complete rich-text processing
 - True inline/block/inline-block elements
 - Binding transitions (changing values over time)

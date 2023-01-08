@@ -7,9 +7,14 @@ edition = "2021"
 
 [dependencies]
 bevy = "0.9"
+bevy_stylebox = { path = "../bevy_stylebox", optional = true }
 cssparser = "0.29.6"
 itertools = "0.10.5"
 lazy_static = "1.4.0"
 roxmltree = "0.16.0"
 smallvec = "1.10.0"
 tagstr = { path = "../tagstr" }
+
+[features]
+default = ["stylebox"]
+stylebox = ["dep:bevy_stylebox"]

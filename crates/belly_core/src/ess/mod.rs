@@ -1,5 +1,7 @@
 mod parser;
 mod selector;
+#[cfg(feature = "stylebox")]
+mod stylebox;
 
 use bevy::{
     asset::{AssetLoader, LoadedAsset},
@@ -37,6 +39,10 @@ impl Plugin for EssPlugin {
             extractor,
         });
         app.add_system(process_styles_system);
+        #[cfg(feature = "stylebox")]
+        app.add_plugin(bevy_stylebox::StyleboxPlugin);
+        #[cfg(feature = "stylebox")]
+        app.add_plugin(stylebox::StyleboxPropertyPlugin);
     }
 }
 

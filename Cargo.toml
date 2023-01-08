@@ -10,6 +10,7 @@ members = [
     "crates/belly_core",
     "crates/belly_macro",
     "crates/belly_widgets",
+    "crates/bevy_stylebox",
     "crates/tagstr",
 ]
 
@@ -20,6 +21,17 @@ belly_macro = { path = "crates/belly_macro" }
 belly_core = { path = "crates/belly_core" }
 belly_widgets = { path = "crates/belly_widgets" }
 
+[features]
+default = ["stylebox"]
+stylebox = ["belly_core/stylebox"]
+
+
+
 [[example]]
 name = "text_input"
 path = "examples/text-input.rs"
+
+[[example]]
+name = "stylebox-panel"
+path = "examples/stylebox-panel.rs"
+required-features = ["bevy/basis-universal"]
