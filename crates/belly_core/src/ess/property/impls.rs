@@ -23,7 +23,7 @@ macro_rules! style_property {
         #[derive(Default)]
         $(#[doc = $s])*
         struct $typename;
-        impl $crate::property::Property for $typename {
+        impl $crate::ess::Property for $typename {
             type Item = $item;
             type Components = $components;
             type Filters = $filters;
@@ -32,7 +32,7 @@ macro_rules! style_property {
                 tag!($prop_name)
             }
 
-            fn parse($tokens: &$crate::property::StyleProperty) -> Result<Self::Item, $crate::ElementsError> {
+            fn parse($tokens: &$crate::ess::StyleProperty) -> Result<Self::Item, $crate::ElementsError> {
                 $parse
             }
 
@@ -61,11 +61,11 @@ macro_rules! compound_style_property {
         #[derive(Default)]
         $(#[doc = $s])*
         struct $typename;
-        impl $crate::property::CompoundProperty for $typename {
+        impl $crate::ess::CompoundProperty for $typename {
             fn name() -> Tag {
                 tag!($prop_name)
             }
-            fn extract($value: Variant) -> Result<::bevy::utils::HashMap<$crate::Tag, $crate::property::PropertyValue>, $crate::ElementsError> {
+            fn extract($value: Variant) -> Result<::bevy::utils::HashMap<$crate::Tag, $crate::ess::PropertyValue>, $crate::ElementsError> {
                 $body
             }
             fn docstring() -> &'static str {
@@ -80,7 +80,7 @@ mod style {
 
     use bevy::utils::HashMap;
 
-    use crate::{property::PropertyValue, Variant};
+    use crate::{ess::PropertyValue, Variant};
 
     use super::*;
     // #[derive(Default)]

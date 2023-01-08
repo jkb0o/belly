@@ -1,7 +1,7 @@
 use std::fmt::Display;
 use std::{fmt::Debug, mem};
 
-use crate::property::*;
+use crate::ess::*;
 use crate::tags;
 use crate::variant::ApplyCommands;
 use crate::Variant;

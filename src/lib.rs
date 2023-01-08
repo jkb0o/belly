@@ -26,7 +26,7 @@ pub mod prelude {
     // traits
     pub use belly_core::eml::build::WidgetBuilder;
     pub use belly_core::eml::content::IntoContent;
-    pub use belly_core::property::colors::ColorFromHexExtension;
+    pub use belly_core::ess::ColorFromHexExtension;
     pub use belly_core::relations::transform::ColorTransformerExtension;
     pub use belly_core::ExpandElementsExt;
     pub use belly_core::WithElements;

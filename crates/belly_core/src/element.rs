@@ -5,7 +5,7 @@ use smallvec::SmallVec;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
-use crate::property::PropertyValue;
+use crate::ess::PropertyValue;
 use crate::tags;
 use crate::tags::*;
 use bevy::prelude::*;

@@ -3,6 +3,7 @@ pub(crate) mod impls;
 mod style;
 use std::any::{type_name, Any};
 
+pub use self::colors::*;
 pub use self::style::StyleProperty;
 pub use self::style::StylePropertyMethods;
 pub use self::style::StylePropertyToken;

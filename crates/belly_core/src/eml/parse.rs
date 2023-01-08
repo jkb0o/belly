@@ -3,7 +3,7 @@ use std::fmt::Display;
 use roxmltree;
 use tagstr::{AsTag, Tag};
 
-use crate::{property::StyleProperty, ElementsError, Variant};
+use crate::{ess::StyleProperty, ElementsError, Variant};
 
 use super::asset::{EmlElement, EmlLoader, EmlNode};
 

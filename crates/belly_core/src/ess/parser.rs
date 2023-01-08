@@ -5,9 +5,10 @@ use cssparser::*;
 use tagstr::{AsTag, Tag};
 
 use crate::{
-    ess::selector::{Selector, SelectorElement},
+    ess::Selector,
+    ess::SelectorElement,
     ess::StyleRule,
-    property::StyleProperty,
+    ess::StyleProperty,
     ElementsError, PropertyExtractor, PropertyTransformer, Variant,
 };
 
@@ -233,7 +234,7 @@ fn parse_values<'i, 'tt>(
 #[cfg(test)]
 mod tests {
     use crate::{
-        property::{PropertyValue, StylePropertyToken},
+        ess::{PropertyValue, StylePropertyToken},
         ExtractProperty, TransformProperty,
     };
 

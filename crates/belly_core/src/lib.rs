@@ -10,15 +10,12 @@ use input::ElementsInputPlugin;
 use std::error::Error;
 use std::fmt::Display;
 use std::sync::{Arc, RwLock};
-// use focus::{Focused, update_focus};
-use property::{CompoundProperty, PropertyValue};
 
 pub mod element;
 pub mod eml;
 pub mod ess;
 pub mod input;
 pub mod params;
-pub mod property;
 pub mod relations;
 pub mod tags;
 pub mod variant;
@@ -37,9 +34,11 @@ pub use crate::eml::content::ExpandElementsExt;
 pub use crate::eml::content::IntoContent;
 pub use crate::input::PointerInput;
 pub use crate::input::PointerInputData;
-pub use crate::property::managed;
-pub use crate::property::StylePropertyMethods;
-pub use crate::property::ToRectMap;
+pub use crate::ess::managed;
+pub use crate::ess::StylePropertyMethods;
+pub use crate::ess::ToRectMap;
+pub use crate::ess::PropertyValue;
+pub use crate::ess::CompoundProperty;
 pub use crate::relations::Connect;
 pub use crate::relations::ConnectionTo;
 pub use crate::relations::Signal;
@@ -57,7 +56,7 @@ pub use element::Element;
 pub use element::Elements;
 pub use params::Param;
 pub use params::Params;
-pub use property::Property;
+pub use ess::Property;
 pub use tagstr;
 pub use tagstr::*;
 pub use variant::Variant;
@@ -76,11 +75,11 @@ pub mod build {
     pub use crate::tag;
 
     // traits
-    pub use crate::property::StylePropertyMethods;
+    pub use crate::ess::StylePropertyMethods;
 
     // structs
-    pub use crate::property::PropertyValue;
-    pub use crate::property::StyleProperty;
+    pub use crate::ess::PropertyValue;
+    pub use crate::ess::StyleProperty;
     pub use crate::Tag;
     pub use crate::Variant;
 }
@@ -105,7 +104,7 @@ impl Plugin for ElementsCorePlugin {
 }
 
 fn register_properties(app: &mut bevy::prelude::App) {
-    use property::impls::*;
+    use ess::impls::*;
 
     app.register_property::<DisplayProperty>();
     app.register_property::<PositionTypeProperty>();

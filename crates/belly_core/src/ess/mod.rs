@@ -2,6 +2,7 @@ mod parser;
 mod selector;
 #[cfg(feature = "stylebox")]
 mod stylebox;
+mod property;
 
 use bevy::{
     asset::{AssetLoader, LoadedAsset},
@@ -11,10 +12,11 @@ use bevy::{
     utils::{hashbrown::hash_map::Keys, HashMap},
 };
 pub use selector::*;
+pub use property::*;
 use smallvec::SmallVec;
 use tagstr::Tag;
 
-use crate::{property::PropertyValue, Defaults, Elements, PropertyExtractor, PropertyTransformer};
+use crate::{Defaults, Elements, PropertyExtractor, PropertyTransformer};
 
 pub use self::parser::StyleSheetParser;
 use std::ops::Deref;
