@@ -3,9 +3,9 @@ use std::fmt::Display;
 use roxmltree;
 use tagstr::{AsTag, Tag};
 
-use crate::{ess::StyleProperty, ElementsError, Variant};
-
 use super::asset::{EmlElement, EmlLoader, EmlNode};
+use super::Variant;
+use crate::{ess::StyleProperty, ElementsError};
 
 const NS_STYLE: &str = "s";
 

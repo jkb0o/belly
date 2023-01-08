@@ -1,8 +1,8 @@
 mod parser;
+mod property;
 mod selector;
 #[cfg(feature = "stylebox")]
 mod stylebox;
-mod property;
 
 use bevy::{
     asset::{AssetLoader, LoadedAsset},
@@ -11,8 +11,8 @@ use bevy::{
     reflect::TypeUuid,
     utils::{hashbrown::hash_map::Keys, HashMap},
 };
-pub use selector::*;
 pub use property::*;
+pub use selector::*;
 use smallvec::SmallVec;
 use tagstr::Tag;
 

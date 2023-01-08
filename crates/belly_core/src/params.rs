@@ -1,9 +1,9 @@
 use std::fmt::Display;
 use std::{fmt::Debug, mem};
 
+use crate::eml::ApplyCommands;
 use crate::ess::*;
 use crate::tags;
-use crate::variant::ApplyCommands;
 use crate::Variant;
 use bevy::prelude::error;
 use bevy::prelude::Deref;

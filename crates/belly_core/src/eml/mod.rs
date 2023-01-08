@@ -6,9 +6,12 @@ pub mod asset;
 pub mod build;
 pub mod content;
 pub mod parse;
+pub mod variant;
 
 #[derive(Default)]
 pub struct EmlPlugin;
+
+pub use variant::*;
 
 impl Plugin for EmlPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {

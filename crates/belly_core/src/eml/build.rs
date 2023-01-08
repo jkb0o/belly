@@ -13,10 +13,11 @@ use std::{
 use tagstr::*;
 
 use crate::{
+    eml::Variant,
     ess::StyleRule,
     ess::StyleSheetParser,
     params::{Params, StyleParams},
-    tags, ConnectionTo, Element, PropertyExtractor, PropertyTransformer, Signal, Variant,
+    tags, ConnectionTo, Element, PropertyExtractor, PropertyTransformer, Signal,
 };
 
 pub struct BuildPligin;

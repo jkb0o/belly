@@ -18,7 +18,6 @@ pub mod input;
 pub mod params;
 pub mod relations;
 pub mod tags;
-pub mod variant;
 
 pub struct ElementsCorePlugin;
 
@@ -32,13 +31,14 @@ pub use crate::eml::build::WidgetBuilder;
 pub use crate::eml::content::ExpandElements;
 pub use crate::eml::content::ExpandElementsExt;
 pub use crate::eml::content::IntoContent;
-pub use crate::input::PointerInput;
-pub use crate::input::PointerInputData;
+pub use crate::eml::Variant;
 pub use crate::ess::managed;
+pub use crate::ess::CompoundProperty;
+pub use crate::ess::PropertyValue;
 pub use crate::ess::StylePropertyMethods;
 pub use crate::ess::ToRectMap;
-pub use crate::ess::PropertyValue;
-pub use crate::ess::CompoundProperty;
+pub use crate::input::PointerInput;
+pub use crate::input::PointerInputData;
 pub use crate::relations::Connect;
 pub use crate::relations::ConnectionTo;
 pub use crate::relations::Signal;
@@ -54,12 +54,11 @@ pub use crate::relations::transform::ColorTransformerExtension;
 
 pub use element::Element;
 pub use element::Elements;
+pub use ess::Property;
 pub use params::Param;
 pub use params::Params;
-pub use ess::Property;
 pub use tagstr;
 pub use tagstr::*;
-pub use variant::Variant;
 
 use relations::RelationsPlugin;
 

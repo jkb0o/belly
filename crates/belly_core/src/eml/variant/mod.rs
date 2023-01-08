@@ -9,8 +9,8 @@ use std::{
 use bevy::{ecs::system::EntityCommands, prelude::*};
 
 use crate::{
-    params::Params,
     ess::{PropertyValue, StyleProperty},
+    params::Params,
     ElementsBuilder, StylePropertyMethods,
 };
 use std::fmt::Debug;

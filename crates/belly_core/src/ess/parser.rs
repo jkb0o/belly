@@ -5,11 +5,8 @@ use cssparser::*;
 use tagstr::{AsTag, Tag};
 
 use crate::{
-    ess::Selector,
-    ess::SelectorElement,
-    ess::StyleRule,
-    ess::StyleProperty,
-    ElementsError, PropertyExtractor, PropertyTransformer, Variant,
+    eml::Variant, ess::Selector, ess::SelectorElement, ess::StyleProperty, ess::StyleRule,
+    ElementsError, PropertyExtractor, PropertyTransformer,
 };
 
 pub struct StyleSheetParser {

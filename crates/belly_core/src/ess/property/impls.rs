@@ -80,7 +80,7 @@ mod style {
 
     use bevy::utils::HashMap;
 
-    use crate::{ess::PropertyValue, Variant};
+    use crate::{eml::Variant, ess::PropertyValue};
 
     use super::*;
     // #[derive(Default)]

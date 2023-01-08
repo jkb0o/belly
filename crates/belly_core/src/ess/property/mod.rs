@@ -11,8 +11,9 @@ pub use self::style::ToRectMap;
 use crate::tags::*;
 use crate::{
     element::*,
+    eml::Variant,
     ess::{ElementsBranch, StyleSheet, Styles},
-    ElementsError, Variant,
+    ElementsError,
 };
 use bevy::{
     ecs::query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
