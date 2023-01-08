@@ -45,6 +45,94 @@ impl Plugin for EssPlugin {
         app.add_plugin(bevy_stylebox::StyleboxPlugin);
         #[cfg(feature = "stylebox")]
         app.add_plugin(stylebox::StyleboxPropertyPlugin);
+
+        app.register_property::<impls::DisplayProperty>();
+        app.register_property::<impls::PositionTypeProperty>();
+        app.register_property::<impls::DirectionProperty>();
+        app.register_property::<impls::FlexDirectionProperty>();
+        app.register_property::<impls::FlexWrapProperty>();
+        app.register_property::<impls::AlignItemsProperty>();
+        app.register_property::<impls::AlignSelfProperty>();
+        app.register_property::<impls::AlignContentProperty>();
+        app.register_property::<impls::JustifyContentProperty>();
+        app.register_property::<impls::OverflowProperty>();
+
+        app.register_property::<impls::WidthProperty>();
+        app.register_property::<impls::HeightProperty>();
+        app.register_property::<impls::MinWidthProperty>();
+        app.register_property::<impls::MinHeightProperty>();
+        app.register_property::<impls::MaxWidthProperty>();
+        app.register_property::<impls::MaxHeightProperty>();
+        app.register_property::<impls::FlexBasisProperty>();
+        app.register_property::<impls::FlexGrowProperty>();
+        app.register_property::<impls::FlexShrinkProperty>();
+        app.register_property::<impls::AspectRatioProperty>();
+
+        app.register_compound_property::<impls::PositionProperty>();
+        app.register_property::<impls::LeftProperty>();
+        app.register_property::<impls::RightProperty>();
+        app.register_property::<impls::TopProperty>();
+        app.register_property::<impls::BottomProperty>();
+
+        app.register_compound_property::<impls::PaddingProperty>();
+        app.register_property::<impls::PaddingLeftProperty>();
+        app.register_property::<impls::PaddingRightProperty>();
+        app.register_property::<impls::PaddingTopProperty>();
+        app.register_property::<impls::PaddingBottomProperty>();
+
+        app.register_compound_property::<impls::MarginProperty>();
+        app.register_property::<impls::MarginLeftProperty>();
+        app.register_property::<impls::MarginRightProperty>();
+        app.register_property::<impls::MarginTopProperty>();
+        app.register_property::<impls::MarginBottomProperty>();
+
+        app.register_compound_property::<impls::BorderProperty>();
+        app.register_property::<impls::BorderLeftProperty>();
+        app.register_property::<impls::BorderRightProperty>();
+        app.register_property::<impls::BorderTopProperty>();
+        app.register_property::<impls::BorderBottomProperty>();
+
+        app.register_property::<impls::FontColorProperty>();
+        app.register_property::<impls::FontProperty>();
+        app.register_property::<impls::FontSizeProperty>();
+        app.register_property::<impls::VerticalAlignProperty>();
+        app.register_property::<impls::HorizontalAlignProperty>();
+        app.register_property::<impls::TextContentProperty>();
+
+        app.register_property::<impls::BackgroundColorProperty>();
+        app.register_property::<impls::ScaleProperty>();
+    }
+}
+
+pub trait RegisterProperty {
+    fn register_property<T: Property + 'static>(&mut self) -> &mut Self;
+    fn register_compound_property<T: CompoundProperty + 'static>(&mut self) -> &mut Self;
+}
+
+impl RegisterProperty for bevy::prelude::App {
+    fn register_property<T: Property + 'static>(&mut self) -> &mut Self {
+        self.world
+            .get_resource_or_insert_with(PropertyTransformer::default)
+            .0
+            .write()
+            .unwrap()
+            .entry(T::name())
+            .and_modify(|_| panic!("Property `{}` already registered.", T::name()))
+            .or_insert(T::transform);
+        self.add_system(T::apply_defaults /* .label(EcssSystem::Apply) */);
+        self
+    }
+
+    fn register_compound_property<T: CompoundProperty + 'static>(&mut self) -> &mut Self {
+        self.world
+            .get_resource_or_insert_with(PropertyExtractor::default)
+            .0
+            .write()
+            .unwrap()
+            .entry(T::name())
+            .and_modify(|_| panic!("CompoundProperty `{}` already registered", T::name()))
+            .insert(T::extract);
+        self
     }
 }
 

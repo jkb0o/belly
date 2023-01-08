@@ -61,9 +61,7 @@ pub use tagstr::*;
 
 use relations::RelationsPlugin;
 
-pub mod prelude {
-    pub use crate::RegisterProperty;
-}
+pub mod prelude {}
 pub mod build {
     pub use super::prelude::*;
 
@@ -73,6 +71,7 @@ pub mod build {
     pub use crate::tag;
 
     // traits
+    pub use crate::ess::RegisterProperty;
     pub use crate::ess::StylePropertyMethods;
 
     // structs
@@ -96,69 +95,7 @@ impl Plugin for ElementsCorePlugin {
 
         // TODO: may be desabled with feature
         app.add_startup_system(setup_defaults);
-
-        register_properties(app);
     }
-}
-
-fn register_properties(app: &mut bevy::prelude::App) {
-    use ess::impls::*;
-
-    app.register_property::<DisplayProperty>();
-    app.register_property::<PositionTypeProperty>();
-    app.register_property::<DirectionProperty>();
-    app.register_property::<FlexDirectionProperty>();
-    app.register_property::<FlexWrapProperty>();
-    app.register_property::<AlignItemsProperty>();
-    app.register_property::<AlignSelfProperty>();
-    app.register_property::<AlignContentProperty>();
-    app.register_property::<JustifyContentProperty>();
-    app.register_property::<OverflowProperty>();
-
-    app.register_property::<WidthProperty>();
-    app.register_property::<HeightProperty>();
-    app.register_property::<MinWidthProperty>();
-    app.register_property::<MinHeightProperty>();
-    app.register_property::<MaxWidthProperty>();
-    app.register_property::<MaxHeightProperty>();
-    app.register_property::<FlexBasisProperty>();
-    app.register_property::<FlexGrowProperty>();
-    app.register_property::<FlexShrinkProperty>();
-    app.register_property::<AspectRatioProperty>();
-
-    app.register_compound_property::<PositionProperty>();
-    app.register_property::<LeftProperty>();
-    app.register_property::<RightProperty>();
-    app.register_property::<TopProperty>();
-    app.register_property::<BottomProperty>();
-
-    app.register_compound_property::<PaddingProperty>();
-    app.register_property::<PaddingLeftProperty>();
-    app.register_property::<PaddingRightProperty>();
-    app.register_property::<PaddingTopProperty>();
-    app.register_property::<PaddingBottomProperty>();
-
-    app.register_compound_property::<MarginProperty>();
-    app.register_property::<MarginLeftProperty>();
-    app.register_property::<MarginRightProperty>();
-    app.register_property::<MarginTopProperty>();
-    app.register_property::<MarginBottomProperty>();
-
-    app.register_compound_property::<BorderProperty>();
-    app.register_property::<BorderLeftProperty>();
-    app.register_property::<BorderRightProperty>();
-    app.register_property::<BorderTopProperty>();
-    app.register_property::<BorderBottomProperty>();
-
-    app.register_property::<FontColorProperty>();
-    app.register_property::<FontProperty>();
-    app.register_property::<FontSizeProperty>();
-    app.register_property::<VerticalAlignProperty>();
-    app.register_property::<HorizontalAlignProperty>();
-    app.register_property::<TextContentProperty>();
-
-    app.register_property::<BackgroundColorProperty>();
-    app.register_property::<ScaleProperty>();
 }
 
 pub struct Widgets;
@@ -319,38 +256,6 @@ impl PropertyExtractor {
             .get(&name)
             .ok_or(ElementsError::UnsupportedProperty(name.to_string()))
             .and_then(|extractor| extractor(value))
-    }
-}
-
-pub trait RegisterProperty {
-    fn register_property<T: Property + 'static>(&mut self) -> &mut Self;
-    fn register_compound_property<T: CompoundProperty + 'static>(&mut self) -> &mut Self;
-}
-
-impl RegisterProperty for bevy::prelude::App {
-    fn register_property<T: Property + 'static>(&mut self) -> &mut Self {
-        self.world
-            .get_resource_or_insert_with(PropertyTransformer::default)
-            .0
-            .write()
-            .unwrap()
-            .entry(T::name())
-            .and_modify(|_| panic!("Property `{}` already registered.", T::name()))
-            .or_insert(T::transform);
-        self.add_system(T::apply_defaults /* .label(EcssSystem::Apply) */);
-        self
-    }
-
-    fn register_compound_property<T: CompoundProperty + 'static>(&mut self) -> &mut Self {
-        self.world
-            .get_resource_or_insert_with(PropertyExtractor::default)
-            .0
-            .write()
-            .unwrap()
-            .entry(T::name())
-            .and_modify(|_| panic!("CompoundProperty `{}` already registered", T::name()))
-            .insert(T::extract);
-        self
     }
 }
 
