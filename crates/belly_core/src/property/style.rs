@@ -1,13 +1,15 @@
 use bevy::{
     prelude::{Color, Deref},
     ui::{UiRect, Val},
+    utils::HashMap,
 };
 use cssparser::{BasicParseErrorKind, Token};
 use smallvec::SmallVec;
+use tagstr::Tag;
 
 use crate::ElementsError;
 
-use super::colors;
+use super::{colors, PropertyValue};
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Hash)]
 pub struct Number([u8; 4]);
@@ -61,6 +63,9 @@ pub enum StylePropertyToken {
     Hash(String),
     /// A quoted string, like `"some value"`.
     String(String),
+    /// Property delimiter (comma or slash)
+    Slash,
+    Comma,
 }
 
 impl StylePropertyToken {
@@ -72,6 +77,8 @@ impl StylePropertyToken {
             StylePropertyToken::Identifier(v) => format!("{}", v),
             StylePropertyToken::Hash(v) => format!("#{}", v),
             StylePropertyToken::String(v) => format!("\"{}\"", v),
+            StylePropertyToken::Slash => format!("/"),
+            StylePropertyToken::Comma => format!(","),
         }
     }
 
@@ -85,6 +92,13 @@ impl StylePropertyToken {
                 "Can't treat `{}` as size value",
                 self.to_string()
             ))),
+        }
+    }
+
+    fn is_delimiter(&self) -> bool {
+        match self {
+            Self::Slash | Self::Comma => true,
+            _ => false,
         }
     }
 }
@@ -103,6 +117,8 @@ impl<'i> TryFrom<Token<'i>> for StylePropertyToken {
                 Ok(Self::Percentage((unit_value * 100.0).into()))
             }
             Token::Dimension { value, .. } => Ok(Self::Dimension(value.into())),
+            Token::Comma => Ok(Self::Comma),
+            Token::Delim(d) if d == '/' => Ok(Self::Slash),
             token => Err(format!("Invalid token: {:?}", token)),
         }
     }
@@ -112,48 +128,151 @@ impl<'i> TryFrom<Token<'i>> for StylePropertyToken {
 #[derive(Debug, Default, Clone, Deref, PartialEq, Eq, Hash)]
 pub struct StyleProperty(pub(crate) SmallVec<[StylePropertyToken; 8]>);
 
+impl StyleProperty {
+    pub fn as_stream(&self) -> StylePropertyTokenStream {
+        StylePropertyTokenStream {
+            offset: 0,
+            tokens: self,
+        }
+    }
+}
+
+pub struct StylePropertyTokenStream<'a> {
+    offset: usize,
+    tokens: &'a StyleProperty,
+}
+
+impl<'a> StylePropertyTokenStream<'a> {
+    pub fn single(&mut self) -> Option<&[StylePropertyToken]> {
+        if self.offset >= self.tokens.len() {
+            None
+        } else {
+            let start = self.offset;
+            let end = self.offset + 1;
+            self.offset += 1;
+            if self.offset < self.tokens.len() && self.tokens[self.offset].is_delimiter() {
+                self.offset += 1;
+            }
+            Some(&self.tokens[start..end])
+        }
+    }
+    pub fn compound(&mut self) -> Option<&[StylePropertyToken]> {
+        if self.offset >= self.tokens.len() {
+            return None;
+        }
+        let start = self.offset;
+        let mut end = self.offset;
+        while self.offset < self.tokens.len() {
+            self.offset += 1;
+            end = self.offset;
+            if self.offset < self.tokens.len() && self.tokens[self.offset].is_delimiter() {
+                self.offset += 1;
+                break;
+            }
+        }
+        Some(&self.tokens[start..end])
+    }
+}
+
 impl From<&StyleProperty> for StyleProperty {
     fn from(v: &StyleProperty) -> Self {
         v.clone()
     }
 }
 
-impl StyleProperty {
+pub trait StylePropertyMethods {
+    fn tokens(&self) -> &[StylePropertyToken];
+    fn hello(&self) {}
+    fn to_string(&self) -> String {
+        let mut result = "".to_string();
+        for value in self.tokens().iter() {
+            result.push_str(&value.to_string());
+        }
+        result
+    }
     /// Tries to parses the current values as a single [`String`].
-    pub fn string(&self) -> Option<String> {
-        self.0.iter().find_map(|token| match token {
-            StylePropertyToken::String(id) => {
-                if id.is_empty() {
-                    None
-                } else {
-                    Some(id.clone())
-                }
+    fn string(&self) -> Result<String, ElementsError> {
+        let Some(token) = self.tokens().iter().next() else {
+            return Err(ElementsError::InvalidPropertyValue(format!("Expected string literal, got nothing")));
+        };
+        match token {
+            StylePropertyToken::String(id) => Ok(id.clone()),
+            e => Err(ElementsError::InvalidPropertyValue(format!(
+                "Expected string literal, got {}",
+                e.to_string()
+            ))),
+        }
+    }
+
+    /// Tries to parses the current values as a single [`Option<UiRect>`].
+    ///
+    /// Optional values are handled by this function, so if only one value is present it is used as `top`, `right`, `bottom` and `left`,
+    /// otherwise values are applied in the following order: `top`, `right`, `bottom` and `left`.
+    ///
+    /// Note that it is not possible to create a [`UiRect`] with only `top` value, since it'll be understood to replicated it on all fields.
+    fn rect(&self) -> Result<UiRect, ElementsError> {
+        let props = self.tokens();
+        match props.len() {
+            1 => props[0].val().map(UiRect::all),
+            2 => {
+                let top_bottom = props[0].val()?;
+                let left_right = props[1].val()?;
+                Ok(UiRect::new(left_right, left_right, top_bottom, top_bottom))
             }
-            _ => None,
-        })
+            3 => {
+                let top = props[0].val()?;
+                let left_right = props[1].val()?;
+                let bottom = props[2].val()?;
+                Ok(UiRect::new(left_right, left_right, top, bottom))
+            }
+            4 => {
+                let top = props[0].val()?;
+                let right = props[1].val()?;
+                let bottom = props[2].val()?;
+                let left = props[3].val()?;
+                Ok(UiRect::new(left, right, top, bottom))
+            }
+            _ => Err(ElementsError::InvalidPropertyValue(format!(
+                "Can't extract rect from `{}`",
+                props.to_string()
+            ))),
+        }
+    }
+
+    fn rect_map(&self, prefix: &str) -> Result<HashMap<Tag, PropertyValue>, ElementsError> {
+        let rect = self.tokens().rect()?;
+        Ok(rect.to_rect_map(prefix))
     }
 
     /// Tries to parses the current values as a single [`Color`].
     ///
     /// Currently only [named colors](https://developer.mozilla.org/en-US/docs/Web/CSS/named-color)
     /// and [hex-colors](https://developer.mozilla.org/en-US/docs/Web/CSS/hex-color) are supported.
-    pub fn color(&self) -> Option<Color> {
-        if self.0.len() == 1 {
-            match &self.0[0] {
-                StylePropertyToken::Identifier(name) => colors::parse_named_color(name.as_str()),
-                StylePropertyToken::Hash(hash) => colors::parse_hex_color(hash.as_str()),
-                _ => None,
+    fn color(&self) -> Result<Color, ElementsError> {
+        let props = self.tokens();
+        if props.len() == 0 {
+            return Err(ElementsError::InvalidPropertyValue(format!(
+                "Expected color, got nothing"
+            )));
+        }
+        match &props[0] {
+            StylePropertyToken::Identifier(name) => colors::parse_named_color(name.as_str())
+                .ok_or_else(|| {
+                    ElementsError::InvalidPropertyValue(format!("Unknown color name '{name}'"))
+                }),
+            StylePropertyToken::Hash(hash) => colors::parse_hex_color(hash.as_str()),
+            prop => {
+                return Err(ElementsError::InvalidPropertyValue(format!(
+                    "Can't parse color from {}",
+                    prop.to_string()
+                )))
             }
-        } else {
-            // TODO: Implement color function like rgba(255, 255, 255, 255)
-            // https://developer.mozilla.org/en-US/docs/Web/CSS/color_value
-            None
         }
     }
 
     /// Tries to parses the current values as a single identifier.
-    pub fn identifier(&self) -> Option<&str> {
-        self.0.iter().find_map(|token| match token {
+    fn identifier(&self) -> Option<&str> {
+        self.tokens().iter().find_map(|token| match token {
             StylePropertyToken::Identifier(id) => {
                 if id.is_empty() {
                     None
@@ -169,29 +288,41 @@ impl StyleProperty {
     ///
     /// Only [`Percentage`](PropertyToken::Percentage) and [`Dimension`](PropertyToken::Dimension`) are considered valid values,
     /// where former is converted to [`Val::Percent`] and latter is converted to [`Val::Px`].
-    pub fn val(&self) -> Option<Val> {
-        self.0.iter().find_map(|token| match token {
-            StylePropertyToken::Percentage(val) => Some(Val::Percent(val.into())),
-            StylePropertyToken::Dimension(val) => Some(Val::Px(val.into())),
-            StylePropertyToken::Identifier(val) if val.as_str() == "auto" => Some(Val::Auto),
+    fn val(&self) -> Result<Val, ElementsError> {
+        let Some(prop) = self.tokens().iter().next() else {
+            return Err(ElementsError::InvalidPropertyValue(format!("Expected Val, found none")))
+        };
+        match prop {
+            StylePropertyToken::Percentage(val) => Ok(Val::Percent(val.into())),
+            StylePropertyToken::Dimension(val) => Ok(Val::Px(val.into())),
+            StylePropertyToken::Identifier(val) if val.as_str() == "auto" => Ok(Val::Auto),
             StylePropertyToken::Identifier(val) if val.as_str() == "undefined" => {
-                Some(Val::Undefined)
+                Ok(Val::Undefined)
             }
-            _ => None,
-        })
+            p => Err(ElementsError::InvalidPropertyValue(format!(
+                "Can't parrse Val from '{}'",
+                p.to_string()
+            ))),
+        }
     }
 
     /// Tries to parses the current values as a single [`f32`].
     ///
     /// Only [`Percentage`](PropertyToken::Percentage), [`Dimension`](PropertyToken::Dimension`) and [`Number`](PropertyToken::Number`)
     /// are considered valid values.
-    pub fn f32(&self) -> Option<f32> {
-        self.0.iter().find_map(|token| match token {
+    fn f32(&self) -> Result<f32, ElementsError> {
+        let Some(prop) = self.tokens().iter().next() else {
+            return Err(ElementsError::InvalidPropertyValue(format!("Expected f32, found none")))
+        };
+        match prop {
             StylePropertyToken::Percentage(val)
             | StylePropertyToken::Dimension(val)
-            | StylePropertyToken::Number(val) => Some(val.into()),
-            _ => None,
-        })
+            | StylePropertyToken::Number(val) => Ok(val.into()),
+            p => Err(ElementsError::InvalidPropertyValue(format!(
+                "Can't parse f32 from '{}'",
+                p.to_string()
+            ))),
+        }
     }
 
     /// Tries to parses the current values as a single [`Option<f32>`].
@@ -203,59 +334,64 @@ impl StyleProperty {
     /// If there is a [`Percentage`](PropertyToken::Percentage), [`Dimension`](PropertyToken::Dimension`) or [`Number`](PropertyToken::Number`) token,
     /// a [`Option::Some`] with parsed [`Option<f32>`] is returned.
     /// If there is a identifier with a `none` value, then [`Option::Some`] with [`None`] is returned.
-    pub fn option_f32(&self) -> Option<Option<f32>> {
-        self.0.iter().find_map(|token| match token {
+    fn option_f32(&self) -> Result<Option<f32>, ElementsError> {
+        let Some(prop) = self.tokens().iter().next() else {
+            return Err(ElementsError::InvalidPropertyValue(format!("Expected Option<f32>, found none")))
+        };
+        match prop {
             StylePropertyToken::Percentage(val)
             | StylePropertyToken::Dimension(val)
-            | StylePropertyToken::Number(val) => Some(Some(val.into())),
+            | StylePropertyToken::Number(val) => Ok(Some(val.into())),
             StylePropertyToken::Identifier(ident) => match ident.as_str() {
-                "none" => Some(None),
-                _ => None,
+                "none" => Ok(None),
+                ident => Err(ElementsError::InvalidPropertyValue(format!(
+                    "Can't parse Option<f32> from {ident}"
+                ))),
             },
-            _ => None,
-        })
-    }
-
-    /// Tries to parses the current values as a single [`Option<UiRect>`].
-    ///
-    /// Optional values are handled by this function, so if only one value is present it is used as `top`, `right`, `bottom` and `left`,
-    /// otherwise values are applied in the following order: `top`, `right`, `bottom` and `left`.
-    ///
-    /// Note that it is not possible to create a [`UiRect`] with only `top` value, since it'll be understood to replicated it on all fields.
-    pub fn rect(&self) -> Result<UiRect, ElementsError> {
-        match self.0.len() {
-            1 => self.0[0].val().map(UiRect::all),
-            2 => {
-                let top_bottom = self.0[0].val()?;
-                let left_right = self.0[1].val()?;
-                Ok(UiRect::new(left_right, left_right, top_bottom, top_bottom))
-            }
-            3 => {
-                let top = self.0[0].val()?;
-                let left_right = self.0[1].val()?;
-                let bottom = self.0[2].val()?;
-                Ok(UiRect::new(left_right, left_right, top, bottom))
-            }
-            4 => {
-                let top = self.0[0].val()?;
-                let right = self.0[1].val()?;
-                let bottom = self.0[2].val()?;
-                let left = self.0[3].val()?;
-                Ok(UiRect::new(left, right, top, bottom))
-            }
-            _ => Err(ElementsError::InvalidPropertyValue(format!(
-                "Can't extract rect from `{}`",
-                self.to_string()
+            e => Err(ElementsError::InvalidPropertyValue(format!(
+                "Can't parse Option<f32> from {}",
+                e.to_string()
             ))),
         }
     }
+}
+impl StylePropertyMethods for &[StylePropertyToken] {
+    fn tokens(&self) -> &[StylePropertyToken] {
+        self
+    }
+}
 
-    pub fn to_string(&self) -> String {
-        let mut result = "".to_string();
-        for value in self.0.iter() {
-            result.push_str(&value.to_string());
-        }
-        result
+impl StylePropertyMethods for StyleProperty {
+    fn tokens(&self) -> &[StylePropertyToken] {
+        &self.0[..]
+    }
+}
+
+pub trait ToRectMap {
+    fn to_rect_map(&self, prefix: &str) -> HashMap<Tag, PropertyValue>;
+}
+
+impl ToRectMap for UiRect {
+    fn to_rect_map(&self, prefix: &str) -> HashMap<Tag, PropertyValue> {
+        let mut props = HashMap::default();
+        let prefix = prefix.to_string();
+        props.insert(
+            Tag::new(prefix.clone() + "-left"),
+            PropertyValue::new(self.left),
+        );
+        props.insert(
+            Tag::new(prefix.clone() + "-right"),
+            PropertyValue::new(self.right),
+        );
+        props.insert(
+            Tag::new(prefix.clone() + "-top"),
+            PropertyValue::new(self.top),
+        );
+        props.insert(
+            Tag::new(prefix.clone() + "-bottom"),
+            PropertyValue::new(self.bottom),
+        );
+        props
     }
 }
 

@@ -37,6 +37,8 @@ pub use crate::eml::content::IntoContent;
 pub use crate::input::PointerInput;
 pub use crate::input::PointerInputData;
 pub use crate::property::managed;
+pub use crate::property::StylePropertyMethods;
+pub use crate::property::ToRectMap;
 pub use crate::relations::Connect;
 pub use crate::relations::ConnectionTo;
 pub use crate::relations::Signal;
@@ -60,6 +62,27 @@ pub use tagstr::*;
 pub use variant::Variant;
 
 use relations::RelationsPlugin;
+
+pub mod prelude {
+    pub use crate::RegisterProperty;
+}
+pub mod build {
+    pub use super::prelude::*;
+
+    // macros
+    pub use crate::compound_style_property;
+    pub use crate::style_property;
+    pub use crate::tag;
+
+    // traits
+    pub use crate::property::StylePropertyMethods;
+
+    // structs
+    pub use crate::property::PropertyValue;
+    pub use crate::property::StyleProperty;
+    pub use crate::Tag;
+    pub use crate::Variant;
+}
 
 impl Plugin for ElementsCorePlugin {
     fn build(&self, app: &mut App) {

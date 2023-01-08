@@ -1,28 +1,35 @@
 use bevy::prelude::Color;
 
+use crate::ElementsError;
+
 pub trait ColorFromHexExtension {
     fn from_hex<T: AsRef<str>>(color: T) -> Color {
         let color = color.as_ref().trim().trim_start_matches('#');
-        parse_hex_color(color).unwrap_or_else(|| Color::WHITE)
+        parse_hex_color(color).unwrap_or_else(|_| Color::WHITE)
     }
     fn try_from_hex<T: AsRef<str>>(color: T) -> Result<Color, String> {
         let color = color.as_ref().trim().trim_start_matches('#');
-        parse_hex_color(color).ok_or_else(|| format!("Can't parse '{color}' as Color"))
+        parse_hex_color(color).map_err(|e| format!("{e}"))
     }
 }
 impl ColorFromHexExtension for Color {}
 
-pub(super) fn parse_hex_color(hex: &str) -> Option<Color> {
-    if let Ok(cssparser::Color::RGBA(cssparser::RGBA {
+pub(super) fn parse_hex_color(hex: &str) -> Result<Color, ElementsError> {
+    let color = cssparser::Color::parse_hash(hex.as_bytes()).map_err(|_| {
+        ElementsError::InvalidPropertyValue(format!("Can't parse color from '{hex}'"))
+    })?;
+    if let cssparser::Color::RGBA(cssparser::RGBA {
         red,
         green,
         blue,
         alpha,
-    })) = cssparser::Color::parse_hash(hex.as_bytes())
+    }) = color
     {
-        Some(Color::rgba_u8(red, green, blue, alpha))
+        Ok(Color::rgba_u8(red, green, blue, alpha))
     } else {
-        None
+        Err(ElementsError::InvalidPropertyValue(format!(
+            "Can't parse color from '{hex}'"
+        )))
     }
 }
 

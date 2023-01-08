@@ -11,7 +11,7 @@ use bevy::{ecs::system::EntityCommands, prelude::*};
 use crate::{
     params::Params,
     property::{PropertyValue, StyleProperty},
-    ElementsBuilder,
+    ElementsBuilder, StylePropertyMethods,
 };
 use std::fmt::Debug;
 

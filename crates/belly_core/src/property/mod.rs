@@ -4,7 +4,9 @@ mod style;
 use std::any::{type_name, Any};
 
 pub use self::style::StyleProperty;
+pub use self::style::StylePropertyMethods;
 pub use self::style::StylePropertyToken;
+pub use self::style::ToRectMap;
 use crate::tags::*;
 use crate::{
     element::*,
@@ -117,6 +119,10 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
 
     fn affects_virtual_elements() -> bool {
         false
+    }
+
+    fn docstring() -> &'static str {
+        ""
     }
 
     /// Parses the [`PropertyValues`] into the [`Cache`](Property::Cache) value to be reused across multiple entities.
@@ -274,7 +280,13 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
 
 pub trait CompoundProperty: Default + Sized + Send + Sync + 'static {
     fn name() -> Tag;
+    fn docstring() -> &'static str {
+        ""
+    }
     fn extract(value: Variant) -> Result<HashMap<Tag, PropertyValue>, ElementsError>;
+    fn error(message: String) -> Result<HashMap<Tag, PropertyValue>, ElementsError> {
+        Err(ElementsError::InvalidPropertyValue(message))
+    }
 }
 
 #[cfg(test)]

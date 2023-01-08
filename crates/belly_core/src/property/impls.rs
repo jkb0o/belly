@@ -3,11 +3,77 @@ use bevy::{ecs::query::QueryItem, prelude::*};
 use crate::ElementsError;
 use tagstr::*;
 
-use super::{CompoundProperty, Property, StyleProperty};
+use super::{CompoundProperty, Property, StyleProperty, StylePropertyMethods};
 
 pub(crate) use style::*;
 pub(crate) use text::*;
 pub(crate) use transform::*;
+
+#[macro_export]
+macro_rules! style_property {
+    ( $(#[doc = $s:literal])*
+      $typename:ident($prop_name:literal) {
+        Item = $item:ty;
+        Components = $components:ty;
+        Filters = $filters:ty;
+        Parse = |$tokens:ident| $parse:expr;
+        Apply = | $value:ident, $component:ident, $assets:ident, $commands:ident, $entity:ident |
+            $body:expr;
+    }) => {
+        #[derive(Default)]
+        $(#[doc = $s])*
+        struct $typename;
+        impl $crate::property::Property for $typename {
+            type Item = $item;
+            type Components = $components;
+            type Filters = $filters;
+
+            fn name() -> Tag {
+                tag!($prop_name)
+            }
+
+            fn parse($tokens: &$crate::property::StyleProperty) -> Result<Self::Item, $crate::ElementsError> {
+                $parse
+            }
+
+            fn apply(
+                $value: &Self::Item,
+                mut $component: ::bevy::ecs::query::QueryItem<Self::Components>,
+                $assets: &::bevy::prelude::AssetServer,
+                $commands: &mut ::bevy::prelude::Commands,
+                $entity: ::bevy::prelude::Entity,
+            ) {
+                $body
+            }
+            fn docstring() -> &'static str {
+                concat!($($s,"\n",)*)
+            }
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! compound_style_property {
+    (   $(#[doc = $s:literal])*
+        $typename:ident($prop_name:literal, $value:ident)
+            $body:expr
+    ) => {
+        #[derive(Default)]
+        $(#[doc = $s])*
+        struct $typename;
+        impl $crate::property::CompoundProperty for $typename {
+            fn name() -> Tag {
+                tag!($prop_name)
+            }
+            fn extract($value: Variant) -> Result<::bevy::utils::HashMap<$crate::Tag, $crate::property::PropertyValue>, $crate::ElementsError> {
+                $body
+            }
+            fn docstring() -> &'static str {
+                concat!($($s,"\n",)*)
+            }
+        }
+    }
+}
 
 /// Impls for `bevy_ui` [`Style`] component
 mod style {
@@ -115,11 +181,7 @@ mod style {
                 }
 
                 fn parse<'a>(values: &StyleProperty) -> Result<Self::Item, ElementsError> {
-                    if let Some(val) = values.$parse_func() {
-                        Ok(val)
-                    } else {
-                        Err(ElementsError::InvalidPropertyValue(values.to_string()))
-                    }
+                    values.$parse_func()
                 }
 
                 fn apply<'w>(
@@ -355,13 +417,7 @@ mod text {
         }
 
         fn parse<'a>(values: &StyleProperty) -> Result<Self::Item, ElementsError> {
-            if let Some(color) = values.color() {
-                Ok(color)
-            } else {
-                Err(ElementsError::InvalidPropertyValue(
-                    Self::name().to_string(),
-                ))
-            }
+            values.color()
         }
 
         fn apply<'w>(
@@ -396,7 +452,7 @@ mod text {
         }
 
         fn parse<'a>(values: &StyleProperty) -> Result<Self::Item, ElementsError> {
-            if let Some(path) = values.string() {
+            if let Ok(path) = values.string() {
                 Ok(FontPath::Custom(path))
             } else if let Some(ident) = values.identifier() {
                 match ident {
@@ -468,13 +524,7 @@ mod text {
         }
 
         fn parse<'a>(values: &StyleProperty) -> Result<Self::Item, ElementsError> {
-            if let Some(size) = values.f32() {
-                Ok(size)
-            } else {
-                Err(ElementsError::InvalidPropertyValue(
-                    Self::name().to_string(),
-                ))
-            }
+            values.f32()
         }
 
         fn apply<'w>(
@@ -583,13 +633,7 @@ mod text {
         }
 
         fn parse<'a>(values: &StyleProperty) -> Result<Self::Item, ElementsError> {
-            if let Some(content) = values.string() {
-                Ok(content)
-            } else {
-                Err(ElementsError::InvalidPropertyValue(
-                    Self::name().to_string(),
-                ))
-            }
+            values.string()
         }
 
         fn apply<'w>(
@@ -625,11 +669,7 @@ mod transform {
         }
 
         fn parse<'a>(values: &StyleProperty) -> Result<Self::Item, ElementsError> {
-            if let Some(val) = values.f32() {
-                Ok(val)
-            } else {
-                Err(ElementsError::InvalidPropertyValue(values.to_string()))
-            }
+            values.f32()
         }
 
         fn apply<'w>(
@@ -658,13 +698,7 @@ impl Property for BackgroundColorProperty {
     }
 
     fn parse<'a>(values: &StyleProperty) -> Result<Self::Item, ElementsError> {
-        if let Some(color) = values.color() {
-            Ok(color)
-        } else {
-            Err(ElementsError::InvalidPropertyValue(
-                Self::name().to_string(),
-            ))
-        }
+        values.color()
     }
 
     fn apply<'w>(
