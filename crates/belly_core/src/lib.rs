@@ -2,7 +2,6 @@ use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::text::TextLayoutInfo;
 use bevy::utils::HashMap;
 use bevy::{ecs::system::EntityCommands, prelude::*};
-use bevy_stylebox::Stylebox;
 use eml::build::BuildPligin;
 use eml::EmlPlugin;
 use ess::{EssPlugin, StyleSheet, StyleSheetParser};
@@ -43,6 +42,9 @@ pub use crate::input::PointerInputData;
 pub use crate::relations::Connect;
 pub use crate::relations::ConnectionTo;
 pub use crate::relations::Signal;
+pub use crate::element::ElementBundle;
+pub use crate::element::TextElementBundle;
+pub use crate::element::ImageElementBundle;
 
 // transformations
 pub use crate::relations::bind::Prop;
@@ -100,69 +102,6 @@ impl Plugin for ElementsCorePlugin {
 
 pub struct Widgets;
 pub struct Transformers;
-
-#[derive(Bundle)]
-pub struct ElementBundle {
-    pub element: Element,
-    #[cfg(feature = "stylebox")]
-    pub stylebox: Stylebox,
-    #[bundle]
-    pub node: NodeBundle,
-}
-
-impl Default for ElementBundle {
-    fn default() -> Self {
-        ElementBundle {
-            element: Default::default(),
-            #[cfg(feature = "stylebox")]
-            stylebox: Stylebox::default(),
-            node: NodeBundle {
-                background_color: BackgroundColor(Color::NONE),
-                ..default()
-            },
-        }
-    }
-}
-
-#[derive(Bundle)]
-pub struct TextElementBundle {
-    pub element: Element,
-    pub background_color: BackgroundColor,
-    #[bundle]
-    pub text: TextBundle,
-}
-
-impl Default for TextElementBundle {
-    fn default() -> Self {
-        TextElementBundle {
-            element: Element::inline(),
-            background_color: BackgroundColor(Color::NONE),
-            text: TextBundle {
-                text: Text::from_section("", Default::default()),
-                ..default()
-            },
-        }
-    }
-}
-
-#[derive(Bundle)]
-pub struct ImageElementBundle {
-    pub element: Element,
-    #[bundle]
-    pub image: ImageBundle,
-}
-
-impl Default for ImageElementBundle {
-    fn default() -> Self {
-        ImageElementBundle {
-            element: Element::inline(),
-            image: ImageBundle {
-                background_color: BackgroundColor(Color::WHITE),
-                ..Default::default()
-            },
-        }
-    }
-}
 
 #[derive(Debug, PartialEq)]
 pub enum ElementsError {

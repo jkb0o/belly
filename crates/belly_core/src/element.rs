@@ -4,11 +4,76 @@ use bevy::utils::{HashMap, HashSet};
 use smallvec::SmallVec;
 use std::ops::Deref;
 use std::ops::DerefMut;
+#[cfg(feature = "stylebox")]
+use bevy_stylebox::Stylebox;
 
 use crate::ess::PropertyValue;
 use crate::tags;
 use crate::tags::*;
 use bevy::prelude::*;
+
+#[derive(Bundle)]
+pub struct ElementBundle {
+    pub element: Element,
+    #[cfg(feature = "stylebox")]
+    pub stylebox: Stylebox,
+    #[bundle]
+    pub node: NodeBundle,
+}
+
+impl Default for ElementBundle {
+    fn default() -> Self {
+        ElementBundle {
+            element: Default::default(),
+            #[cfg(feature = "stylebox")]
+            stylebox: Stylebox::default(),
+            node: NodeBundle {
+                background_color: BackgroundColor(Color::NONE),
+                ..default()
+            },
+        }
+    }
+}
+
+#[derive(Bundle)]
+pub struct TextElementBundle {
+    pub element: Element,
+    pub background_color: BackgroundColor,
+    #[bundle]
+    pub text: TextBundle,
+}
+
+impl Default for TextElementBundle {
+    fn default() -> Self {
+        TextElementBundle {
+            element: Element::inline(),
+            background_color: BackgroundColor(Color::NONE),
+            text: TextBundle {
+                text: Text::from_section("", Default::default()),
+                ..default()
+            },
+        }
+    }
+}
+
+#[derive(Bundle)]
+pub struct ImageElementBundle {
+    pub element: Element,
+    #[bundle]
+    pub image: ImageBundle,
+}
+
+impl Default for ImageElementBundle {
+    fn default() -> Self {
+        ImageElementBundle {
+            element: Element::inline(),
+            image: ImageBundle {
+                background_color: BackgroundColor(Color::WHITE),
+                ..Default::default()
+            },
+        }
+    }
+}
 
 #[derive(Default)]
 pub enum DisplayElement {
