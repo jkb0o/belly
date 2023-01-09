@@ -81,10 +81,10 @@ style_property! {
     #[doc = " The `stylebox-slice` property specifies how to slice the image region"]
     #[doc = " specified by `stylebox-source` and `stylebox-region`. The image is"]
     #[doc = " always sliced into nine sections: four corners, four edges and the middle."]
-    #[doc = " The property accepts `rect-shorthand` values limited to `%` or `px` (no"]
-    #[doc = " auto or undefined values are supported):"]
+    #[doc = " The property accepts `rect-shorthand`:"]
     #[doc = " - when `px` specified, region sliced to the exact amount of pixels"]
     #[doc = " - when `%` specified, region sliced relative to it size"]
+    #[doc = " - `auto` & `undefined` treated as `50%`"]
     #[doc = " <!-- (TODO: link rect-shorthand) -->"]
     StyleboxSliceProperty("stylebox-slice") {
         Item = UiRect;
@@ -101,10 +101,10 @@ style_property! {
 
 style_property! {
     #[doc = " The `stylebox-width` property specifies the width of the edgets of sliced region."]
-    #[doc = " The property accepts `rect-shorthand` values limited to `%` or `px` (no"]
-    #[doc = " auto or undefined values are supported):"]
+    #[doc = " The property accepts `rect-shorthand` values:"]
     #[doc = " - edges specified by `px` values resizes to exact amout of pixels"]
     #[doc = " - edges specified by `%` resized relative to width provided by `stylebox-slice`"]
+    #[doc = " - `auto` & `undefined` treated as `100%`"]
     #[doc = " "]
     #[doc = " Default value for `stylebox-width` is `100%`"]
     #[doc = " <!-- (TODO: link rect-shorthand) -->"]
@@ -124,10 +124,10 @@ style_property! {
 style_property! {
     #[doc = " The `stylebox-region` property specifies which region of the image should be sliced."]
     #[doc = " By default the hole area of image defined by `stylebox-source` is used."]
-    #[doc = " The property accepts `rect-shorthand` values limited to `%` or `px` (no"]
-    #[doc = " auto or undefined values are supported)."]
+    #[doc = " The property accepts `rect-shorthand` values:"]
     #[doc = " - `px` values defines exact offset from the edges in pixels"]
     #[doc = " - `%` values defines offset from the edges relative to the image size"]
+    #[doc = " - `auto` & `undefined` treated as `0px`"]
     #[doc = " "]
     #[doc = " Default value for `stylebox-region` is `0px`"]
     #[doc = " <!-- (TODO: link rect-shorthand) -->"]

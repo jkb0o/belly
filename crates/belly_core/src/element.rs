@@ -1,11 +1,11 @@
 use bevy::ecs::query::WorldQuery;
 use bevy::ecs::system::SystemParam;
 use bevy::utils::{HashMap, HashSet};
+#[cfg(feature = "stylebox")]
+use bevy_stylebox::Stylebox;
 use smallvec::SmallVec;
 use std::ops::Deref;
 use std::ops::DerefMut;
-#[cfg(feature = "stylebox")]
-use bevy_stylebox::Stylebox;
 
 use crate::ess::PropertyValue;
 use crate::tags;

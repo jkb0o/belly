@@ -19,6 +19,9 @@ pub mod tags;
 
 pub struct ElementsCorePlugin;
 
+pub use crate::element::ElementBundle;
+pub use crate::element::ImageElementBundle;
+pub use crate::element::TextElementBundle;
 pub use crate::eml::build::ElementBuilder;
 pub use crate::eml::build::ElementBuilderRegistry;
 pub use crate::eml::build::ElementContext;
@@ -42,9 +45,6 @@ pub use crate::input::PointerInputData;
 pub use crate::relations::Connect;
 pub use crate::relations::ConnectionTo;
 pub use crate::relations::Signal;
-pub use crate::element::ElementBundle;
-pub use crate::element::TextElementBundle;
-pub use crate::element::ImageElementBundle;
 
 // transformations
 pub use crate::relations::bind::Prop;

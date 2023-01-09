@@ -1,5 +1,8 @@
-#![doc = include_str!("../README.md")]
-
+/// The `bevy_stylebox` is plugin for [bevy](https://bevyengine.org/) engine which
+/// allows you to fill UI node with sliced by 9 parts region of image. `Stylebox`
+/// doesn't add any additional UI components. It renders just like `UiImage`, but
+/// generates more vertices in the rendering system. Only `stretch` mode is
+/// supported for now for drawing edges, `repeat` & `round` coming soon.
 use bevy::{
     math::Rect,
     prelude::*,
@@ -66,22 +69,22 @@ pub struct Stylebox {
     pub texture: Handle<Image>,
     /// specifies how to slice the image region specified by texture & region
     /// The image is always sliced into nine sections: four corners, four edges and the middle.
-    /// Only `Val::Px` and `Val::Percent` variants are supported:
     /// - when `Val::Px` specified, region sliced to the exact amount of pixels
     /// - when `Val::Percent` specified, image region sliced relative to it size
+    /// - `Val::Auto` & `Val::Undefined` treated as `Val::Percent(50.)`
     pub slice: UiRect,
-    /// specifies the width of the edgets of the sliced region.
-    /// Only `Val::Px` and `Val::Percent` variants are supported:
+    /// specifies the width of the edgets of the sliced region:
     /// - edges specified by `Val::Px` values resizes to exact amout of pixels
     /// - edges specified by `Val::Percent` resized relative to width provided by `slice` property
+    /// - `Val::Auto` & `Val::Undefined` treated as `Val::Percent(100.)`
     ///
     /// Default value for `width` is `Val::Percent(100.)`: use width provided by `slice` property.
     pub width: UiRect,
     /// specifies which region of the image should be sliced.
     /// By default the hole area of image defined by `texture` is used.
-    /// Only `Val::Px` and `Val::Percent` variants are supported:
     /// - `Val::Px` values defines exact offset from the image edges in pixels
     /// - `Val::Percent` values defines offset from the image edges relative to the image size
+    /// - `Val::Auto` & `Val::Undefined` treated as `Val::Px(0.)`
     ///
     /// Default value for `region` is `Val::Px(0.)`
     pub region: UiRect,
@@ -144,7 +147,6 @@ pub struct ComputedStylebox {
 }
 /// Calculates exact values for `Stylebox` when image size is available and stores it into `ComputedStylebox`.
 pub fn compute_stylebox_configuration(
-    asset_server: Res<AssetServer>,
     mut commands: Commands,
     images: Res<Assets<Image>>,
     mut styleboxes: Query<
@@ -153,20 +155,6 @@ pub fn compute_stylebox_configuration(
     >,
 ) {
     for (entity, stylebox, computed) in styleboxes.iter_mut() {
-        let mut cleanup = |msg| {
-            let path = asset_server.get_handle_path(&stylebox.texture);
-            let path = if path.is_none() {
-                "<unknown>".to_string()
-            } else {
-                path.unwrap().path().display().to_string()
-            };
-            error!("Invalid NinePatch for {}: {}.\n{}", path, msg, stylebox);
-            commands
-                .entity(entity)
-                .remove::<Stylebox>()
-                .remove::<StyleboxSlices>()
-                .remove::<ComputedStylebox>();
-        };
         if stylebox.texture == Handle::<Image>::default() {
             if computed.is_none() {
                 commands
@@ -190,42 +178,22 @@ pub fn compute_stylebox_configuration(
                 let region_left = match stylebox.region.left {
                     Val::Percent(percent) => size.x * percent * 0.01,
                     Val::Px(px) => px,
-                    value => {
-                        return cleanup(format!(
-                            "Unsupported value for the region.left: {:?}",
-                            value
-                        ))
-                    }
+                    _ => 0.,
                 };
                 let region_right = match stylebox.region.right {
                     Val::Percent(percent) => size.x * percent * 0.01,
                     Val::Px(px) => px,
-                    value => {
-                        return cleanup(format!(
-                            "Unsupported value for the region.right: {:?}",
-                            value
-                        ))
-                    }
+                    _ => 0.,
                 };
                 let region_top = match stylebox.region.top {
                     Val::Percent(percent) => size.y * percent * 0.01,
                     Val::Px(px) => px,
-                    value => {
-                        return cleanup(format!(
-                            "Unsupported value for the region.top: {:?}",
-                            value
-                        ))
-                    }
+                    _ => 0.,
                 };
                 let region_bottom = match stylebox.region.bottom {
                     Val::Percent(percent) => size.y * percent * 0.01,
                     Val::Px(px) => px,
-                    value => {
-                        return cleanup(format!(
-                            "Unsupported value for the region.bottom: {:?}",
-                            value
-                        ))
-                    }
+                    _ => 0.,
                 };
                 let region = Rect {
                     min: Vec2::new(region_left, region_top),
@@ -236,83 +204,49 @@ pub fn compute_stylebox_configuration(
                 };
                 let size = region.size();
 
-                let left = match stylebox.slice.left {
+                let slice_left = match stylebox.slice.left {
                     Val::Percent(percent) => percent * 0.01,
                     Val::Px(px) => px / size.x,
-                    value => {
-                        return cleanup(format!(
-                            "Unsupported value for the slice.left: {:?}",
-                            value
-                        ))
-                    }
+                    _ => 0.5,
                 };
-                let right = match stylebox.slice.right {
+                let slice_right = match stylebox.slice.right {
                     Val::Percent(percent) => percent * 0.01,
                     Val::Px(px) => px / size.x,
-                    value => {
-                        return cleanup(format!(
-                            "Unsupported value for the slice.right: {:?}",
-                            value
-                        ))
-                    }
+                    _ => 0.5,
                 };
-                let top = match stylebox.slice.top {
+                let slice_top = match stylebox.slice.top {
                     Val::Percent(percent) => percent * 0.01,
                     Val::Px(px) => px / size.y,
-                    value => {
-                        return cleanup(format!("Unsupported value for the slice.top: {:?}", value))
-                    }
+                    _ => 0.5,
                 };
-                let bottom = match stylebox.slice.bottom {
+                let slice_bottom = match stylebox.slice.bottom {
                     Val::Percent(percent) => percent * 0.01,
                     Val::Px(px) => px / size.y,
-                    value => {
-                        return cleanup(format!(
-                            "Unsupported value for the slice.bottom: {:?}",
-                            value
-                        ))
-                    }
+                    _ => 0.5,
                 };
-                let slice = UiRectF32::new(left, right, top, bottom);
+                let slice = UiRectF32::new(slice_left, slice_right, slice_top, slice_bottom);
 
-                let left = match stylebox.width.left {
+                let width_left = match stylebox.width.left {
                     Val::Percent(percent) => percent * 0.01,
                     Val::Px(px) => px / (size.x * slice.left),
-                    value => {
-                        return cleanup(format!(
-                            "Unsupported value for the width.left: {:?}",
-                            value
-                        ))
-                    }
+                    _ => 1.0,
                 };
-                let right = match stylebox.width.right {
+                let width_right = match stylebox.width.right {
                     Val::Percent(percent) => percent * 0.01,
                     Val::Px(px) => px / (size.x * slice.right),
-                    value => {
-                        return cleanup(format!(
-                            "Unsupported value for the width.right: {:?}",
-                            value
-                        ))
-                    }
+                    _ => 1.0,
                 };
-                let top = match stylebox.width.top {
+                let width_top = match stylebox.width.top {
                     Val::Percent(percent) => percent * 0.01,
                     Val::Px(px) => px / (size.y * slice.top),
-                    value => {
-                        return cleanup(format!("Unsupported value for the width.top: {:?}", value))
-                    }
+                    _ => 1.0,
                 };
-                let bottom = match stylebox.width.bottom {
+                let width_bottom = match stylebox.width.bottom {
                     Val::Percent(percent) => percent * 0.01,
                     Val::Px(px) => px / (size.y * slice.bottom),
-                    value => {
-                        return cleanup(format!(
-                            "Unsupported value for the width.bottom: {:?}",
-                            value
-                        ))
-                    }
+                    _ => 1.0,
                 };
-                let width = UiRectF32::new(left, right, top, bottom);
+                let width = UiRectF32::new(width_left, width_right, width_top, width_bottom);
 
                 if let Some(mut computed) = computed {
                     computed.region = region;
