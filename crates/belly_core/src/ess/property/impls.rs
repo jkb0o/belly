@@ -38,6 +38,7 @@ macro_rules! style_property {
 
             fn apply(
                 $value: &Self::Item,
+                #[allow(unused_mut)]
                 mut $component: ::bevy::ecs::query::QueryItem<Self::Components>,
                 $assets: &::bevy::prelude::AssetServer,
                 $commands: &mut ::bevy::prelude::Commands,
@@ -690,8 +691,8 @@ pub(crate) struct BackgroundColorProperty;
 
 impl Property for BackgroundColorProperty {
     type Item = Color;
-    type Components = Entity;
-    type Filters = With<BackgroundColor>;
+    type Components = &'static mut BackgroundColor;
+    type Filters = With<Node>;
 
     fn name() -> Tag {
         tag!("background-color")
@@ -702,12 +703,14 @@ impl Property for BackgroundColorProperty {
     }
 
     fn apply<'w>(
-        cache: &Self::Item,
-        components: QueryItem<Self::Components>,
+        value: &Self::Item,
+        mut background_color: QueryItem<Self::Components>,
         _asset_server: &AssetServer,
-        commands: &mut Commands,
+        _commands: &mut Commands,
         _entity: Entity,
     ) {
-        commands.entity(components).insert(BackgroundColor(*cache));
+        if &background_color.0 != value {
+            background_color.0 = *value;
+        }
     }
 }
