@@ -29,7 +29,6 @@ pub mod prelude {
     pub use belly_core::ess::ColorFromHexExtension;
     pub use belly_core::relations::transform::ColorTransformerExtension;
     pub use belly_core::ExpandElementsExt;
-    pub use belly_core::WithElements;
 
     // widgets
     pub use belly_widgets::prelude::*;

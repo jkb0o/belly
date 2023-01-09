@@ -1,5 +1,6 @@
 use crate::build::*;
 use crate::ess::*;
+use crate::Element;
 use bevy::prelude::*;
 use bevy::utils::HashMap;
 use bevy_stylebox::*;
@@ -65,13 +66,30 @@ style_property! {
     #[doc = " as a stylebox. The property accepts `String` values."]
     StyleboxSourceProperty("stylebox-source") {
         Item = String;
-        Components = &'static mut Stylebox;
+        Components = Option<&'static mut Stylebox>;
         Filters = With<Node>;
         Parse = |v| v.string();
-        Apply = |value, stylebox, assets, _commands, _entity| {
+        Apply = |value, stylebox, assets, commands, entity| {
+            if value.is_empty() {
+                if stylebox.is_some() {
+                    commands.entity(entity)
+                        .remove::<Stylebox>()
+                        .remove::<ComputedStylebox>()
+                        .remove::<StyleboxSlices>();
+                }
+                return;
+            }
             let image = assets.load(value);
-            if stylebox.texture != image {
-                stylebox.texture = image;
+            if let Some(mut stylebox) = stylebox {
+                if stylebox.texture != image {
+                    stylebox.texture = image;
+                }
+            } else {
+                commands.add(Element::invalidate_entity(entity));
+                commands.entity(entity).insert(Stylebox {
+                    texture: image,
+                    ..default()
+                });
             }
         };
     }

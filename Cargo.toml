@@ -21,10 +21,6 @@ belly_macro = { path = "crates/belly_macro" }
 belly_core = { path = "crates/belly_core" }
 belly_widgets = { path = "crates/belly_widgets" }
 
-[features]
-default = ["stylebox"]
-stylebox = ["belly_core/stylebox"]
-
 
 
 [[example]]

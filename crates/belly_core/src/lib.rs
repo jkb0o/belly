@@ -1,14 +1,10 @@
-use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
-use bevy::text::TextLayoutInfo;
-use bevy::utils::HashMap;
-use bevy::{ecs::system::EntityCommands, prelude::*};
+use bevy::prelude::*;
 use eml::build::BuildPligin;
 use eml::EmlPlugin;
 use ess::{EssPlugin, StyleSheet, StyleSheetParser};
 use input::ElementsInputPlugin;
 use std::error::Error;
 use std::fmt::Display;
-use std::sync::{Arc, RwLock};
 
 pub mod element;
 pub mod eml;
@@ -85,10 +81,7 @@ pub mod build {
 
 impl Plugin for ElementsCorePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(FrameTimeDiagnosticsPlugin)
-            .add_system(fix_text_height)
-            // .init_resource::<input::Focused>()
-            .insert_resource(Defaults::default())
+        app.insert_resource(Defaults::default())
             .add_plugin(ElementsInputPlugin)
             .add_plugin(RelationsPlugin)
             .add_plugin(BuildPligin)
@@ -133,71 +126,6 @@ impl Display for ElementsError {
     }
 }
 
-pub trait WithElements {
-    fn with_elements(&mut self, elements: ElementsBuilder) -> &mut Self;
-}
-
-impl<'w, 's, 'a> WithElements for EntityCommands<'w, 's, 'a> {
-    fn with_elements(&mut self, elements: ElementsBuilder) -> &mut Self {
-        let entity = self.id();
-        self.commands().add(elements.with_entity(entity));
-        self
-    }
-}
-
-// pub(crate) type TransformProperty = Box<dyn Fn(&StyleProperty) -> Result<(), ElementsError>>;
-pub(crate) type TransformProperty = fn(Variant) -> Result<PropertyValue, ElementsError>;
-#[derive(Default, Clone, Resource)]
-pub struct PropertyTransformer(Arc<RwLock<HashMap<Tag, TransformProperty>>>);
-unsafe impl Send for PropertyTransformer {}
-unsafe impl Sync for PropertyTransformer {}
-impl PropertyTransformer {
-    #[cfg(test)]
-    pub(crate) fn new(rules: HashMap<Tag, TransformProperty>) -> PropertyTransformer {
-        PropertyTransformer(Arc::new(RwLock::new(rules)))
-    }
-    pub(crate) fn transform(
-        &self,
-        name: Tag,
-        value: Variant,
-    ) -> Result<PropertyValue, ElementsError> {
-        self.0
-            .read()
-            .unwrap()
-            .get(&name)
-            .ok_or(ElementsError::UnsupportedProperty(name.to_string()))
-            .and_then(|transform| transform(value))
-    }
-}
-
-pub(crate) type ExtractProperty = fn(Variant) -> Result<HashMap<Tag, PropertyValue>, ElementsError>;
-#[derive(Default, Clone, Resource)]
-pub struct PropertyExtractor(Arc<RwLock<HashMap<Tag, ExtractProperty>>>);
-unsafe impl Send for PropertyExtractor {}
-unsafe impl Sync for PropertyExtractor {}
-impl PropertyExtractor {
-    #[cfg(test)]
-    pub(crate) fn new(rules: HashMap<Tag, ExtractProperty>) -> PropertyExtractor {
-        PropertyExtractor(Arc::new(RwLock::new(rules)))
-    }
-    pub(crate) fn is_compound_property(&self, name: Tag) -> bool {
-        self.0.read().unwrap().contains_key(&name)
-    }
-
-    pub(crate) fn extract(
-        &self,
-        name: Tag,
-        value: Variant,
-    ) -> Result<HashMap<Tag, PropertyValue>, ElementsError> {
-        self.0
-            .read()
-            .unwrap()
-            .get(&name)
-            .ok_or(ElementsError::UnsupportedProperty(name.to_string()))
-            .and_then(|extractor| extractor(value))
-    }
-}
-
 #[derive(Default, Resource)]
 pub struct Defaults {
     pub regular_font: Handle<Font>,
@@ -212,8 +140,8 @@ pub fn setup_defaults(
     mut fonts: ResMut<Assets<Font>>,
     mut defaults: ResMut<Defaults>,
     elements_registry: Res<ElementBuilderRegistry>,
-    extractor: Res<PropertyExtractor>,
-    validator: Res<PropertyTransformer>,
+    extractor: Res<ess::PropertyExtractor>,
+    validator: Res<ess::PropertyTransformer>,
 ) {
     let font_bytes = include_bytes!("fonts/Exo2-ExtraLight.ttf").to_vec();
     let font_asset = Font::try_from_bytes(font_bytes).unwrap();
@@ -246,14 +174,4 @@ pub fn setup_defaults(
         rules.push(rule)
     }
     commands.add(StyleSheet::add_default(rules));
-}
-
-pub fn fix_text_height(
-    mut texts: Query<(&Text, &mut Style), Or<(Changed<Text>, Changed<TextLayoutInfo>)>>,
-) {
-    for (text, mut style) in texts.iter_mut() {
-        if text.sections.len() > 0 {
-            style.size.height = Val::Px(text.sections[0].style.font_size);
-        }
-    }
 }

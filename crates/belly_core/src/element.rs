@@ -1,8 +1,6 @@
 use bevy::ecs::query::WorldQuery;
-use bevy::ecs::system::SystemParam;
+use bevy::ecs::system::{Command, SystemParam};
 use bevy::utils::{HashMap, HashSet};
-#[cfg(feature = "stylebox")]
-use bevy_stylebox::Stylebox;
 use smallvec::SmallVec;
 use std::ops::Deref;
 use std::ops::DerefMut;
@@ -15,8 +13,6 @@ use bevy::prelude::*;
 #[derive(Bundle)]
 pub struct ElementBundle {
     pub element: Element,
-    #[cfg(feature = "stylebox")]
-    pub stylebox: Stylebox,
     #[bundle]
     pub node: NodeBundle,
 }
@@ -25,8 +21,6 @@ impl Default for ElementBundle {
     fn default() -> Self {
         ElementBundle {
             element: Default::default(),
-            #[cfg(feature = "stylebox")]
-            stylebox: Stylebox::default(),
             node: NodeBundle {
                 background_color: BackgroundColor(Color::NONE),
                 ..default()
@@ -113,6 +107,13 @@ impl Element {
 
     pub fn hovered(&self) -> bool {
         self.state.contains(&tags::hover())
+    }
+    pub fn invalidate_entity(entity: Entity) -> impl Command {
+        move |world: &mut World| {
+            if let Some(mut element) = world.entity_mut(entity).get_mut::<Element>() {
+                element.invalidate()
+            }
+        }
     }
 }
 

@@ -9,7 +9,11 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use bevy::{prelude::*, utils::HashSet};
+use bevy::{
+    log::Level,
+    prelude::*,
+    utils::{tracing::span, HashSet},
+};
 
 use self::bind::{BindableSource, BindableTarget, ChangesState};
 pub use self::connect::{
@@ -45,7 +49,6 @@ impl Plugin for RelationsPlugin {
         );
         // app.add_stage_after(target, label, stage)
         app.add_system_to_stage(RelationsStage::PreUpdate, process_relations_system);
-        app.add_system_to_stage(RelationsStage::Update, process_relations_system);
         app.add_system_to_stage(RelationsStage::PostUpdate, process_relations_system);
     }
 }
@@ -168,6 +171,8 @@ impl BindingSystemsInternal {
             .add_system_to_stage(BindingStage::Custom, system);
     }
     pub fn run(&mut self, world: &mut World) {
+        let span = span!(Level::INFO, "belly");
+        let _enter = span.enter();
         let mut last_state = world.resource::<ChangesState>().get();
         loop {
             self.schedule.run(world);

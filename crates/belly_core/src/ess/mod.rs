@@ -1,7 +1,6 @@
 mod parser;
 mod property;
 mod selector;
-#[cfg(feature = "stylebox")]
 mod stylebox;
 
 use bevy::{
@@ -9,6 +8,7 @@ use bevy::{
     ecs::system::Command,
     prelude::*,
     reflect::TypeUuid,
+    text::TextLayoutInfo,
     utils::{hashbrown::hash_map::Keys, HashMap},
 };
 pub use property::*;
@@ -16,10 +16,13 @@ pub use selector::*;
 use smallvec::SmallVec;
 use tagstr::Tag;
 
-use crate::{Defaults, Elements, PropertyExtractor, PropertyTransformer};
+use crate::{Defaults, Elements, ElementsError, Variant};
 
 pub use self::parser::StyleSheetParser;
-use std::ops::Deref;
+use std::{
+    ops::Deref,
+    sync::{Arc, RwLock},
+};
 
 #[derive(Default)]
 pub struct EssPlugin;
@@ -28,6 +31,7 @@ impl Plugin for EssPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.init_resource::<Styles>();
         app.add_asset::<StyleSheet>();
+        app.add_system(fix_text_height);
         let extractor = app
             .world
             .get_resource_or_insert_with(PropertyExtractor::default)
@@ -41,9 +45,7 @@ impl Plugin for EssPlugin {
             extractor,
         });
         app.add_system(process_styles_system);
-        #[cfg(feature = "stylebox")]
         app.add_plugin(bevy_stylebox::StyleboxPlugin);
-        #[cfg(feature = "stylebox")]
         app.add_plugin(stylebox::StyleboxPropertyPlugin);
 
         app.register_property::<impls::DisplayProperty>();
@@ -101,6 +103,58 @@ impl Plugin for EssPlugin {
 
         app.register_property::<impls::BackgroundColorProperty>();
         app.register_property::<impls::ScaleProperty>();
+    }
+}
+
+pub(crate) type TransformProperty = fn(Variant) -> Result<PropertyValue, ElementsError>;
+#[derive(Default, Clone, Resource)]
+pub struct PropertyTransformer(Arc<RwLock<HashMap<Tag, TransformProperty>>>);
+unsafe impl Send for PropertyTransformer {}
+unsafe impl Sync for PropertyTransformer {}
+impl PropertyTransformer {
+    #[cfg(test)]
+    pub(crate) fn new(rules: HashMap<Tag, TransformProperty>) -> PropertyTransformer {
+        PropertyTransformer(Arc::new(RwLock::new(rules)))
+    }
+    pub(crate) fn transform(
+        &self,
+        name: Tag,
+        value: Variant,
+    ) -> Result<PropertyValue, ElementsError> {
+        self.0
+            .read()
+            .unwrap()
+            .get(&name)
+            .ok_or(ElementsError::UnsupportedProperty(name.to_string()))
+            .and_then(|transform| transform(value))
+    }
+}
+
+pub(crate) type ExtractProperty = fn(Variant) -> Result<HashMap<Tag, PropertyValue>, ElementsError>;
+#[derive(Default, Clone, Resource)]
+pub struct PropertyExtractor(Arc<RwLock<HashMap<Tag, ExtractProperty>>>);
+unsafe impl Send for PropertyExtractor {}
+unsafe impl Sync for PropertyExtractor {}
+impl PropertyExtractor {
+    #[cfg(test)]
+    pub(crate) fn new(rules: HashMap<Tag, ExtractProperty>) -> PropertyExtractor {
+        PropertyExtractor(Arc::new(RwLock::new(rules)))
+    }
+    pub(crate) fn is_compound_property(&self, name: Tag) -> bool {
+        self.0.read().unwrap().contains_key(&name)
+    }
+
+    pub(crate) fn extract(
+        &self,
+        name: Tag,
+        value: Variant,
+    ) -> Result<HashMap<Tag, PropertyValue>, ElementsError> {
+        self.0
+            .read()
+            .unwrap()
+            .get(&name)
+            .ok_or(ElementsError::UnsupportedProperty(name.to_string()))
+            .and_then(|extractor| extractor(value))
     }
 }
 
@@ -353,5 +407,15 @@ fn process_styles_system(
     }
     if styles_changed {
         elements.invalidate_all();
+    }
+}
+
+pub fn fix_text_height(
+    mut texts: Query<(&Text, &mut Style), Or<(Changed<Text>, Changed<TextLayoutInfo>)>>,
+) {
+    for (text, mut style) in texts.iter_mut() {
+        if text.sections.len() > 0 {
+            style.size.height = Val::Px(text.sections[0].style.font_size);
+        }
     }
 }

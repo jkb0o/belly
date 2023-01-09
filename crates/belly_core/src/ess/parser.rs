@@ -5,8 +5,8 @@ use cssparser::*;
 use tagstr::{AsTag, Tag};
 
 use crate::{
-    eml::Variant, ess::Selector, ess::SelectorElement, ess::StyleProperty, ess::StyleRule,
-    ElementsError, PropertyExtractor, PropertyTransformer,
+    eml::Variant, ess::PropertyExtractor, ess::PropertyTransformer, ess::Selector,
+    ess::SelectorElement, ess::StyleProperty, ess::StyleRule, ElementsError,
 };
 
 pub struct StyleSheetParser {
@@ -230,10 +230,7 @@ fn parse_values<'i, 'tt>(
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        ess::{PropertyValue, StylePropertyToken},
-        ExtractProperty, TransformProperty,
-    };
+    use crate::ess::{ExtractProperty, PropertyValue, StylePropertyToken, TransformProperty};
 
     use super::*;
     use bevy::utils::HashMap;

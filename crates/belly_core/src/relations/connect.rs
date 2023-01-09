@@ -10,7 +10,7 @@ use bevy::{
 use itertools::Itertools;
 use std::ops::{Deref, DerefMut};
 
-use crate::{ElementsBuilder, PointerInput, WithElements};
+use crate::{ElementsBuilder, PointerInput};
 
 use super::RelationsSystems;
 pub trait Signal: Event {
@@ -65,12 +65,13 @@ impl<'a, 'w, 's, 'c, S: Signal> ConnectionEntityContext<'a, 'w, 's, 'c, S> {
     }
 
     pub fn render(&mut self, eml: ElementsBuilder) {
-        self.target().with_elements(eml);
+        let entity = self.target;
+        self.commands().add(eml.with_entity(entity));
     }
 
     pub fn replace(&mut self, eml: ElementsBuilder) {
         self.target().despawn_descendants();
-        self.target().with_elements(eml);
+        self.render(eml);
     }
 }
 
