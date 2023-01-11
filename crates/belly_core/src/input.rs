@@ -1,4 +1,4 @@
-use crate::{tags, Element, Elements};
+use crate::{element::Element, element::Elements, tags};
 use bevy::{
     ecs::query::WorldQuery,
     input::InputSystem,

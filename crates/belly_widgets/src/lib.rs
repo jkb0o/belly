@@ -2,7 +2,6 @@ pub mod common;
 pub mod img;
 pub mod input;
 pub mod range;
-pub mod visible_progress;
 use bevy::prelude::Plugin;
 
 #[derive(Default)]
@@ -24,4 +23,8 @@ pub mod prelude {
     pub use crate::img::*;
     #[doc(inline)]
     pub use crate::input::*;
+}
+
+pub mod tags {
+    pub use belly_core::tags::*;
 }

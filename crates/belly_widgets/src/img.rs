@@ -1,11 +1,10 @@
-use std::str::FromStr;
-
-use belly_core::*;
+use belly_core::build::*;
 use belly_macro::*;
 use bevy::{
     prelude::*,
     utils::{HashMap, HashSet},
 };
+use std::str::FromStr;
 
 pub(crate) struct ImgPlugin;
 impl Plugin for ImgPlugin {

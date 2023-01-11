@@ -1,5 +1,7 @@
 use crate::common::*;
-use belly_core::*;
+use crate::tags;
+use belly_core::build::*;
+use belly_core::input;
 use belly_macro::*;
 use bevy::{
     prelude::*,

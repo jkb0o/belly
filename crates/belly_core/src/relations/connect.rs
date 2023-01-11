@@ -1,3 +1,4 @@
+use crate::{eml::build::ElementsBuilder, input::PointerInput, relations::RelationsSystems};
 use bevy::{
     asset::Asset,
     ecs::{
@@ -10,9 +11,6 @@ use bevy::{
 use itertools::Itertools;
 use std::ops::{Deref, DerefMut};
 
-use crate::{ElementsBuilder, PointerInput};
-
-use super::RelationsSystems;
 pub trait Signal: Event {
     fn sources(&self) -> &[Entity];
 }

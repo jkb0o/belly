@@ -1,11 +1,8 @@
-use bevy::{ecs::query::QueryItem, prelude::*};
-
-use crate::ElementsError;
-use tagstr::*;
-
 use super::{CompoundProperty, Property, StyleProperty, StylePropertyMethods};
-
+use crate::ElementsError;
+use bevy::{ecs::query::QueryItem, prelude::*};
 pub(crate) use style::*;
+use tagstr::*;
 pub(crate) use text::*;
 pub(crate) use transform::*;
 
@@ -123,7 +120,7 @@ mod style {
                 }
 
                 fn extract(
-                    value: crate::Variant,
+                    value: Variant,
                 ) -> Result<bevy::utils::HashMap<Tag, PropertyValue>, ElementsError> {
                     let rect =
                         match value {
@@ -388,7 +385,7 @@ mod style {
 /// Impls for `bevy_text` [`Text`] component
 mod text {
     use super::*;
-    use crate::Defaults;
+    use crate::ess::defaults::Defaults;
 
     #[derive(Default, Clone)]
     pub enum FontPath {

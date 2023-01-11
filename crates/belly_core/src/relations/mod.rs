@@ -1,23 +1,20 @@
 pub mod bind;
-mod connect;
-pub mod convert;
+pub mod connect;
 pub mod ops;
 pub mod transform;
 
-use std::{
-    any::TypeId,
-    sync::{Arc, RwLock},
+use self::bind::{BindableSource, BindableTarget, ChangesState};
+pub use self::connect::{
+    Connect, ConnectionEntityContext, ConnectionGeneralContext, ConnectionTo, Connections, Signal,
 };
-
 use bevy::{
     log::Level,
     prelude::*,
     utils::{tracing::span, HashSet},
 };
-
-use self::bind::{BindableSource, BindableTarget, ChangesState};
-pub use self::connect::{
-    Connect, ConnectionEntityContext, ConnectionGeneralContext, ConnectionTo, Connections, Signal,
+use std::{
+    any::TypeId,
+    sync::{Arc, RwLock},
 };
 
 pub struct RelationsPlugin;

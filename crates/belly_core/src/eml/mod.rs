@@ -1,19 +1,17 @@
-use crate::{ess::PropertyExtractor, ess::PropertyTransformer, ElementBuilderRegistry};
-use bevy::prelude::*;
-
-use asset::{update_eml_scene, EmlAsset, EmlLoader};
 pub mod asset;
 pub mod build;
 pub mod content;
 pub mod params;
 pub mod parse;
 pub mod variant;
+pub use self::params::*;
+pub use self::variant::*;
+use crate::{eml::build::ElementBuilderRegistry, ess::PropertyExtractor, ess::PropertyTransformer};
+use asset::{update_eml_scene, EmlAsset, EmlLoader};
+use bevy::prelude::*;
 
 #[derive(Default)]
 pub struct EmlPlugin;
-
-pub use self::params::*;
-pub use self::variant::*;
 
 impl Plugin for EmlPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {

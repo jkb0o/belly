@@ -1,19 +1,17 @@
 mod impls;
+use crate::{
+    eml::build::ElementsBuilder,
+    eml::Params,
+    ess::{PropertyValue, StyleProperty, StylePropertyMethods},
+};
+use bevy::{ecs::system::EntityCommands, prelude::*};
+use std::fmt::Debug;
 use std::{
     any::{type_name, Any, TypeId},
     fmt::Display,
     mem,
     str::FromStr,
 };
-
-use bevy::{ecs::system::EntityCommands, prelude::*};
-
-use crate::{
-    eml::Params,
-    ess::{PropertyValue, StyleProperty},
-    ElementsBuilder, StylePropertyMethods,
-};
-use std::fmt::Debug;
 
 pub type ApplyCommands = Box<dyn FnOnce(&mut EntityCommands)>;
 

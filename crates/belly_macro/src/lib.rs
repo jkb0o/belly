@@ -234,7 +234,7 @@ fn create_attr_stmt(attr: &NodeAttribute) -> TokenStream {
             return quote! {
                 __ctx.params.add(#core::eml::Param::new(
                     #attr_name.into(),
-                    #core::Variant::Bool(true)
+                    #core::build::Variant::Bool(true)
                 ));
             };
         }
@@ -486,7 +486,7 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
                                 ),
                                 ..default()
                             })
-                            .insert(#core::Element::inline())
+                            .insert(#core::build::Element::inline())
                             .id()
                         );
                     };
@@ -510,7 +510,7 @@ fn walk_nodes<'a>(element: &'a Node, create_entity: bool) -> TokenStream {
         quote! {
             {
                 #parent
-                let mut __ctx = #core::eml::build::ElementContextData::new(__parent);
+                let mut __ctx = #core::build::ElementContextData::new(__parent);
 
                 #children
                 let __builder = #core::Widgets::#tag();
@@ -533,7 +533,7 @@ pub fn eml(tree: proc_macro::TokenStream) -> proc_macro::TokenStream {
             let body = walk_nodes(&nodes[0], false);
             // nodes[0]
             let wraped = quote! {
-                #core::ElementsBuilder::new(
+                #core::build::ElementsBuilder::new(
                     move |
                         __world: &mut ::bevy::prelude::World,
                         __parent: ::bevy::prelude::Entity
@@ -699,7 +699,7 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                     &&Descriptor
                 }
 
-                pub fn get_builder(&self) -> #core::ElementBuilder {
+                pub fn get_builder(&self) -> #core::build::ElementBuilder {
                     #component::as_builder()
                 }
                 #connect_signals
@@ -710,7 +710,7 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
 
             #extends_decl
         }
-        impl #impl_generics #core::Widget for #component #ty_generics #where_clause {
+        impl #impl_generics #core::build::Widget for #component #ty_generics #where_clause {
             fn names() -> &'static [&'static str] {
                 &[#names_expr]
             }
@@ -723,7 +723,7 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 })
             }
             #[allow(unused_variables)]
-            fn bind_component(&mut self, ctx: &mut #core::ElementContext) {
+            fn bind_component(&mut self, ctx: &mut #core::build::ElementContext) {
                 #bind_body
             }
         }
@@ -795,8 +795,8 @@ fn prepare_construct_instance(ast: &syn::DeriveInput) -> syn::Result<TokenStream
                     construct_body = quote! {
                         #construct_body
                         #ident: #core::eml::build::FromWorldAndParam::from_world_and_param(
-                            world, params.drop_variant(#param_str.as_tag()).unwrap_or(
-                                #core::Variant::Undefined
+                            world, params.drop_variant(#core::Tag::new(#param_str)).unwrap_or(
+                                #core::build::Variant::Undefined
                             )
                         ),
                     };
@@ -806,7 +806,7 @@ fn prepare_construct_instance(ast: &syn::DeriveInput) -> syn::Result<TokenStream
                     let target_str = format! {"{param_target}"};
                     proxy_body = quote! {
                         #proxy_body
-                        if let Some(param) = params.drop_variant(#param_str.as_tag()) {
+                        if let Some(param) = params.drop_variant(#core::Tag::new(#param_str)) {
                             proxy_params.insert(#target_str, param);
                         }
                     };
@@ -816,7 +816,7 @@ fn prepare_construct_instance(ast: &syn::DeriveInput) -> syn::Result<TokenStream
         if !proxy_body.is_empty() {
             construct_body = quote! {
                 #construct_body
-                #field_ident: #core::eml::build::FromWorldAndParam::from_world_and_param(world, #core::Variant::Params({
+                #field_ident: #core::eml::build::FromWorldAndParam::from_world_and_param(world, #core::build::Variant::Params({
                     let mut proxy_params = #core::eml::Params::default();
                     #proxy_body
                     proxy_params
@@ -960,7 +960,7 @@ fn parse_signals(attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStream> {
                     &self,
                     world: &mut ::bevy::prelude::World,
                     source: ::bevy::prelude::Entity,
-                    target: #core::ConnectionTo<C, #event>
+                    target: #core::build::ConnectionTo<C, #event>
                 ) {
                     target
                         .filter(|e| e.#filter())
@@ -1155,21 +1155,21 @@ pub fn widget(
                 &&Descriptor
             }
 
-            pub fn get_builder(&self) -> #core::ElementBuilder {
+            pub fn get_builder(&self) -> #core::build::ElementBuilder {
                 #fn_ident::as_builder()
             }
             #styles_decl
             #connect_signals
         }
 
-        impl #core::Widget for #fn_ident {
+        impl #core::build::Widget for #fn_ident {
             fn names() -> &'static [&'static str] {
                 &[#alias]
             }
             #aliases_decl
         }
 
-        impl #core::WidgetBuilder for #fn_ident {
+        impl #core::build::WidgetBuilder for #fn_ident {
             #styles_decl
             fn construct(#fn_args) {
                 #fn_body

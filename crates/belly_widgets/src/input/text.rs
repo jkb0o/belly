@@ -1,8 +1,6 @@
-use std::ops::Range;
-
 use crate::common::*;
 use ab_glyph::ScaleFont;
-use belly_core::*;
+use belly_core::build::*;
 use belly_macro::*;
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
@@ -176,7 +174,7 @@ impl Selection {
         }
     }
 
-    pub fn range(&self) -> Range<usize> {
+    pub fn range(&self) -> std::ops::Range<usize> {
         self.min..self.max
     }
 }

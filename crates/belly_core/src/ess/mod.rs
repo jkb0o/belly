@@ -1,8 +1,11 @@
+mod defaults;
 mod parser;
 mod property;
 mod selector;
 mod stylebox;
 
+pub use self::parser::StyleSheetParser;
+use crate::{element::Elements, eml::Variant, ess::defaults::Defaults, ElementsError};
 use bevy::{
     asset::{AssetLoader, LoadedAsset},
     ecs::system::Command,
@@ -14,15 +17,11 @@ use bevy::{
 pub use property::*;
 pub use selector::*;
 use smallvec::SmallVec;
-use tagstr::Tag;
-
-use crate::{Defaults, Elements, ElementsError, Variant};
-
-pub use self::parser::StyleSheetParser;
 use std::{
     ops::Deref,
     sync::{Arc, RwLock},
 };
+use tagstr::Tag;
 
 #[derive(Default)]
 pub struct EssPlugin;
@@ -30,6 +29,11 @@ pub struct EssPlugin;
 impl Plugin for EssPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.init_resource::<Styles>();
+
+        // TODO: may be desabled with feature
+        app.insert_resource(Defaults::default());
+        app.add_startup_system(crate::ess::defaults::setup_defaults);
+
         app.add_asset::<StyleSheet>();
         app.add_system(fix_text_height);
         let extractor = app

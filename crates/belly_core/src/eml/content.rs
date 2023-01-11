@@ -1,13 +1,14 @@
-use bevy::prelude::*;
-use std::any::TypeId;
-
 use crate::{
+    element::Element,
+    eml::build::ElementsBuilder,
     relations::{
         bind::{BindableSource, BindableTarget, FromComponent, FromResourceWithTransformer},
-        *,
+        RelationsSystems,
     },
-    to, Element, ElementsBuilder,
+    to,
 };
+use bevy::prelude::*;
+use std::any::TypeId;
 
 pub trait IntoContent {
     fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity>;

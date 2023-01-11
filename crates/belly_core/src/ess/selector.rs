@@ -1,10 +1,8 @@
-use std::ops::Neg;
-
+use crate::element::Element;
 use bevy::prelude::{default, Changed, Entity, Parent, Query};
 use smallvec::{smallvec, SmallVec};
+use std::ops::Neg;
 use tagstr::Tag;
-
-use crate::Element;
 
 #[derive(Copy, Clone, PartialEq, Eq, Ord, Default, Debug)]
 pub struct SelectorWeight(pub(crate) i32, pub(crate) i32);

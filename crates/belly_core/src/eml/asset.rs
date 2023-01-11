@@ -1,21 +1,17 @@
-use std::sync::Arc;
-
+use crate::element::Element;
+use crate::eml::{
+    build::{ElementBuilderRegistry, ElementContextData, Slots},
+    parse, Param,
+};
+use crate::ess::{PropertyExtractor, PropertyTransformer};
 use bevy::{
     asset::{AssetLoader, LoadedAsset},
     prelude::*,
     reflect::TypeUuid,
     utils::HashMap,
 };
+use std::sync::Arc;
 use tagstr::*;
-
-use crate::{
-    eml::Param, ess::PropertyExtractor, ess::PropertyTransformer, Element, ElementBuilderRegistry,
-};
-
-use super::{
-    build::{ElementContextData, Slots},
-    parse,
-};
 
 pub enum EmlNode {
     Element(EmlElement),

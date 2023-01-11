@@ -1,3 +1,7 @@
+use super::RelationsSystems;
+use bevy::{ecs::system::Command, prelude::*, utils::HashMap};
+use itertools::Itertools;
+use smallvec::SmallVec;
 use std::{
     any::type_name,
     convert::Infallible,
@@ -6,13 +10,7 @@ use std::{
     num::ParseFloatError,
     ops::{Deref, DerefMut},
 };
-
-use bevy::{ecs::system::Command, prelude::*, utils::HashMap};
-use itertools::Itertools;
-use smallvec::SmallVec;
 use tagstr::Tag;
-
-use super::RelationsSystems;
 
 pub type SourceReader<R, S> = fn(&R) -> S;
 pub type Transformer<S, T> = fn(&S, Prop<T>) -> TransformationResult;
@@ -791,7 +789,7 @@ macro_rules! to {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::ColorTransformerExtension;
+    use crate::prelude::ColorTransformerExtension;
     use crate::*;
 
     #[derive(Component, Default)]

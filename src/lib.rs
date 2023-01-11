@@ -1,36 +1,12 @@
 pub use belly_core as core;
 
 pub mod prelude {
-    use bevy::prelude::*;
-    // plugin
     use belly_core::ElementsCorePlugin;
     use belly_widgets::WidgetsPlugin;
+    use bevy::prelude::*;
 
-    // bundles
-    pub use belly_core::ElementBundle;
-    pub use belly_core::ImageElementBundle;
-    pub use belly_core::TextElementBundle;
-
-    // structs
-    pub use belly_core::eml::asset::EmlAsset;
-    pub use belly_core::eml::asset::EmlScene;
-    pub use belly_core::ess::StyleSheet;
-
-    // macros
-    pub use belly_core::bind;
-    pub use belly_core::connect;
-    pub use belly_core::from;
-    pub use belly_core::to;
+    pub use belly_core::prelude::*;
     pub use belly_macro::eml;
-
-    // traits
-    pub use belly_core::eml::build::WidgetBuilder;
-    pub use belly_core::eml::content::IntoContent;
-    pub use belly_core::ess::ColorFromHexExtension;
-    pub use belly_core::relations::transform::ColorTransformerExtension;
-    pub use belly_core::ExpandElementsExt;
-
-    // widgets
     pub use belly_widgets::prelude::*;
 
     pub struct BellyPlugin;
@@ -44,9 +20,6 @@ pub mod prelude {
 
 pub mod build {
     pub use super::prelude::*;
-    pub use belly_core::ElementBuilder;
-    pub use belly_core::ElementContext;
-    pub use belly_core::RegisterWidgetExtension;
-    pub use belly_core::Widgets;
+    pub use belly_core::build::*;
     pub use belly_macro::widget;
 }

@@ -1,10 +1,7 @@
-use std::fmt::Display;
-use std::{fmt::Debug, mem};
-
 use crate::eml::ApplyCommands;
+use crate::eml::Variant;
 use crate::ess::*;
 use crate::tags;
-use crate::Variant;
 use bevy::prelude::error;
 use bevy::prelude::Deref;
 use bevy::prelude::DerefMut;
@@ -12,6 +9,8 @@ use bevy::{
     ecs::system::EntityCommands,
     utils::{HashMap, HashSet},
 };
+use std::fmt::Display;
+use std::{fmt::Debug, mem};
 use tagstr::*;
 
 #[derive(Debug, Clone, Copy)]

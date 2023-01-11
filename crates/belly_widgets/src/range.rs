@@ -1,9 +1,8 @@
-use std::str::FromStr;
-
 use super::common::*;
-use belly_core::{eml::build::FromWorldAndParam, relations::bind::AsTransformer, *};
+use belly_core::build::*;
 use belly_macro::*;
 use bevy::{prelude::*, utils::HashMap};
+use std::str::FromStr;
 
 pub(crate) struct RangePlugin;
 impl Plugin for RangePlugin {
@@ -317,12 +316,12 @@ pub fn configure_range_layout(
         {
             match mode {
                 LayoutMode::Horizontal => {
-                    elements.set_state(entity, "horizontal".as_tag(), true);
-                    elements.set_state(entity, "vertical".as_tag(), false);
+                    elements.set_state(entity, Tag::new("horizontal"), true);
+                    elements.set_state(entity, Tag::new("vertical"), false);
                 }
                 LayoutMode::Vertical => {
-                    elements.set_state(entity, "horizontal".as_tag(), false);
-                    elements.set_state(entity, "vertical".as_tag(), true);
+                    elements.set_state(entity, Tag::new("horizontal"), false);
+                    elements.set_state(entity, Tag::new("vertical"), true);
                 }
             }
         }

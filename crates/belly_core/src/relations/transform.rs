@@ -1,10 +1,9 @@
-use crate::TransformationResult;
-use bevy::prelude::*;
-
-use crate::relations::bind::{Prop, TransformationError};
+use crate::relations::bind::AsTransformer;
+use crate::relations::bind::Prop;
+use crate::relations::bind::TransformationError;
+use crate::relations::bind::TransformationResult;
 use crate::Transformers;
-
-use super::bind::AsTransformer;
+use bevy::prelude::*;
 
 pub trait TransformableTo<T: Clone> {
     fn transform(value: &Self) -> Result<T, TransformationError>;

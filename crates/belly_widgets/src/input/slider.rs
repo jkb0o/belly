@@ -1,6 +1,7 @@
 use crate::input::button::*;
 use crate::range::*;
-use belly_core::*;
+use belly_core::build::*;
+use belly_core::input;
 use belly_macro::*;
 use bevy::prelude::*;
 
