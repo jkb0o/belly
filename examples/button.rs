@@ -5,10 +5,16 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(BellyPlugin)
+        .add_event::<MyEvent>()
         .add_startup_system(setup)
         .add_system(greet)
+        .add_system(debug_my_event)
         .register_widget::<orange>()
         .run();
+}
+
+struct MyEvent {
+    emited_at: f32
 }
 
 #[widget]
@@ -64,6 +70,13 @@ fn setup(mut commands: Commands) {
                     )
                 })>
                     "Press me and look at the logs!"
+                </button>
+            </div>
+            <div>
+                <button on:press=connect!(|ctx| {
+                    ctx.send_event(MyEvent { emited_at: ctx.time().elapsed_seconds() })
+                })>
+                    "I will send custom event, check the logs"
                 </button>
             </div>
             <div>
@@ -163,5 +176,11 @@ fn setup(mut commands: Commands) {
 fn greet(mut greets: Query<&mut Greet, Changed<Greet>>) {
     for mut greet in greets.iter_mut() {
         greet.message = format!("Count: {}", greet.counter);
+    }
+}
+
+fn debug_my_event(mut events: EventReader<MyEvent>) {
+    for event in events.iter() {
+        info!("MyEvent emitted at {:0.2}", event.emited_at);
     }
 }

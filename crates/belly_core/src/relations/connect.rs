@@ -49,6 +49,11 @@ impl<'a, 'w, 's, S: Signal> ConnectionGeneralContext<'a, 'w, 's, S> {
     pub fn time(&self) -> &Time {
         self.time_resource
     }
+    pub fn send_event<T: Event>(&mut self, event: T) {
+        self.commands.add(|world: &mut World| {
+            world.resource_mut::<Events<T>>().send(event);
+        });
+    }
 }
 
 pub struct ConnectionEntityContext<'a, 'w, 's, 'c, S: Signal> {
