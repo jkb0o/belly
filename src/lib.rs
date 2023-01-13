@@ -69,7 +69,7 @@
 //!             </img>
 //!             <span c:colors>
 //!             <for color in = COLORS>
-//!                 <buttonon:press=connect!(
+//!                 <button on:press=connect!(
 //!                     colorbox, |c: BackgroundColor| c.0 = Color::from_hex(color)
 //!                 )>
 //!                     <span s:background-color=*color s:width="100%" s:height="100%"/>
