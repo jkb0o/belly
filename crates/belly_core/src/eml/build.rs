@@ -8,7 +8,7 @@ use crate::{
     ess::StyleRule,
     ess::StyleSheetParser,
     relations::Signal,
-    relations::{connect::WithoutComponent, ConnectionTo},
+    relations::ConnectionTo,
     tags,
 };
 use bevy::{
