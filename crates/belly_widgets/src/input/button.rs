@@ -214,10 +214,6 @@ impl TryFrom<&str> for BtnModeRepeat {
     }
 }
 
-#[derive(Default, PartialEq, Clone)]
-pub struct NoValue;
-
-// #[derive(Component)]
 #[derive(Component, Widget)]
 #[signal(press, BtnEvent, pressed)]
 #[signal(release, BtnEvent, released)]

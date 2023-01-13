@@ -1,7 +1,15 @@
 use crate::{
-    element::Element, eml::Params, eml::StyleParams, eml::Variant, ess::PropertyExtractor,
-    ess::PropertyTransformer, ess::StyleRule, ess::StyleSheetParser, relations::ConnectionTo,
-    relations::Signal, tags,
+    element::Element,
+    eml::Params,
+    eml::StyleParams,
+    eml::Variant,
+    ess::PropertyExtractor,
+    ess::PropertyTransformer,
+    ess::StyleRule,
+    ess::StyleSheetParser,
+    relations::Signal,
+    relations::{connect::WithoutComponent, ConnectionTo},
+    tags,
 };
 use bevy::{
     asset::Asset,

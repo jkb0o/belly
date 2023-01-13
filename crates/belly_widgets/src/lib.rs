@@ -17,12 +17,9 @@ impl Plugin for WidgetsPlugin {
 }
 
 pub mod prelude {
-    #[doc(inline)]
     pub use crate::common::*;
-    #[doc(inline)]
     pub use crate::img::*;
-    #[doc(inline)]
-    pub use crate::input::*;
+    pub use crate::input::prelude::*;
 }
 
 pub mod tags {
