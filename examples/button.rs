@@ -14,7 +14,7 @@ fn main() {
 }
 
 struct MyEvent {
-    emited_at: f32
+    emited_at: f32,
 }
 
 #[widget]
