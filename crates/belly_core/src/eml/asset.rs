@@ -4,14 +4,23 @@ use crate::eml::{
     parse, Param,
 };
 use crate::ess::{PropertyExtractor, PropertyTransformer};
+use crate::relations::connect::ScriptHandler;
+use bevy::ecs::system::Command;
 use bevy::{
     asset::{AssetLoader, LoadedAsset},
     prelude::*,
     reflect::TypeUuid,
     utils::HashMap,
 };
-use std::sync::Arc;
+use rhai::{Engine, Scope, AST};
+use std::sync::{Arc, RwLock};
 use tagstr::*;
+
+pub struct EmlRoot {
+    // I guess it will be a Vec<EmlScriptDeclaration>
+    pub script: Option<EmlScriptDeclaration>,
+    pub root: EmlNode,
+}
 
 pub enum EmlNode {
     Element(EmlElement),
@@ -20,9 +29,27 @@ pub enum EmlNode {
 }
 
 #[derive(Default)]
+pub struct EmlScriptDeclaration {
+    pub source: String,
+}
+
+#[derive(Resource, Deref)]
+/// Scripting engine here for example purposes
+pub struct ScriptingEngine(Engine);
+unsafe impl Send for ScriptingEngine {}
+unsafe impl Sync for ScriptingEngine {}
+
+#[derive(Resource, Default, Clone, Deref)]
+/// Scripts here for example purposes
+pub struct Scripts(Arc<RwLock<HashMap<Handle<EmlAsset>, AST>>>);
+unsafe impl Send for Scripts {}
+unsafe impl Sync for Scripts {}
+
+#[derive(Default)]
 pub struct EmlElement {
     pub(crate) name: Tag,
     pub(crate) params: HashMap<String, String>,
+    pub(crate) connections: HashMap<String, String>,
     pub(crate) children: Vec<EmlNode>,
 }
 
@@ -46,17 +73,21 @@ impl EmlScene {
 #[derive(TypeUuid, Clone)]
 #[uuid = "f8d22a65-d671-4fa6-ae8f-0dccdb387ddd"]
 pub struct EmlAsset {
-    root: Arc<EmlNode>,
+    root: Arc<EmlRoot>,
 }
 
 impl EmlAsset {
-    pub fn write(&self, world: &mut World, parent: Entity) {
-        // let node = E
-        walk(&self.root, world, Some(parent));
+    pub fn write(&self, world: &mut World, handle: Handle<EmlAsset>, parent: Entity) {
+        walk(&self.root.root, world, handle, Some(parent));
     }
 }
 
-fn walk(node: &EmlNode, world: &mut World, parent: Option<Entity>) -> Option<Entity> {
+fn walk(
+    node: &EmlNode,
+    world: &mut World,
+    handle: Handle<EmlAsset>,
+    parent: Option<Entity>,
+) -> Option<Entity> {
     match node {
         EmlNode::Text(text) => {
             let entity = world
@@ -72,7 +103,7 @@ fn walk(node: &EmlNode, world: &mut World, parent: Option<Entity>) -> Option<Ent
             let slots = world.resource::<Slots>().clone();
             let entities: Vec<Entity> = elements
                 .iter()
-                .filter_map(|e| walk(e, world, None))
+                .filter_map(|e| walk(e, world, handle.clone_weak(), None))
                 .collect();
             slots.insert(*name, entities);
             None
@@ -91,8 +122,38 @@ fn walk(node: &EmlNode, world: &mut World, parent: Option<Entity>) -> Option<Ent
                 let attr = Param::new(name, value.clone().into());
                 context.params.add(attr);
             }
+
+            // connect signals here
+            for (signal, connection) in elem.connections.iter() {
+                let connection = connection.clone();
+                let handle = handle.clone_weak();
+                builder.connect(
+                    world,
+                    entity,
+                    signal,
+                    ScriptHandler::new(move |world, source, _data| {
+                        let scripts = world.get_resource_or_insert_with(Scripts::default).clone();
+                        let scripts_ref = scripts.read().unwrap();
+                        let Some(ast) = scripts_ref.get(&handle) else {
+                        warn!("No script associated with eml asset");
+                        return;
+                    };
+                        let Some(engine) = world.get_resource::<ScriptingEngine>() else {
+                        warn!("No script engine registered");
+                        return;
+                    };
+                        let mut scope = Scope::new();
+                        let result = engine.call_fn::<()>(&mut scope, &ast, &connection, (source,));
+                        if let Err(e) = result {
+                            error!("Error calling method: {e:?}");
+                        }
+                    }),
+                )
+            }
+
+            // build subtree
             for child in elem.children.iter() {
-                if let Some(entity) = walk(child, world, None) {
+                if let Some(entity) = walk(child, world, handle.clone_weak(), None) {
                     context.children.push(entity);
                 }
             }
@@ -141,6 +202,39 @@ impl AssetLoader for EmlLoader {
     }
 }
 
+pub struct AddScriptCommand {
+    handle: Handle<EmlAsset>,
+}
+impl AddScriptCommand {
+    pub fn new(handle: Handle<EmlAsset>) -> AddScriptCommand {
+        AddScriptCommand { handle }
+    }
+}
+
+impl Command for AddScriptCommand {
+    fn write(self, world: &mut World) {
+        if let Some(asset) = world
+            .resource::<Assets<EmlAsset>>()
+            .get(&self.handle)
+            .cloned()
+        {
+            let engine = world.get_resource_or_insert_with(|| ScriptingEngine(Engine::new()));
+            if let Some(script) = &asset.root.script {
+                match engine.compile(&script.source) {
+                    Err(e) => error!("Error compiling script: {e}"),
+                    Ok(ast) => {
+                        let scripts = world.get_resource_or_insert_with(Scripts::default).clone();
+                        scripts
+                            .write()
+                            .unwrap()
+                            .insert(self.handle.clone_weak(), ast);
+                    }
+                };
+            }
+        }
+    }
+}
+
 pub fn update_eml_scene(
     scenes: Query<(Entity, &EmlScene, Option<&Children>)>,
     mut events: EventReader<AssetEvent<EmlAsset>>,
@@ -149,14 +243,17 @@ pub fn update_eml_scene(
 ) {
     for event in events.iter() {
         if let AssetEvent::Created { handle } = event {
+            commands.add(AddScriptCommand::new(handle.clone_weak()));
             let asset = assets.get(handle).unwrap();
             for (entity, _, _) in scenes.iter().filter(|(_, s, _)| &s.asset == handle) {
                 let asset = asset.clone();
+                let handle = handle.clone_weak();
                 commands.add(move |world: &mut World| {
-                    asset.write(world, entity);
+                    asset.write(world, handle, entity);
                 });
             }
         } else if let AssetEvent::Modified { handle } = event {
+            commands.add(AddScriptCommand::new(handle.clone_weak()));
             let asset = assets.get(handle).unwrap();
             for (entity, _, children) in scenes.iter().filter(|(_, s, _)| &s.asset == handle) {
                 if let Some(children) = children {
@@ -165,8 +262,9 @@ pub fn update_eml_scene(
                     }
                 }
                 let asset = asset.clone();
+                let handle = handle.clone_weak();
                 commands.add(move |world: &mut World| {
-                    asset.write(world, entity);
+                    asset.write(world, handle, entity);
                 });
             }
         }

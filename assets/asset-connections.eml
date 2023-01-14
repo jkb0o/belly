@@ -1,0 +1,13 @@
+<script>
+    fn say_hello(entity) {
+        print("Hello!");
+    }
+    fn say_goobye(entity) {
+        print("Goodbye!");
+    }
+</script>
+<body s:padding="10px">
+    <button on:press="say_hello"><span s:padding="10px">Hello!</span></button>
+    <button on:press="say_goobye"><span s:padding="10px">Goodbye!</span></button>
+    <button on:press="invalid_method"><span s:padding="10px">Invalid!</span></button>
+</body>

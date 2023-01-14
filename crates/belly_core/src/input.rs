@@ -50,7 +50,7 @@ pub enum Label {
     Active,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Reflect)]
 pub enum PointerInputData {
     Down { presses: u8 },
     Up { presses: u8 },
@@ -61,7 +61,7 @@ pub enum PointerInputData {
     Motion,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Reflect)]
 pub struct PointerInput {
     pub entities: Vec<Entity>,
     pub pos: Vec2,

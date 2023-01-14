@@ -1,4 +1,4 @@
-use super::asset::{EmlElement, EmlLoader, EmlNode};
+use super::asset::{EmlElement, EmlLoader, EmlNode, EmlRoot, EmlScriptDeclaration};
 use super::Variant;
 use crate::{ess::StyleProperty, ElementsError};
 use roxmltree;
@@ -6,8 +6,9 @@ use std::fmt::Display;
 use tagstr::{AsTag, Tag};
 
 const NS_STYLE: &str = "s";
+const NS_CONNECT: &str = "on";
 
-pub(crate) fn parse(source: &str, loader: &EmlLoader) -> Result<EmlNode, ParseError> {
+pub(crate) fn parse(source: &str, loader: &EmlLoader) -> Result<EmlRoot, ParseError> {
     let source = EmlSource::new(source);
     parse_internal(&source, loader).map_err(|e| ParseError::new(e, &source))
 }
@@ -94,15 +95,22 @@ struct EmlSource {
 
 impl EmlSource {
     fn new(data: &str) -> EmlSource {
-        let prefix = format!("<skip:root xmlns:skip=\"skip\" xmlns:{NS_STYLE}=\"{NS_STYLE}\">\n");
+        let prefix = format!(
+            r#"
+            <skip:root 
+                xmlns:skip="skip"
+                xmlns:{NS_STYLE}="{NS_STYLE}"
+                xmlns:{NS_CONNECT}="{NS_CONNECT}">
+        "#
+        );
         let suffix = "\n</skip:root>";
-        let line_offset = 1;
+        let line_offset = prefix.chars().filter(|c| *c == '\n').count() as u32;
         let data = prefix + data + suffix;
         EmlSource { line_offset, data }
     }
 }
 
-fn parse_internal(source: &EmlSource, loader: &EmlLoader) -> Result<EmlNode, Error> {
+fn parse_internal(source: &EmlSource, loader: &EmlLoader) -> Result<EmlRoot, Error> {
     let document = roxmltree::Document::parse(&source.data);
     match document {
         Err(e) => Err(Error::Internal(e)),
@@ -110,22 +118,51 @@ fn parse_internal(source: &EmlSource, loader: &EmlLoader) -> Result<EmlNode, Err
     }
 }
 
-fn parse_root(node: roxmltree::Node, loader: &EmlLoader) -> Result<EmlNode, Error> {
-    let ns = node.tag_name().namespace();
-    let doc = node.document();
-    let pos = doc.text_pos_at(node.position());
-    if node.is_root() || ns == Some("skip") {
-        let children: Vec<_> = node.children().filter(|n| n.is_element()).collect();
-        if children.len() != 1 {
+fn parse_root(mut root: roxmltree::Node, loader: &EmlLoader) -> Result<EmlRoot, Error> {
+    let doc = root.document();
+    let mut pos = doc.text_pos_at(root.position());
+    // while root.is_root() || ns == Some("skip") {
+    loop {
+        let mut children: Vec<_> = root.children().filter(|n| n.is_element()).collect();
+        if children.is_empty() {
             return Err(Error::InvalidDocumentStructure(
-                "Node should has exactly one child".to_string(),
+                "Empty tree".to_string(),
                 pos,
             ));
         }
-        parse_root(children[0], loader)
-    } else {
-        walk(node, loader)
+        root = children.pop().unwrap();
+        pos = doc.text_pos_at(root.position());
+        let ns = root.tag_name().namespace();
+        if ns == Some("skip") {
+            break;
+        }
     }
+    let mut children: Vec<_> = root.children().filter(|n| n.is_element()).collect();
+    if children.is_empty() {
+        return Err(Error::InvalidDocumentStructure(
+            "Empty tree".to_string(),
+            pos,
+        ));
+    }
+    let mut script = None;
+    let mut node = children.remove(0);
+    pos = doc.text_pos_at(node.position());
+    if node.tag_name().name() == "script" {
+        script = Some(EmlScriptDeclaration {
+            source: node.text().map(|s| s.to_string()).unwrap_or_default(),
+        });
+        if children.is_empty() {
+            return Err(Error::InvalidDocumentStructure(
+                "Empty tree".to_string(),
+                pos,
+            ));
+        }
+        node = children.remove(0);
+    }
+    Ok(EmlRoot {
+        script,
+        root: walk(node, loader)?,
+    })
 }
 
 fn walk(node: roxmltree::Node, loader: &EmlLoader) -> Result<EmlNode, Error> {
@@ -166,6 +203,12 @@ fn walk(node: roxmltree::Node, loader: &EmlLoader) -> Result<EmlNode, Error> {
                             pos,
                         )
                     })?;
+                }
+                // TODO: we can validate connection here
+                if ns == NS_CONNECT {
+                    elem.connections
+                        .insert(attr.name().to_string(), attr.value().to_string());
+                    continue;
                 }
                 format!("{}:{}", ns, attr.name())
             } else {

@@ -91,6 +91,14 @@ pub fn process_signals_system<C: Component, S: Signal>(
                 };
                 for connection in connections.iter().filter(|c| c.handles(signal)) {
                     match &connection.target {
+                        ConnectionTo::Script { handler, marker: _ } => {
+                            let handler = handler.clone();
+                            let signal = signal.clone_value();
+                            let source = *source;
+                            context
+                                .commands
+                                .add(move |world: &mut World| handler(world, source, signal));
+                        }
                         ConnectionTo::General { handler } => {
                             handler(&mut context);
                         }

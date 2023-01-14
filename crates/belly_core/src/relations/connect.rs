@@ -9,9 +9,13 @@ use bevy::{
     utils::HashMap,
 };
 use itertools::Itertools;
-use std::ops::{Deref, DerefMut};
+use std::{
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+    sync::Arc,
+};
 
-pub trait Signal: Event {
+pub trait Signal: Event + Reflect {
     fn sources(&self) -> &[Entity];
 }
 
@@ -92,6 +96,10 @@ impl<'a, 'w, 's, 'c, S: Signal> DerefMut for ConnectionEntityContext<'a, 'w, 's,
 }
 
 pub enum ConnectionTo<C: Component, S: Signal> {
+    Script {
+        handler: ScriptHandler,
+        marker: PhantomData<S>,
+    },
     General {
         handler: Box<dyn Fn(&mut ConnectionGeneralContext<S>)>,
     },
@@ -107,6 +115,16 @@ pub enum ConnectionTo<C: Component, S: Signal> {
 
 unsafe impl<C: Component, S: Signal> Send for ConnectionTo<C, S> {}
 unsafe impl<C: Component, S: Signal> Sync for ConnectionTo<C, S> {}
+
+#[derive(Clone, Deref)]
+pub struct ScriptHandler(Arc<dyn Fn(&mut World, Entity, Box<dyn Reflect>)>);
+unsafe impl Send for ScriptHandler {}
+unsafe impl Sync for ScriptHandler {}
+impl ScriptHandler {
+    pub fn new<F: 'static + Fn(&mut World, Entity, Box<dyn Reflect>)>(handler: F) -> ScriptHandler {
+        ScriptHandler(Arc::new(handler))
+    }
+}
 
 #[derive(Component)]
 pub struct WithoutComponent;
@@ -161,6 +179,13 @@ impl<S: Signal> ConnectionTo<WithoutComponent, S> {
     ) -> ConnectionTo<WithoutComponent, S> {
         ConnectionTo::General {
             handler: Box::new(handler),
+        }
+    }
+
+    pub fn script(handler: ScriptHandler) -> ConnectionTo<WithoutComponent, S> {
+        ConnectionTo::Script {
+            handler,
+            marker: PhantomData,
         }
     }
 }

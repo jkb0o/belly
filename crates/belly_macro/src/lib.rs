@@ -684,7 +684,7 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
         Ok(tokens) => tokens,
         Err(e) => return proc_macro::TokenStream::from(e.to_compile_error()),
     };
-    let extends_decl = match prepare_extends_descriptor(&component, &ast.attrs) {
+    let extends_decl = match prepare_extends_descriptor(&ast.attrs) {
         Ok(tokens) => tokens,
         Err(e) => return proc_macro::TokenStream::from(e.to_compile_error()),
     };
@@ -693,6 +693,7 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
     proc_macro::TokenStream::from(quote! {
         mod #mod_descriptor {
             use super::*;
+            use std::ops::Deref;
             pub struct Descriptor;
             impl Descriptor {
                 pub fn get_instance() -> &'static Descriptor {
@@ -707,8 +708,8 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
                 #bind_descriptors
 
             }
-
             #extends_decl
+
         }
         impl #impl_generics #core::build::Widget for #component #ty_generics #where_clause {
             fn names() -> &'static [&'static str] {
@@ -725,6 +726,15 @@ pub fn widget_macro_derive(input: proc_macro::TokenStream) -> proc_macro::TokenS
             #[allow(unused_variables)]
             fn bind_component(&mut self, ctx: &mut #core::build::ElementContext) {
                 #bind_body
+            }
+
+            fn connect(
+                world: &mut ::bevy::prelude::World,
+                source: ::bevy::prelude::Entity,
+                handler: #core::relations::connect::ScriptHandler,
+                signal: &str
+            ) {
+                #mod_descriptor::Descriptor::get_instance().connect(world, source, handler, signal);
             }
         }
 
@@ -916,6 +926,7 @@ fn parse_docs(attrs: &Vec<syn::Attribute>) -> (Vec<String>, TokenStream) {
 fn parse_signals(attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStream> {
     let core = core_path();
     let mut connect_body = quote! {};
+    let mut connect_untyped_body = quote! {};
     for attr in attrs.iter() {
         if attr.path.is_ident("signal") {
             let span = attr.span();
@@ -954,34 +965,56 @@ fn parse_signals(attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStream> {
                 return Err(syn::Error::new(span, "Expected ident as third argument to #[signal(name, Event, filter)] attribute."));
             };
             let event = event.path();
+            let name_literal = format!("{name}");
             connect_body = quote! {
                 #connect_body
                 pub fn #name<C: ::bevy::prelude::Component>(
                     &self,
                     world: &mut ::bevy::prelude::World,
                     source: ::bevy::prelude::Entity,
-                    target: #core::build::ConnectionTo<C, #event>
+                    target: #core::relations::ConnectionTo<C, #event>
                 ) {
                     target
                         .filter(|e| e.#filter())
                         .from(source)
                         .write(world)
                 }
+            };
+            connect_untyped_body = quote! {
+                #connect_untyped_body
+                #name_literal => {
+                    let target = #core::relations::ConnectionTo::<#core::relations::connect::WithoutComponent, #event>::script(handler);
+                    target.filter(|e| e.#filter())
+                        .from(source)
+                        .write(world)
+                },
             }
         }
     }
+    connect_body = quote! {
+        #connect_body
+        pub fn connect(
+            &self,
+            world: &mut ::bevy::prelude::World,
+            source: ::bevy::prelude::Entity,
+            handler: #core::relations::connect::ScriptHandler,
+            signal: &str
+        ) {
+            match signal {
+                #connect_untyped_body
+                _ => self.deref().connect(
+                    world, source, handler, signal
+                )
+            }
+        }
+    };
     Ok(connect_body)
 }
 
-fn prepare_extends_descriptor(
-    ident: &syn::Ident,
-    attrs: &Vec<syn::Attribute>,
-) -> syn::Result<TokenStream> {
+fn prepare_extends_descriptor(attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStream> {
     let core = core_path();
-    let this_str = ident.to_string();
-    let this_mod = format_ident!("{}_widget_descriptor", this_str.to_lowercase());
     let default_descriptor = quote! {
-        impl ::std::ops::Deref for #this_mod::Descriptor {
+        impl ::std::ops::Deref for Descriptor {
             type Target = #core::eml::build::DefaultDescriptor;
             fn deref(&self) -> &#core::eml::build::DefaultDescriptor {
                 let instance = #core::eml::build::DefaultDescriptor::get_instance();
@@ -999,7 +1032,7 @@ fn prepare_extends_descriptor(
     let extends = descriptor.to_string();
     let extends = format_ident!("{}WidgetExtension", capitalize(&extends));
     let derive = quote! {
-        impl ::std::ops::Deref for #this_mod::Descriptor {
+        impl ::std::ops::Deref for Descriptor {
             type Target = <#core::Widgets as #extends>::Descriptor;
             fn deref(&self) -> &<#core::Widgets as #extends>::Descriptor {
                 let instance = <#core::Widgets as #extends>::Descriptor::get_instance();
@@ -1127,7 +1160,7 @@ pub fn widget(
         Ok(tokens) => tokens,
         Err(e) => return proc_macro::TokenStream::from(e.to_compile_error()),
     };
-    let extends_decl = match prepare_extends_descriptor(&fn_ident, &ast.attrs) {
+    let extends_decl = match prepare_extends_descriptor(&ast.attrs) {
         Ok(tokens) => tokens,
         Err(e) => return proc_macro::TokenStream::from(e.to_compile_error()),
     };
@@ -1144,7 +1177,7 @@ pub fn widget(
 
         mod #mod_descriptor {
         use super::*;
-
+        use std::ops::Deref;
         #[derive(Component)]
         #[allow(non_camel_case_types)]
         pub struct #fn_ident;
@@ -1161,12 +1194,21 @@ pub fn widget(
             #styles_decl
             #connect_signals
         }
+        #extends_decl
 
         impl #core::build::Widget for #fn_ident {
             fn names() -> &'static [&'static str] {
                 &[#alias]
             }
             #aliases_decl
+            fn connect(
+                world: &mut ::bevy::prelude::World,
+                source: ::bevy::prelude::Entity,
+                handler: #core::relations::connect::ScriptHandler,
+                signal: &str
+            ) {
+                #mod_descriptor::Descriptor::get_instance().connect(world, source, handler, signal);
+            }
         }
 
         impl #core::build::WidgetBuilder for #fn_ident {
@@ -1174,6 +1216,7 @@ pub fn widget(
             fn construct(#fn_args) {
                 #fn_body
             }
+
         }
 
         pub trait #extension {
@@ -1196,8 +1239,6 @@ pub fn widget(
         pub use #mod_descriptor::#extension;
         #[allow(non_camel_case_types)]
         pub (crate) type #fn_ident = #mod_descriptor::#fn_ident;
-
-        #extends_decl
 
 
 

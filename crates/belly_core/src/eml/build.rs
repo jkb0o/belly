@@ -8,7 +8,7 @@ use crate::{
     ess::StyleRule,
     ess::StyleSheetParser,
     relations::Signal,
-    relations::ConnectionTo,
+    relations::{connect::ScriptHandler, ConnectionTo},
     tags,
 };
 use bevy::{
@@ -72,6 +72,8 @@ pub trait Widget: Sized + Component + 'static {
 
     #[allow(unused_variables)]
     fn bind_component(&mut self, ctx: &mut ElementContext) {}
+
+    fn connect(world: &mut World, source: Entity, handler: ScriptHandler, signal: &str);
 }
 
 pub trait WidgetBuilder: Widget {
@@ -170,6 +172,7 @@ pub trait WidgetBuilder: Widget {
             styles_func: Self::styles,
             names_func: Self::names,
             aliases_func: Self::aliases,
+            connect_func: Self::connect,
         }
     }
 }
@@ -301,6 +304,7 @@ pub struct ElementBuilder {
     styles_func: fn() -> &'static str,
     aliases_func: Names,
     names_func: Names,
+    connect_func: fn(world: &mut World, source: Entity, handler: ScriptHandler, signal: &str),
 }
 
 impl ElementBuilder {
@@ -318,6 +322,10 @@ impl ElementBuilder {
 
     pub fn styles(&self) -> &'static str {
         (self.styles_func)()
+    }
+
+    pub fn connect(&self, world: &mut World, source: Entity, signal: &str, handler: ScriptHandler) {
+        (self.connect_func)(world, source, handler, signal)
     }
 }
 
@@ -398,6 +406,16 @@ impl DefaultDescriptor {
         &&DefaultDescriptor
     }
 
+    pub fn connect(
+        &self,
+        _world: &mut World,
+        _source: Entity,
+        _handler: ScriptHandler,
+        signal: &str,
+    ) {
+        warn!("No handler found for {signal} signal");
+    }
+
     pub fn ready<C: Component>(
         &self,
         world: &mut World,
@@ -410,6 +428,7 @@ impl DefaultDescriptor {
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct RequestReadyEvent(Entity);
+#[derive(Reflect)]
 pub struct ReadyEvent([Entity; 1]);
 
 impl Signal for ReadyEvent {
