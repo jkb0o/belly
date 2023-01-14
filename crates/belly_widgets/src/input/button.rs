@@ -39,6 +39,7 @@ enum Label {
     HadnleStates,
 }
 
+#[derive(Reflect)]
 pub enum BtnEvent {
     Pressed([Entity; 1]),
     Released([Entity; 1]),

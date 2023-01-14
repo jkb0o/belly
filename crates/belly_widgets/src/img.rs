@@ -22,7 +22,7 @@ impl Plugin for ImgPlugin {
 #[derive(Resource, Deref, DerefMut, Default)]
 struct ImageRegistry(HashMap<Handle<Image>, HashSet<Entity>>);
 
-// #[derive(Even)]
+#[derive(Reflect)]
 pub enum ImgEvent {
     Loaded(Vec<Entity>),
     Unloaded(Vec<Entity>),
