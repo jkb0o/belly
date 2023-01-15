@@ -15,11 +15,14 @@ use super::{colors, PropertyValue};
 pub struct Number([u8; 4]);
 
 impl Number {
-    fn from_float(value: f32) -> Self {
+    pub fn from_float(value: f32) -> Self {
         Number(value.to_le_bytes())
     }
-    fn to_float(&self) -> f32 {
+    pub fn to_float(&self) -> f32 {
         f32::from_le_bytes(self.0)
+    }
+    pub fn to_int(self) -> i32 {
+        self.to_float() as i32
     }
 }
 
@@ -54,7 +57,7 @@ pub enum StylePropertyToken {
     /// A value which was parsed dimension value, like `10px` or `35em.
     ///
     /// Currently there is no distinction between [`length-values`](https://developer.mozilla.org/en-US/docs/Web/CSS/length).
-    Dimension(Number),
+    Dimension(Number, String),
     /// A numeric float value, like `31.1` or `43`.
     Number(Number),
     /// A plain identifier, like `none` or `center`.
@@ -69,10 +72,10 @@ pub enum StylePropertyToken {
 }
 
 impl StylePropertyToken {
-    fn to_string(&self) -> String {
+    pub fn to_string(&self) -> String {
         match self {
             StylePropertyToken::Percentage(v) => format!("{}%", v.to_float()),
-            StylePropertyToken::Dimension(v) => format!("{}px", v.to_float()),
+            StylePropertyToken::Dimension(v, u) => format!("{}{u}", v.to_float()),
             StylePropertyToken::Number(v) => format!("{}", v.to_float()),
             StylePropertyToken::Identifier(v) => format!("{}", v),
             StylePropertyToken::Hash(v) => format!("#{}", v),
@@ -82,10 +85,10 @@ impl StylePropertyToken {
         }
     }
 
-    fn val(&self) -> Result<Val, ElementsError> {
+    pub fn val(&self) -> Result<Val, ElementsError> {
         match self {
             StylePropertyToken::Percentage(p) => Ok(Val::Percent(p.to_float())),
-            StylePropertyToken::Dimension(d) => Ok(Val::Px(d.to_float())),
+            StylePropertyToken::Dimension(d, u) if u == "px" => Ok(Val::Px(d.to_float())),
             StylePropertyToken::Identifier(i) if i == "auto" => Ok(Val::Auto),
             StylePropertyToken::Identifier(i) if i == "undefined" => Ok(Val::Undefined),
             _ => Err(ElementsError::InvalidPropertyValue(format!(
@@ -116,7 +119,9 @@ impl<'i> TryFrom<Token<'i>> for StylePropertyToken {
             Token::Percentage { unit_value, .. } => {
                 Ok(Self::Percentage((unit_value * 100.0).into()))
             }
-            Token::Dimension { value, .. } => Ok(Self::Dimension(value.into())),
+            Token::Dimension { value, unit, .. } => {
+                Ok(Self::Dimension(value.into(), unit.to_string()))
+            }
             Token::Comma => Ok(Self::Comma),
             Token::Delim(d) if d == '/' => Ok(Self::Slash),
             token => Err(format!("Invalid token: {:?}", token)),
@@ -204,6 +209,20 @@ pub trait StylePropertyMethods {
         }
     }
 
+    fn option_string(&self) -> Result<Option<String>, ElementsError> {
+        let Some(token) = self.tokens().iter().next() else {
+            return Err(ElementsError::InvalidPropertyValue(format!("Expected string literal, got nothing")));
+        };
+        match token {
+            StylePropertyToken::Identifier(ident) if ident == "none" => Ok(None),
+            StylePropertyToken::String(id) => Ok(Some(id.clone())),
+            e => Err(ElementsError::InvalidPropertyValue(format!(
+                "Expected string literal, got {}",
+                e.to_string()
+            ))),
+        }
+    }
+
     /// Tries to parses the current values as a single [`Option<UiRect>`].
     ///
     /// Optional values are handled by this function, so if only one value is present it is used as `top`, `right`, `bottom` and `left`,
@@ -271,17 +290,19 @@ pub trait StylePropertyMethods {
     }
 
     /// Tries to parses the current values as a single identifier.
-    fn identifier(&self) -> Option<&str> {
-        self.tokens().iter().find_map(|token| match token {
-            StylePropertyToken::Identifier(id) => {
-                if id.is_empty() {
-                    None
-                } else {
-                    Some(id.as_str())
-                }
-            }
-            _ => None,
-        })
+    fn identifier(&self) -> Result<&str, ElementsError> {
+        let Some(ident) = self.tokens().first() else {
+            return Err(ElementsError::InvalidPropertyValue(format!(
+                "Expected identifier, got nothing"
+            )));
+        };
+        let StylePropertyToken::Identifier(ident) = ident else {
+            return Err(ElementsError::InvalidPropertyValue(format!(
+                "Expected identifier, got '{}'",
+                ident.to_string()
+            )));
+        };
+        Ok(ident.as_str())
     }
 
     /// Tries to parses the current values as a single [`Val`].
@@ -294,7 +315,7 @@ pub trait StylePropertyMethods {
         };
         match prop {
             StylePropertyToken::Percentage(val) => Ok(Val::Percent(val.into())),
-            StylePropertyToken::Dimension(val) => Ok(Val::Px(val.into())),
+            StylePropertyToken::Dimension(val, unit) if unit == "px" => Ok(Val::Px(val.into())),
             StylePropertyToken::Identifier(val) if val.as_str() == "auto" => Ok(Val::Auto),
             StylePropertyToken::Identifier(val) if val.as_str() == "undefined" => {
                 Ok(Val::Undefined)
@@ -316,7 +337,7 @@ pub trait StylePropertyMethods {
         };
         match prop {
             StylePropertyToken::Percentage(val)
-            | StylePropertyToken::Dimension(val)
+            | StylePropertyToken::Dimension(val, _)
             | StylePropertyToken::Number(val) => Ok(val.into()),
             p => Err(ElementsError::InvalidPropertyValue(format!(
                 "Can't parse f32 from '{}'",
@@ -340,7 +361,7 @@ pub trait StylePropertyMethods {
         };
         match prop {
             StylePropertyToken::Percentage(val)
-            | StylePropertyToken::Dimension(val)
+            | StylePropertyToken::Dimension(val, _)
             | StylePropertyToken::Number(val) => Ok(Some(val.into())),
             StylePropertyToken::Identifier(ident) => match ident.as_str() {
                 "none" => Ok(None),
@@ -376,19 +397,19 @@ impl ToRectMap for UiRect {
         let mut props = HashMap::default();
         let prefix = prefix.to_string();
         props.insert(
-            Tag::new(prefix.clone() + "-left"),
+            Tag::new(prefix.clone() + "left"),
             PropertyValue::new(self.left),
         );
         props.insert(
-            Tag::new(prefix.clone() + "-right"),
+            Tag::new(prefix.clone() + "right"),
             PropertyValue::new(self.right),
         );
         props.insert(
-            Tag::new(prefix.clone() + "-top"),
+            Tag::new(prefix.clone() + "top"),
             PropertyValue::new(self.top),
         );
         props.insert(
-            Tag::new(prefix.clone() + "-bottom"),
+            Tag::new(prefix.clone() + "bottom"),
             PropertyValue::new(self.bottom),
         );
         props

@@ -1,21 +1,15 @@
-use crate::build::*;
-use crate::element::Element;
-use crate::ess::*;
+use super::parse;
+use crate::build::PropertyValue;
+use crate::build::StyleProperty;
+use crate::build::StylePropertyMethods;
+use crate::compound_style_property;
+use crate::eml::Variant;
+use crate::prelude::Element;
+use crate::style_property;
 use bevy::prelude::*;
 use bevy::utils::HashMap;
 use bevy_stylebox::*;
-
-pub struct StyleboxPropertyPlugin;
-impl Plugin for StyleboxPropertyPlugin {
-    fn build(&self, app: &mut App) {
-        app.register_compound_property::<StyleboxProperty>();
-        app.register_property::<StyleboxSourceProperty>();
-        app.register_property::<StyleboxModulateProperty>();
-        app.register_property::<StyleboxRegionProperty>();
-        app.register_property::<StyleboxSliceProperty>();
-        app.register_property::<StyleboxWidthProperty>();
-    }
-}
+use tagstr::tag;
 
 compound_style_property! {
     #[doc = " Specify how to fill the element with sliced by 9 parts region of image."]
@@ -65,12 +59,13 @@ style_property! {
     #[doc = " The `stylebox-source` property specifies the path to the image to be used"]
     #[doc = " as a stylebox. The property accepts `String` values."]
     StyleboxSourceProperty("stylebox-source") {
-        Item = String;
+        Default = "none";
+        Item = Option<String>;
         Components = Option<&'static mut Stylebox>;
         Filters = With<Node>;
-        Parse = |v| v.string();
+        Parser = parse::OptionalStringParser;
         Apply = |value, stylebox, assets, commands, entity| {
-            if value.is_empty() {
+            if value.is_none() || value.as_ref().unwrap().is_empty() {
                 if stylebox.is_some() {
                     commands.entity(entity)
                         .remove::<Stylebox>()
@@ -79,6 +74,7 @@ style_property! {
                 }
                 return;
             }
+            let value = value.as_ref().unwrap();
             let image = assets.load(value);
             if let Some(mut stylebox) = stylebox {
                 if stylebox.texture != image {
@@ -105,10 +101,11 @@ style_property! {
     #[doc = " - `auto` & `undefined` treated as `50%`"]
     #[doc = " <!-- (TODO: link rect-shorthand) -->"]
     StyleboxSliceProperty("stylebox-slice") {
+        Default = "50%";
         Item = UiRect;
         Components = &'static mut Stylebox;
         Filters = With<Node>;
-        Parse = |v| v.rect();
+        Parser = parse::RectParser;
         Apply = |value, stylebox, _assets, _commands, _entity| {
             if stylebox.slice != *value {
                 stylebox.slice = *value
@@ -127,10 +124,11 @@ style_property! {
     #[doc = " Default value for `stylebox-width` is `100%`"]
     #[doc = " <!-- (TODO: link rect-shorthand) -->"]
     StyleboxWidthProperty("stylebox-width") {
+        Default = "100%";
         Item = UiRect;
         Components = &'static mut Stylebox;
         Filters = With<Node>;
-        Parse = |v| v.rect();
+        Parser = parse::RectParser;
         Apply = |value, stylebox, _assets, _commands, _entity| {
             if stylebox.width != *value {
                 stylebox.width = *value
@@ -150,10 +148,11 @@ style_property! {
     #[doc = " Default value for `stylebox-region` is `0px`"]
     #[doc = " <!-- (TODO: link rect-shorthand) -->"]
     StyleboxRegionProperty("stylebox-region") {
+        Default = "0px";
         Item = UiRect;
         Components = &'static mut Stylebox;
         Filters = With<Node>;
-        Parse = |v| v.rect();
+        Parser = parse::RectParser;
         Apply = |value, stylebox, _assets, _commands, _entity| {
             if stylebox.region != *value {
                 stylebox.region = *value
@@ -170,10 +169,11 @@ style_property! {
     #[doc = " Default value for `stylebox-modulate` is `white`"]
     #[doc = " <!-- (TODO: link color) -->"]
     StyleboxModulateProperty("stylebox-modulate") {
+        Default = "white";
         Item = Color;
         Components = &'static mut Stylebox;
         Filters = With<Node>;
-        Parse = |v| v.color();
+        Parser = parse::ColorParser;
         Apply = |value, stylebox, _assets, _commands, _entity| {
             if stylebox.modulate != *value {
                 stylebox.modulate = *value

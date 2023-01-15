@@ -38,3 +38,6 @@ body {
 .blue .range-low {
     background-color: #69A1F5;
 }
+button .button-foreground {
+    padding: 0px;
+}

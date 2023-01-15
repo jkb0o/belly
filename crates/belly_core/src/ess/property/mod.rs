@@ -1,7 +1,10 @@
 pub mod colors;
+pub mod enums;
 pub mod impls;
+pub mod parse;
 mod style;
 use std::any::{type_name, Any};
+use std::sync::{Arc, RwLock};
 
 pub use self::colors::*;
 pub use self::style::StyleProperty;
@@ -21,6 +24,79 @@ use bevy::{
     utils::HashMap,
 };
 use itertools::Itertools;
+
+pub struct PropertyPlugin;
+impl Plugin for PropertyPlugin {
+    fn build(&self, app: &mut App) {
+        // general
+        app.register_property::<impls::BackgroundColorProperty>();
+        app.register_property::<impls::ZIndexProperty>();
+
+        // layout control
+        app.register_compound_property::<impls::layout_control::PositionProperty>();
+        app.register_property::<impls::layout_control::PositionTypeProperty>();
+        app.register_property::<impls::layout_control::LeftProperty>();
+        app.register_property::<impls::layout_control::RightProperty>();
+        app.register_property::<impls::layout_control::TopProperty>();
+        app.register_property::<impls::layout_control::BottomProperty>();
+        app.register_property::<impls::layout_control::OverflowProperty>();
+        app.register_property::<impls::layout_control::DisplayProperty>();
+
+        // flex container
+        app.register_property::<impls::flex_container::FlexDirectionProperty>();
+        app.register_property::<impls::flex_container::FlexWrapProperty>();
+        app.register_property::<impls::flex_container::AlignItemsProperty>();
+        app.register_property::<impls::flex_container::AlignContentProperty>();
+        app.register_property::<impls::flex_container::JustifyContentProperty>();
+
+        // flex item
+        app.register_property::<impls::flex_item::AlignSelfProperty>();
+        app.register_property::<impls::flex_item::FlexGrowProperty>();
+        app.register_property::<impls::flex_item::FlexShrinkProperty>();
+        app.register_property::<impls::flex_item::FlexBasisProperty>();
+
+        // spacing
+        app.register_compound_property::<impls::spacing::PaddingProperty>();
+        app.register_property::<impls::spacing::PaddingLeftProperty>();
+        app.register_property::<impls::spacing::PaddingRightProperty>();
+        app.register_property::<impls::spacing::PaddingTopProperty>();
+        app.register_property::<impls::spacing::PaddingBottomProperty>();
+        app.register_compound_property::<impls::spacing::MarginProperty>();
+        app.register_property::<impls::spacing::MarginLeftProperty>();
+        app.register_property::<impls::spacing::MarginRightProperty>();
+        app.register_property::<impls::spacing::MarginTopProperty>();
+        app.register_property::<impls::spacing::MarginBottomProperty>();
+        app.register_compound_property::<impls::spacing::BorderProperty>();
+        app.register_property::<impls::spacing::BorderLeftProperty>();
+        app.register_property::<impls::spacing::BorderRightProperty>();
+        app.register_property::<impls::spacing::BorderTopProperty>();
+        app.register_property::<impls::spacing::BorderBottomProperty>();
+
+        // size constraints
+        app.register_property::<impls::size_constraints::WidthProperty>();
+        app.register_property::<impls::size_constraints::HeightProperty>();
+        app.register_property::<impls::size_constraints::MinWidthProperty>();
+        app.register_property::<impls::size_constraints::MinHeightProperty>();
+        app.register_property::<impls::size_constraints::MaxWidthProperty>();
+        app.register_property::<impls::size_constraints::MaxHeightProperty>();
+        app.register_property::<impls::size_constraints::AspectRatioProperty>();
+
+        // text
+        // TODO: remove this depricated one when `font-color` got implemented
+        app.register_property::<impls::text::ColorProperty>();
+        app.register_property::<impls::text::FontProperty>();
+        app.register_property::<impls::text::FontColorProperty>();
+        app.register_property::<impls::text::FontSizeProperty>();
+
+        // stylebox
+        app.register_compound_property::<impls::stylebox::StyleboxProperty>();
+        app.register_property::<impls::stylebox::StyleboxSourceProperty>();
+        app.register_property::<impls::stylebox::StyleboxModulateProperty>();
+        app.register_property::<impls::stylebox::StyleboxRegionProperty>();
+        app.register_property::<impls::stylebox::StyleboxSliceProperty>();
+        app.register_property::<impls::stylebox::StyleboxWidthProperty>();
+    }
+}
 
 pub struct ManagedPropertyValue(StyleProperty);
 
@@ -73,13 +149,10 @@ impl From<PropertyValue> for Variant {
     }
 }
 
-/// Maps which entities was selected by a [`Selector`]
-// #[derive(Debug, Clone, Default, Deref, DerefMut)]
-// pub struct SelectedEntities(HashMap<Selector, SmallVec<[Entity; 8]>>);
-
-/// Maps sheets for each [`StyleSheetAsset`].
-// #[derive(Debug, Clone, Default, Deref, DerefMut)]
-// pub struct StyleSheetState(HashMap<Handle<StyleSheetAsset>, SelectedEntities>);
+/// Determines how a property should be parsed into exact value
+pub trait PropertyParser<T: Default + Any + Send + Sync> {
+    fn parse(value: &StyleProperty) -> Result<T, ElementsError>;
+}
 
 /// Determines how a property should interact and modify the [ecs world](`bevy::prelude::World`).
 ///
@@ -113,6 +186,8 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
     type Components: WorldQuery;
     /// Filters conditions to be applied when querying entities by this property. Check [`WorldQuery`] for more.
     type Filters: ReadOnlyWorldQuery;
+    /// Associate [`PropertyParser`] with [`Property`]
+    type Parser: PropertyParser<Self::Item>;
 
     /// Indicates which property name should matched for. Must match the same property name as on `css` file.
     ///
@@ -131,13 +206,13 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
     ///
     /// This function is called only once, on the first time a matching property is found while applying style rule.
     /// If an error is returned, it is also cached so no more attempt are made.
-    fn parse(values: &StyleProperty) -> Result<Self::Item, ElementsError>;
+    // fn parse(values: &StyleProperty) -> Result<Self::Item, ElementsError>;
 
     fn transform(variant: Variant) -> Result<PropertyValue, ElementsError> {
         match variant {
-            Variant::Style(p) => Self::parse(&p).map(|p| PropertyValue::new(p)),
+            Variant::Style(p) => Self::Parser::parse(&p).map(|p| PropertyValue::new(p)),
             Variant::String(s) => StyleProperty::try_from(s)
-                .and_then(|p| Self::parse(&p))
+                .and_then(|p| Self::Parser::parse(&p))
                 .map(|v| PropertyValue::new(v)),
             Variant::Boxed(b) => Ok(PropertyValue::new(*b.downcast::<Self::Item>().map_err(
                 |e| {
@@ -291,6 +366,181 @@ pub trait CompoundProperty: Default + Sized + Send + Sync + 'static {
     }
 }
 
+pub(crate) type TransformProperty = fn(Variant) -> Result<PropertyValue, ElementsError>;
+#[derive(Default, Clone, Resource)]
+pub struct PropertyTransformer(Arc<RwLock<HashMap<Tag, TransformProperty>>>);
+unsafe impl Send for PropertyTransformer {}
+unsafe impl Sync for PropertyTransformer {}
+impl PropertyTransformer {
+    #[cfg(test)]
+    pub(crate) fn new(rules: HashMap<Tag, TransformProperty>) -> PropertyTransformer {
+        PropertyTransformer(Arc::new(RwLock::new(rules)))
+    }
+    pub(crate) fn transform(
+        &self,
+        name: Tag,
+        value: Variant,
+    ) -> Result<PropertyValue, ElementsError> {
+        self.0
+            .read()
+            .unwrap()
+            .get(&name)
+            .ok_or(ElementsError::UnsupportedProperty(name.to_string()))
+            .and_then(|transform| transform(value))
+    }
+}
+
+pub(crate) type ExtractProperty = fn(Variant) -> Result<HashMap<Tag, PropertyValue>, ElementsError>;
+#[derive(Default, Clone, Resource)]
+pub struct PropertyExtractor(Arc<RwLock<HashMap<Tag, ExtractProperty>>>);
+unsafe impl Send for PropertyExtractor {}
+unsafe impl Sync for PropertyExtractor {}
+impl PropertyExtractor {
+    #[cfg(test)]
+    pub(crate) fn new(rules: HashMap<Tag, ExtractProperty>) -> PropertyExtractor {
+        PropertyExtractor(Arc::new(RwLock::new(rules)))
+    }
+    pub(crate) fn is_compound_property(&self, name: Tag) -> bool {
+        self.0.read().unwrap().contains_key(&name)
+    }
+
+    pub(crate) fn extract(
+        &self,
+        name: Tag,
+        value: Variant,
+    ) -> Result<HashMap<Tag, PropertyValue>, ElementsError> {
+        self.0
+            .read()
+            .unwrap()
+            .get(&name)
+            .ok_or(ElementsError::UnsupportedProperty(name.to_string()))
+            .and_then(|extractor| extractor(value))
+    }
+}
+
+pub trait RegisterProperty {
+    fn register_property<T: Property + 'static>(&mut self) -> &mut Self;
+    fn register_compound_property<T: CompoundProperty + 'static>(&mut self) -> &mut Self;
+}
+
+impl RegisterProperty for bevy::prelude::App {
+    fn register_property<T: Property + 'static>(&mut self) -> &mut Self {
+        self.world
+            .get_resource_or_insert_with(PropertyTransformer::default)
+            .0
+            .write()
+            .unwrap()
+            .entry(T::name())
+            .and_modify(|_| panic!("Property `{}` already registered.", T::name()))
+            .or_insert(T::transform);
+        self.add_system(T::apply_defaults /* .label(EcssSystem::Apply) */);
+        self
+    }
+
+    fn register_compound_property<T: CompoundProperty + 'static>(&mut self) -> &mut Self {
+        self.world
+            .get_resource_or_insert_with(PropertyExtractor::default)
+            .0
+            .write()
+            .unwrap()
+            .entry(T::name())
+            .and_modify(|_| panic!("CompoundProperty `{}` already registered", T::name()))
+            .insert(T::extract);
+        self
+    }
+}
+
+#[macro_export]
+macro_rules! style_property {
+    ( $(#[doc = $s:literal])*
+      $typename:ident($prop_name:literal) {
+        Default = $default:literal;
+        Item = $item:ty;
+        Components = $components:ty;
+        Filters = $filters:ty;
+        AffectsVirtual = $affects_virtual:literal;
+        Parser = $parser:ty;
+        Apply = | $value:ident, $component:ident, $assets:ident, $commands:ident, $entity:ident |
+            $body:expr;
+    }) => {
+        #[derive(Default)]
+        $(#[doc = $s])*
+        #[doc = concat!(" <!-- @property-name=", $prop_name, " -->")]
+        #[doc = concat!(" <!-- @property-default=", $default, " -->")]
+        pub struct $typename;
+        impl $crate::ess::Property for $typename {
+            type Item = $item;
+            type Components = $components;
+            type Filters = $filters;
+            type Parser = $parser;
+
+            fn name() -> $crate::Tag {
+                $crate::tag!($prop_name)
+            }
+
+            fn affects_virtual_elements() -> bool {
+                $affects_virtual
+            }
+
+            fn apply(
+                $value: &Self::Item,
+                #[allow(unused_mut)]
+                mut $component: ::bevy::ecs::query::QueryItem<Self::Components>,
+                $assets: &::bevy::prelude::AssetServer,
+                $commands: &mut ::bevy::prelude::Commands,
+                $entity: ::bevy::prelude::Entity,
+            ) {
+                $body
+            }
+        }
+    };
+    ( $(#[doc = $s:literal])*
+      $typename:ident($prop_name:literal) {
+        Default = $default:literal;
+        Item = $item:ty;
+        Components = $components:ty;
+        Filters = $filters:ty;
+        Parser = $parser:ty;
+        Apply = | $value:ident, $component:ident, $assets:ident, $commands:ident, $entity:ident |
+            $body:expr;
+    }) => { $crate::style_property! {
+        $(#[doc = $s])*
+        $typename($prop_name) {
+            Default = $default;
+            Item = $item;
+            Components = $components;
+            Filters = $filters;
+            AffectsVirtual = false;
+            Parser = $parser;
+            Apply = | $value, $component, $assets, $commands, $entity |
+                $body;
+        }
+    }};
+}
+
+#[macro_export]
+macro_rules! compound_style_property {
+    (   $(#[doc = $s:literal])*
+        $typename:ident($prop_name:literal, $value:ident)
+            $body:expr
+    ) => {
+        #[derive(Default)]
+        $(#[doc = $s])*
+        pub struct $typename;
+        impl $crate::ess::CompoundProperty for $typename {
+            fn name() -> $crate::Tag {
+                $crate::tag!($prop_name)
+            }
+            fn extract($value: $crate::build::Variant) -> Result<::bevy::utils::HashMap<$crate::Tag, $crate::ess::PropertyValue>, $crate::ElementsError> {
+                $body
+            }
+            fn docstring() -> &'static str {
+                concat!($($s,"\n",)*)
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use smallvec::SmallVec;
@@ -301,7 +551,7 @@ mod test {
     fn parse_value() {
         let expected = StyleProperty(SmallVec::from_vec(vec![
             StylePropertyToken::Percentage(21f32.into()),
-            StylePropertyToken::Dimension(22f32.into()),
+            StylePropertyToken::Dimension(22f32.into(), "px".into()),
         ]));
         let value = "21% 22px";
         assert_eq!(Ok(expected), value.try_into());

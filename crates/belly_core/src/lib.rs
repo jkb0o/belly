@@ -14,6 +14,9 @@ pub use tagstr;
 pub use tagstr::*;
 
 pub mod prelude {
+    // funcs
+    pub use crate::ess::managed;
+
     // macro
     pub use crate::bind;
     pub use crate::connect;
@@ -38,9 +41,6 @@ pub mod prelude {
 }
 pub mod build {
     pub use super::prelude::*;
-
-    // funcs
-    pub use crate::ess::managed;
 
     // macros
     pub use crate::compound_style_property;

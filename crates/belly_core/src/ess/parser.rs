@@ -501,7 +501,7 @@ mod tests {
         use StylePropertyToken::*;
         let expected = [
             ("a", vec![Identifier("a".to_string())]),
-            ("b", vec![Dimension(0.0.into())]),
+            ("b", vec![Dimension(0.0.into(), "px".into())]),
             ("c", vec![Hash("f".to_string())]),
             (
                 "d",
@@ -512,7 +512,10 @@ mod tests {
                 ],
             ),
             ("e-e", vec![Percentage(100.0.into())]),
-            ("f", vec![Dimension(15.3.into()), Percentage(3.0.into())]),
+            (
+                "f",
+                vec![Dimension(15.3.into(), "px".into()), Percentage(3.0.into())],
+            ),
             ("i", vec![Number(12.9.into())]),
             ("j", vec![String("str".to_string())]),
             (
@@ -525,7 +528,7 @@ mod tests {
                     String("t".to_string()),
                     Number(1.0.into()),
                     Percentage(45.67.into()),
-                    Dimension(33.0.into()),
+                    Dimension(33.0.into(), "px".into()),
                 ],
             ),
         ];

@@ -15,7 +15,7 @@ fn setup(mut commands: Commands) {
     commands.add(StyleSheet::parse(
         r#"
         body {
-            flex-wrap: no-wrap;
+            wrap: no-wrap;
             flex-direction: column;
             align-content: center;
             align-items: center;

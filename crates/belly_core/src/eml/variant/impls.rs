@@ -1,4 +1,9 @@
-use crate::{eml::Params, ess::ColorFromHexExtension};
+use crate::{
+    build::{StyleProperty, StylePropertyMethods},
+    eml::Params,
+    ess::ColorFromHexExtension,
+    ElementsError,
+};
 use bevy::prelude::*;
 
 use super::{ApplyCommands, Variant};
@@ -171,5 +176,23 @@ impl TryFrom<&Variant> for JustifyContent {
 impl From<Val> for Variant {
     fn from(val: Val) -> Self {
         Variant::boxed(val)
+    }
+}
+
+impl TryFrom<Variant> for UiRect {
+    type Error = ElementsError;
+    fn try_from(value: Variant) -> Result<Self, Self::Error> {
+        let rect = match value {
+            Variant::String(unparsed) => {
+                StyleProperty::try_from(unparsed).and_then(|prop| prop.rect())?
+            }
+            Variant::Style(prop) => prop.rect()?,
+            variant => variant
+                .take::<UiRect>()
+                .ok_or(ElementsError::InvalidPropertyValue(format!(
+                    "Can't extract rect from variant"
+                )))?,
+        };
+        Ok(rect)
     }
 }

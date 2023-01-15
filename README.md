@@ -55,7 +55,7 @@ fn setup(mut commands: Commands) {
                 />
             </span>
             <img c:colorbox-holder src="trbg.png">
-                <span {colorbox} c:colorbox/>
+                <span {colorbox} c:colorbox s:background-color=managed()/>
             </img>
             <span c:colors>
             <for color in = COLORS>
