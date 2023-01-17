@@ -46,6 +46,8 @@ pub fn setup_defaults(
                 font: regular;
                 color: #cfcfcf;
                 font-size: 22px;
+                display: flex;
+                background-color: transparent;
             }
         "#,
     );

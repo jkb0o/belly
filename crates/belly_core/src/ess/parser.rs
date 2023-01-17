@@ -110,9 +110,25 @@ impl<'i> QualifiedRuleParser<'i> for &StyleSheetParser {
                         elements.insert(0, SelectorElement::Id(v.to_string().as_tag()));
                     }
                 }
-                WhiteSpace(_) => elements.insert(0, SelectorElement::AnyChild),
+                WhiteSpace(_) => {
+                    if let Some(token) = elements.first() {
+                        if token.is_separator() {
+                            continue;
+                        }
+                    }
+                    elements.insert(0, SelectorElement::AnyChild);
+                }
                 Delim(c) if *c == '.' => next = NextElement::Class,
                 Delim(c) if *c == '*' => elements.insert(0, SelectorElement::Any),
+                Delim(c) if *c == '>' => {
+                    if let Some(token) = elements.first() {
+                        if token.is_any_child() {
+                            elements[0] = SelectorElement::DirectChild;
+                            continue;
+                        }
+                    }
+                    elements.insert(0, SelectorElement::DirectChild);
+                }
                 Colon => next = NextElement::Attribute,
                 _ => {
                     warn!("Unexpected token: {:?}", token);

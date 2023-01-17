@@ -1,4 +1,7 @@
-use crate::{eml::build::ElementsBuilder, input::PointerInput, relations::RelationsSystems};
+use crate::{
+    eml::build::ElementsBuilder, input::PointerInput, prelude::Elements,
+    relations::RelationsSystems,
+};
 use bevy::{
     asset::Asset,
     ecs::{
@@ -26,7 +29,7 @@ pub struct ConnectionGeneralContext<'a, 'w, 's, S: Signal> {
     pub(crate) source: Entity,
     pub(crate) time_resource: &'a Time,
     pub(crate) asset_server: AssetServer,
-    pub(crate) commands: &'a mut Commands<'w, 's>,
+    pub(crate) elements: &'a mut Elements<'w, 's>,
 }
 
 impl<'a, 'w, 's, S: Signal> ConnectionGeneralContext<'a, 'w, 's, S> {
@@ -35,24 +38,37 @@ impl<'a, 'w, 's, S: Signal> ConnectionGeneralContext<'a, 'w, 's, S> {
     }
     pub fn source<'x>(&'x mut self) -> EntityCommands<'w, 's, 'x> {
         let source = self.source;
-        self.commands.entity(source)
+        self.elements.commands.entity(source)
     }
     pub fn load<T: Asset>(&self, path: &str) -> Handle<T> {
         self.asset_server.load(path)
     }
     pub fn add<C: Command>(&mut self, command: C) {
-        self.commands.add(command);
+        self.elements.commands.add(command);
     }
     pub fn commands(&mut self) -> &mut Commands<'w, 's> {
-        &mut self.commands
+        &mut self.elements.commands
     }
     pub fn time(&self) -> &Time {
         self.time_resource
     }
     pub fn send_event<T: Event>(&mut self, event: T) {
-        self.commands.add(|world: &mut World| {
+        self.elements.commands.add(|world: &mut World| {
             world.resource_mut::<Events<T>>().send(event);
         });
+    }
+}
+
+impl<'a, 'w, 's, S: Signal> Deref for ConnectionGeneralContext<'a, 'w, 's, S> {
+    type Target = Elements<'w, 's>;
+    fn deref(&self) -> &Self::Target {
+        self.elements
+    }
+}
+
+impl<'a, 'w, 's, S: Signal> DerefMut for ConnectionGeneralContext<'a, 'w, 's, S> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.elements
     }
 }
 
@@ -64,7 +80,7 @@ pub struct ConnectionEntityContext<'a, 'w, 's, 'c, S: Signal> {
 impl<'a, 'w, 's, 'c, S: Signal> ConnectionEntityContext<'a, 'w, 's, 'c, S> {
     pub fn target<'x>(&'x mut self) -> EntityCommands<'w, 's, 'x> {
         let target = self.target;
-        self.commands.entity(target)
+        self.elements.commands.entity(target)
     }
 
     pub fn render(&mut self, eml: ElementsBuilder) {
@@ -265,28 +281,45 @@ macro_rules! connect {
     ($entity:expr, |$ctx:ident, $arg:ident: $typ:ty| $cb:expr) => {
         $crate::relations::ConnectionTo::component(
             $entity,
-            move |$ctx, $arg: &mut ::bevy::prelude::Mut<$typ>| $cb,
+            move |$ctx, $arg: &mut ::bevy::prelude::Mut<$typ>| {
+                $cb;
+            },
         )
     };
     ($entity:expr, |$ctx:ident, $arg:ident: $typ:ty| $cb:block) => {
         $crate::relations::ConnectionTo::component(
             $entity,
-            move |$ctx, $arg: &mut ::bevy::prelude::Mut<$typ>| $cb,
+            move |$ctx, $arg: &mut ::bevy::prelude::Mut<$typ>| {
+                $cb;
+            },
         )
     };
     ($entity:expr, |$arg:ident: $typ:ty| $cb:expr) => {
         $crate::relations::ConnectionTo::component(
             $entity,
-            move |_, $arg: &mut ::bevy::prelude::Mut<$typ>| $cb,
+            move |_, $arg: &mut ::bevy::prelude::Mut<$typ>| {
+                $cb;
+            },
         )
     };
     ($entity:expr, |$arg:ident: $typ:ty| $cb:block) => {
-        $crate::relations::ConnectionTo::component($entity, move |_, $arg| $cb)
+        $crate::relations::ConnectionTo::component($entity, move |_, $arg| {
+            $cb;
+        })
     };
     ($entity:expr, |$ctx:ident| $cb:expr) => {
-        $crate::relations::ConnectionTo::entity($entity, move |$ctx| $cb)
+        $crate::relations::ConnectionTo::entity($entity, move |$ctx| {
+            $cb;
+        })
     };
     (|$ctx:ident| $cb:expr) => {
-        $crate::relations::ConnectionTo::general(move |$ctx| $cb)
+        $crate::relations::ConnectionTo::general(move |$ctx| {
+            $cb;
+        })
+    };
+    ($func:expr) => {
+        $crate::relations::ConnectionTo::general(move |ctx| {
+            $func(ctx);
+        })
     };
 }

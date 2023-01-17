@@ -368,6 +368,7 @@ A `StyleSheet` contains the list of rules (selector with properties). In the exa
 - `:state` selects elements with the exact state: `:pressed`, `:hover`, etc.
 - `*` (any) selects any element
 - ` ` (any-child) select child of any level with matched subselector
+- `>` (direct-child) select direct child elements with matched subselector
 
 There is a little bit more complex example:
 

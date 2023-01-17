@@ -3,6 +3,8 @@ pub mod connect;
 pub mod ops;
 pub mod transform;
 
+use crate::prelude::Elements;
+
 use self::bind::{BindableSource, BindableTarget, ChangesState};
 pub use self::connect::{
     Connect, ConnectionEntityContext, ConnectionGeneralContext, ConnectionTo, Connections, Signal,
@@ -75,7 +77,7 @@ pub fn process_signals_system<C: Component, S: Signal>(
     asset_server: Res<AssetServer>,
     connections: Res<Connections<C, S>>,
     time: Res<Time>,
-    mut commands: Commands,
+    mut elements: Elements,
     mut events: EventReader<S>,
     mut components: Query<&mut C>,
 ) {
@@ -87,7 +89,7 @@ pub fn process_signals_system<C: Component, S: Signal>(
                     source: *source,
                     time_resource: &time,
                     asset_server: asset_server.clone(),
-                    commands: &mut commands,
+                    elements: &mut elements,
                 };
                 for connection in connections.iter().filter(|c| c.handles(signal)) {
                     match &connection.target {

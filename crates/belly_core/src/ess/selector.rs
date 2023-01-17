@@ -46,6 +46,7 @@ impl SelectorIndex {
 #[derive(Debug)]
 pub enum SelectorElement {
     AnyChild,
+    DirectChild,
     Any,
     Id(Tag),
     Class(Tag),
@@ -61,8 +62,19 @@ impl SelectorElement {
         }
     }
 
+    pub fn is_direct_child(&self) -> bool {
+        match self {
+            SelectorElement::DirectChild => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_separator(&self) -> bool {
+        self.is_any_child() || self.is_direct_child()
+    }
+
     pub fn is_value(&self) -> bool {
-        !self.is_any_child()
+        !self.is_separator()
     }
 
     pub fn describes_node(&self, node: &impl EmlNode) -> bool {
@@ -79,6 +91,7 @@ impl SelectorElement {
     pub fn to_string(&self) -> String {
         match self {
             SelectorElement::AnyChild => " ".to_string(),
+            SelectorElement::DirectChild => " > ".to_string(),
             SelectorElement::Any => "*".to_string(),
             SelectorElement::State(s) => format!(":{}", s),
             SelectorElement::Tag(t) => format!("{}", t),
@@ -90,6 +103,7 @@ impl SelectorElement {
     pub fn weight(&self) -> u32 {
         match self {
             SelectorElement::AnyChild => 0,
+            SelectorElement::DirectChild => 1,
             SelectorElement::Any => 0,
             SelectorElement::Tag(_) => 1,
             SelectorElement::State(_) => 10,
@@ -101,6 +115,7 @@ impl SelectorElement {
 
 pub type SelectorElements = SmallVec<[SelectorElement; 8]>;
 
+#[derive(Debug)]
 pub struct SelectorEntry<'a> {
     offset: usize,
     elements: &'a SelectorElements,
@@ -116,7 +131,7 @@ impl<'a> SelectorEntry<'a> {
     fn next(&self) -> Option<SelectorEntry<'a>> {
         let mut offset = self.offset;
         let elements = self.elements;
-        if elements[offset].is_any_child() {
+        if elements[offset].is_any_child() || elements[offset].is_direct_child() {
             offset += 1;
             if offset >= elements.len() {
                 return None;
@@ -125,7 +140,7 @@ impl<'a> SelectorEntry<'a> {
             }
         }
 
-        while offset < elements.len() && !elements[offset].is_any_child() {
+        while offset < elements.len() && !elements[offset].is_separator() {
             offset += 1;
         }
 
@@ -139,7 +154,7 @@ impl<'a> SelectorEntry<'a> {
     pub fn len(&self) -> u8 {
         let mut len = 0;
         for element in self.elements.iter().skip(self.offset) {
-            if element.is_any_child() {
+            if element.is_any_child() || element.is_direct_child() {
                 return len;
             } else {
                 len += 1;
@@ -152,8 +167,16 @@ impl<'a> SelectorEntry<'a> {
         self.elements[self.offset].is_any_child()
     }
 
+    pub fn is_direct_child(&self) -> bool {
+        self.elements[self.offset].is_direct_child()
+    }
+
+    pub fn is_separator(&self) -> bool {
+        self.elements[self.offset].is_separator()
+    }
+
     pub fn is_value(&self) -> bool {
-        !self.is_any_child()
+        !self.is_separator()
     }
 
     pub fn has_id(&self, id: Tag) -> bool {
@@ -192,7 +215,7 @@ impl<'a> SelectorEntry<'a> {
     pub fn describes_node(&self, node: &impl EmlNode) -> bool {
         let mut offset = self.offset;
         let elements = self.elements;
-        if elements[offset].is_any_child() {
+        if elements[offset].is_any_child() || elements[offset].is_direct_child() {
             return false;
         }
         while offset < elements.len() && elements[offset].is_value() {
@@ -279,7 +302,16 @@ pub trait EmlNode: Sized {
     fn next(&self) -> Option<Self>;
 
     fn fits(&self, selector: &SelectorEntry) -> Option<u8> {
-        if selector.is_any_child() {
+        if selector.is_direct_child() {
+            let Some(next_selector) = selector.next() else {
+                return None
+            };
+            if let Some(weight) = self.fits(&next_selector) {
+                Some(weight + 1)
+            } else {
+                None
+            }
+        } else if selector.is_any_child() {
             let next_selector = selector.next().unwrap();
             if let Some(weight) = self.fits(&next_selector) {
                 return Some(weight);
@@ -325,6 +357,14 @@ impl<'e> ElementsBranch<'e> {
 
     pub fn insert(&mut self, element: &'e Element) {
         self.0.push(element);
+    }
+
+    pub fn append(&mut self, element: &'e Element) {
+        self.0.insert(0, element);
+    }
+
+    pub fn pop_tail(&mut self) {
+        self.0.pop();
     }
 
     pub fn to_string(&self) -> String {
@@ -430,7 +470,7 @@ fn _example(
 
 impl From<&str> for Selector {
     fn from(source: &str) -> Self {
-        use cssparser::{Parser, ParserInput, ToCss};
+        use cssparser::{Parser, ParserInput};
         use tagstr::*;
         const NEXT_TAG: u8 = 0;
         const NEXT_CLASS: u8 = 1;
@@ -467,10 +507,27 @@ impl From<&str> for Selector {
                             .insert(0, SelectorElement::Id(v.to_string().as_tag()));
                     }
                 }
-                WhiteSpace(_) => selector.elements.insert(0, SelectorElement::AnyChild),
+                WhiteSpace(_) => {
+                    if let Some(token) = selector.elements.first() {
+                        if token.is_direct_child() || token.is_any_child() {
+                            continue;
+                        }
+                    }
+                    selector.elements.insert(0, SelectorElement::AnyChild);
+                }
                 Colon => next = NEXT_ATTR,
                 Delim(c) if *c == '.' => next = NEXT_CLASS,
-                _ => panic!("Unexpected token: {}", token.to_css_string()),
+                Delim(c) if *c == '*' => selector.elements.insert(0, SelectorElement::Any),
+                Delim(c) if *c == '>' => {
+                    if let Some(token) = selector.elements.first() {
+                        if token.is_any_child() {
+                            selector.elements[0] = SelectorElement::DirectChild;
+                            continue;
+                        }
+                    }
+                    selector.elements.insert(0, SelectorElement::DirectChild);
+                }
+                _ => panic!("Unexpected token: {token:?}"),
             }
         }
 
@@ -544,7 +601,7 @@ mod test {
             let void = |_| ();
             for element in selector.elements {
                 match element {
-                    SelectorElement::Any => {
+                    SelectorElement::Any | SelectorElement::DirectChild => {
                         continue;
                     }
                     SelectorElement::AnyChild => {
@@ -661,6 +718,35 @@ mod test {
             "div span span .red",
             ".red .green :pressed",
         ];
+        for src in invalid_selectors {
+            let selector: Selector = src.clone().into();
+            assert!(
+                !selector.matches(&branch),
+                "Selector '{}' shouldn't be matched",
+                src
+            );
+        }
+    }
+
+    #[test]
+    fn selector_direct_elements() {
+        let branch: TestBranch = "div.red#id:pressed span.green span.red".into();
+        let valid_selectors: &[&str] = &[
+            "span > .red",
+            "span > *",
+            "div span > .red",
+            "div .green > span",
+            "div > span > span",
+        ];
+        for src in valid_selectors {
+            let selector: Selector = src.clone().into();
+            assert!(
+                selector.matches(&branch),
+                "Selector '{}' should be matched",
+                selector.to_string()
+            );
+        }
+        let invalid_selectors: &[&str] = &["div > .red", ".red > .green", ":pressed > .red"];
         for src in invalid_selectors {
             let selector: Selector = src.clone().into();
             assert!(

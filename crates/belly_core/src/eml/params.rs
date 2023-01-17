@@ -166,7 +166,7 @@ impl Params {
     }
 
     pub fn id(&mut self) -> Option<Tag> {
-        self.drop(tags::id())
+        self.drop::<String>(tags::id()).map(|s| s.into())
     }
     pub fn get<T: 'static>(&self, key: Tag) -> Option<&T> {
         self.rest.get(&key).and_then(|v| v.value.get::<T>())

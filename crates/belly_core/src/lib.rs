@@ -25,6 +25,7 @@ pub mod prelude {
     pub use crate::eml::content::IntoContent;
     pub use crate::ess::ColorFromHexExtension;
     pub use crate::relations::transform::ColorTransformerExtension;
+    pub use crate::relations::Signal;
 
     // structs
     pub use crate::element::Element;
@@ -32,6 +33,8 @@ pub mod prelude {
     pub use crate::eml::asset::EmlAsset;
     pub use crate::eml::asset::EmlScene;
     pub use crate::ess::StyleSheet;
+    pub use crate::relations::ConnectionEntityContext;
+    pub use crate::relations::ConnectionGeneralContext;
 }
 pub mod build {
     pub use super::prelude::*;
@@ -54,7 +57,6 @@ pub mod build {
     pub use crate::relations::bind::AsTransformer;
     pub use crate::relations::bind::TransformationResult;
     pub use crate::relations::transform::TransformableTo;
-    pub use crate::relations::Signal;
 
     // structs
     pub use crate::element::ElementBundle;

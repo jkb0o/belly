@@ -1,6 +1,6 @@
 mod defaults;
 mod parser;
-mod property;
+pub mod property;
 mod selector;
 mod stylebox;
 
