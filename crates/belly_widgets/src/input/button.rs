@@ -286,6 +286,7 @@ impl WidgetBuilder for Btn {
                 justify-content: center;
                 align-content: center;
                 align-items: center;
+                padding: 5px;
             }
             .button-foreground * {
                 color: #2f2f2f;
