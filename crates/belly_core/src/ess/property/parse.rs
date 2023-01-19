@@ -11,6 +11,9 @@ where
 {
     S::try_from(prop)
 }
+/// <!-- @property-type=$ident -->
+/// Custom identifier: `no-wrap`, `none`, `auto`, etc. Each property accepts its own set
+/// of identifiers and describes them in the docs.
 pub struct IdentifierParser<S>(PhantomData<S>);
 impl<S> PropertyParser<S> for IdentifierParser<S>
 where
@@ -20,8 +23,6 @@ where
         identifier::<S>(value)
     }
 }
-
-// }
 
 pub fn val(prop: &StyleProperty) -> Result<Val, ElementsError> {
     let Some(prop) = prop.first() else {
@@ -41,6 +42,12 @@ pub fn val(prop: &StyleProperty) -> Result<Val, ElementsError> {
     }
 }
 
+/// <!-- @property-type=$val -->
+/// Size type representing `bevy::prelude::Val` type. Possible values:
+/// - `auto` for `Val::Auto`
+/// - `undefined` for `Val::Undefined`
+/// - `px` suffixed for `Val::Px` (`25px`)
+/// - `%` suffixed for `Val::Percent` (`25%`)
 pub struct ValParser;
 impl PropertyParser<Val> for ValParser {
     fn parse(value: &StyleProperty) -> Result<Val, ElementsError> {
@@ -76,6 +83,17 @@ pub fn rect(prop: &StyleProperty) -> Result<UiRect, ElementsError> {
     }
 }
 
+/// <!-- @property-type=$rect -->
+/// Shorthand for describing `bevy::prelude::UiRect` using single line. Accepts 1 to 4
+/// [`$val`](#$val) items related to edges of a box, like `margin` or `padding`.
+/// - 1 value: specifies all edges: `margin: 10px`
+/// - 2 values: the first value specifies vertical edges (top & bottom), the second
+///   value specifies horisontal edges (left & right): `padding: 5px 30%`
+/// - 3 values: the first value specifies the top edge, the second specifies horisontal
+///   edges (left & right), the last one specifies the bottom edge: `border: 2px auto 5px`
+/// - 4 values specifies all edges in top, right, bottom, left order (clock-wise):
+///   `margin: 5px 4px 3% auto`
+///
 pub struct RectParser;
 impl PropertyParser<UiRect> for RectParser {
     fn parse(value: &StyleProperty) -> Result<UiRect, ElementsError> {
@@ -103,6 +121,12 @@ pub fn color(prop: &StyleProperty) -> Result<Color, ElementsError> {
         }
     }
 }
+
+/// <!-- @property-type=$color -->
+/// Describes the `Color` value. Accepts color names (`white`, `red`)
+/// or hex codes (`#3fde1a`). List of predefined colors can be found
+/// here (coming soon).
+/// <!-- TODO: add link to color list -->
 pub struct ColorParser;
 impl PropertyParser<Color> for ColorParser {
     fn parse(value: &StyleProperty) -> Result<Color, ElementsError> {
@@ -122,6 +146,12 @@ pub fn string(prop: &StyleProperty) -> Result<String, ElementsError> {
         ))),
     }
 }
+
+/// <!-- @property-type=$string -->
+/// String literal in double quotes:
+/// ```css
+/// stylebox-source: "images/stylebox.png"
+/// ```
 pub struct StringParser;
 impl PropertyParser<String> for StringParser {
     fn parse(value: &StyleProperty) -> Result<String, ElementsError> {
@@ -142,6 +172,8 @@ pub fn optional_string(prop: &StyleProperty) -> Result<Option<String>, ElementsE
         ))),
     }
 }
+
+/// <!-- @property-type=none|$string -->
 pub struct OptionalStringParser;
 impl PropertyParser<Option<String>> for OptionalStringParser {
     fn parse(value: &StyleProperty) -> Result<Option<String>, ElementsError> {
@@ -163,6 +195,11 @@ pub fn num(prop: &StyleProperty) -> Result<f32, ElementsError> {
         ))),
     }
 }
+/// <!-- @property-type=$num -->
+/// Numeric literal:
+/// ```css
+/// flex-grow: 2.0
+/// ```
 pub struct NumParser;
 impl PropertyParser<f32> for NumParser {
     fn parse(value: &StyleProperty) -> Result<f32, ElementsError> {
@@ -190,6 +227,7 @@ pub fn optional_num(prop: &StyleProperty) -> Result<Option<f32>, ElementsError> 
         ))),
     }
 }
+/// <!-- @property-type=none|$num -->
 pub struct OptionalNumParser;
 impl PropertyParser<Option<f32>> for OptionalNumParser {
     fn parse(value: &StyleProperty) -> Result<Option<f32>, ElementsError> {

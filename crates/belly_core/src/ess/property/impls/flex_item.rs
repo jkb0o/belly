@@ -4,6 +4,7 @@ use bevy::prelude::*;
 
 style_property! {
     #[doc = " TODO: write AlignSelf description"]
+    #[doc = " <!-- @property-category=Flex Item -->"]
     AlignSelfProperty("align-self") {
         Default = "auto";
         Item = AlignSelf;
@@ -28,7 +29,7 @@ style_property! {
     #[doc = " It accepts a unitless value that serves as a proportion. It dictates what"]
     #[doc = " amount of the available space inside the flex container the item should"]
     #[doc = " take up."]
-
+    #[doc = " <!-- @property-category=Flex Item -->"]
     FlexGrowProperty("flex-grow") {
         Default = "0.0";
         Item = f32;
@@ -51,6 +52,7 @@ style_property! {
     #[doc = " "]
     #[doc = " The flex-shrink property specifies how the item will shrink relative to"]
     #[doc = " the rest of the flexible items inside the same container."]
+    #[doc = " <!-- @property-category=Flex Item -->"]
     FlexShrinkProperty("flex-shrink") {
         Default = "1.0";
         Item = f32;
@@ -75,6 +77,7 @@ style_property! {
     #[doc = " The `flex-basis` specifies the initial size of the flex item, before"]
     #[doc = " any available space is distributed according to the flex factors."]
     #[doc = " <!-- (TODO: link val) -->"]
+    #[doc = " <!-- @property-category=Flex Item -->"]
     FlexBasisProperty("flex-basis") {
         Default = "auto";
         Item = Val;

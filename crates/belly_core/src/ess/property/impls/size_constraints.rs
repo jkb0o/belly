@@ -4,12 +4,11 @@ use bevy::prelude::*;
 
 // impl_style_single_value!("width", WidthProperty, Val, val, size.width);
 style_property! {
-    #[doc = " Specify element preferred width by providing value to `Style.size.width`"]
-    #[doc = " using `val` syntax:"]
+    #[doc = " Specify element preferred width by providing value to `Style.size.width`:"]
     #[doc = " ```css"]
     #[doc = " width: 5px;"]
     #[doc = " ```"]
-    #[doc = " <!-- (TODO: link val) -->"]
+    #[doc = " <!-- @property-category=Size Constraints -->"]
     WidthProperty("width") {
         Default = "undefined";
         Item = Val;
@@ -25,12 +24,11 @@ style_property! {
 }
 // impl_style_single_value!("height", HeightProperty, Val, val, size.height);
 style_property! {
-    #[doc = " Specify element preferred height by providing value to `Style.size.height`"]
-    #[doc = " using `val` syntax:"]
+    #[doc = " Specify element preferred height by providing value to `Style.size.height`:"]
     #[doc = " ```css"]
     #[doc = " height: 5px;"]
     #[doc = " ```"]
-    #[doc = " <!-- (TODO: link val) -->"]
+    #[doc = " <!-- @property-category=Size Constraints -->"]
     HeightProperty("height") {
         Default = "undefined";
         Item = Val;
@@ -47,12 +45,11 @@ style_property! {
 
 // impl_style_single_value!("min-width", MinWidthProperty, Val, val, min_size.width);
 style_property! {
-    #[doc = " Specify element minimum width by providing value to `Style.min_size.width`"]
-    #[doc = " using `val` syntax:"]
+    #[doc = " Specify element minimum width by providing value to `Style.min_size.width`:"]
     #[doc = " ```css"]
     #[doc = " min-width: 5px;"]
     #[doc = " ```"]
-    #[doc = " <!-- (TODO: link val) -->"]
+    #[doc = " <!-- @property-category=Size Constraints -->"]
     MinWidthProperty("min-width") {
         Default = "undefined";
         Item = Val;
@@ -68,12 +65,11 @@ style_property! {
 }
 // impl_style_single_value!("min-height", MinHeightProperty, Val, val, min_size.height);
 style_property! {
-    #[doc = " Specify element minimum height by providing value to `Style.min_size.height`"]
-    #[doc = " using `val` syntax:"]
+    #[doc = " Specify element minimum height by providing value to `Style.min_size.height`:"]
     #[doc = " ```css"]
     #[doc = " min-height: 5px;"]
     #[doc = " ```"]
-    #[doc = " <!-- (TODO: link val) -->"]
+    #[doc = " <!-- @property-category=Size Constraints -->"]
     MinHeightProperty("min-height") {
         Default = "undefined";
         Item = Val;
@@ -90,12 +86,11 @@ style_property! {
 
 // impl_style_single_value!("max-width", MaxWidthProperty, Val, val, max_size.width);
 style_property! {
-    #[doc = " Specify element maximum width by providing value to `Style.max_size.width`"]
-    #[doc = " using `val` syntax:"]
+    #[doc = " Specify element maximum width by providing value to `Style.max_size.width`:"]
     #[doc = " ```css"]
     #[doc = " max-width: 5px;"]
     #[doc = " ```"]
-    #[doc = " <!-- (TODO: link val) -->"]
+    #[doc = " <!-- @property-category=Size Constraints -->"]
     MaxWidthProperty("max-width") {
         Default = "undefined";
         Item = Val;
@@ -111,12 +106,11 @@ style_property! {
 }
 // impl_style_single_value!("max-height", MaxHeightProperty, Val, val, max_size.height);
 style_property! {
-    #[doc = " Specify element maximum height by providing value to `Style.max_size.height`"]
-    #[doc = " using `val` syntax:"]
+    #[doc = " Specify element maximum height by providing value to `Style.max_size.height`:"]
     #[doc = " ```css"]
     #[doc = " max-height: 5px;"]
     #[doc = " ```"]
-    #[doc = " <!-- (TODO: link val) -->"]
+    #[doc = " <!-- @property-category=Size Constraints -->"]
     MaxHeightProperty("max-height") {
         Default = "undefined";
         Item = Val;
@@ -141,6 +135,7 @@ style_property! {
     #[doc = " The `aspect-ratio` property sets a preferred aspect ratio for"]
     #[doc = " the box, which will be used in the calculation of auto sizes"]
     #[doc = " and some other layout functions."]
+    #[doc = " <!-- @property-category=Size Constraints -->"]
     AspectRatioProperty("aspect-ratio") {
         Default = "none";
         Item = Option<f32>;

@@ -19,8 +19,7 @@ style_property! {
     #[doc = " - `relative`: the element is positioned according to the normal flow of the document"]
     #[doc = "   and then offset *relative* to itself based on the values of `top`, `right`, `bottom`"]
     #[doc = "   and left. The offset does not affect the position of any other elements."]
-    #[doc = " "]
-    #[doc = " Default: `relative`"]
+    #[doc = " <!-- @property-category=Layout Control -->"]
     PositionTypeProperty("position-type") {
         Default = "relative";
         Item = PositionType;
@@ -36,12 +35,12 @@ style_property! {
 }
 
 compound_style_property! {
-    #[doc = " Specify element position by providing values to `Style.position`"]
-    #[doc = " using single `rect-shorthand` syntax:"]
+    #[doc = " Specify element position by providing values to `Style.position`:"]
     #[doc = " ```css"]
     #[doc = " position: 2px 20% 10px auto;"]
     #[doc = " ```"]
-    #[doc = " <!-- (TODO: link rect-shorthand) -->"]
+    #[doc = " <!-- @property-type=$rect -->"]
+    #[doc = " <!-- @property-category=Layout Control -->"]
     PositionProperty("position", value) {
         let rect = UiRect::try_from(value)?;
         Ok(rect.to_rect_map(""))
@@ -49,12 +48,11 @@ compound_style_property! {
 }
 
 style_property! {
-    #[doc = " Specify element left position by providing value to `Style.position.left`"]
-    #[doc = " using `val` syntax:"]
+    #[doc = " Specify element left position by providing value to `Style.position.left`:"]
     #[doc = " ```css"]
     #[doc = " left: 5px;"]
     #[doc = " ```"]
-    #[doc = " <!-- (TODO: link val) -->"]
+    #[doc = " <!-- @property-category=Layout Control Positioning -->"]
     LeftProperty("left") {
         Default = "undefined";
         Item = Val;
@@ -70,12 +68,11 @@ style_property! {
 }
 
 style_property! {
-    #[doc = " Specify element right position by providing value to `Style.position.right`"]
-    #[doc = " using `val` syntax:"]
+    #[doc = " Specify element right position by providing value to `Style.position.right`:"]
     #[doc = " ```css"]
     #[doc = " right: 5px;"]
     #[doc = " ```"]
-    #[doc = " <!-- (TODO: link val) -->"]
+    #[doc = " <!-- @property-category=Layout Control Positioning -->"]
     RightProperty("right") {
         Default = "undefined";
         Item = Val;
@@ -91,12 +88,11 @@ style_property! {
 }
 
 style_property! {
-    #[doc = " Specify element top position by providing value to `Style.position.top`"]
-    #[doc = " using `val` syntax:"]
+    #[doc = " Specify element top position by providing value to `Style.position.top`:"]
     #[doc = " ```css"]
     #[doc = " top: 5px;"]
     #[doc = " ```"]
-    #[doc = " <!-- (TODO: link val) -->"]
+    #[doc = " <!-- @property-category=Layout Control Positioning -->"]
     TopProperty("top") {
         Default = "undefined";
         Item = Val;
@@ -112,12 +108,11 @@ style_property! {
 }
 
 style_property! {
-    #[doc = " Specify element bottom position by providing value to `Style.position.bottom`"]
-    #[doc = " using `val` syntax:"]
+    #[doc = " Specify element bottom position by providing value to `Style.position.bottom`:"]
     #[doc = " ```css"]
     #[doc = " bottom: 5px;"]
     #[doc = " ```"]
-    #[doc = " <!-- (TODO: link val) -->"]
+    #[doc = " <!-- @property-category=Layout Control Positioning -->"]
     BottomProperty("bottom") {
         Default = "undefined";
         Item = Val;
@@ -134,6 +129,7 @@ style_property! {
 
 style_property! {
     #[doc = " TODO: add OverflowProperty descripion"]
+    #[doc = " <!-- @property-category=Layout Control -->"]
     OverflowProperty("overflow") {
         Default = "visible";
         Item = Overflow;
@@ -149,8 +145,7 @@ style_property! {
 }
 
 style_property! {
-    #[doc = " Specify element display by providing value to"]
-    #[doc = " `Style.display`:"]
+    #[doc = " Specify element display by providing value to `Style.display`:"]
     #[doc = " ```css"]
     #[doc = " display: none;"]
     #[doc = " ```"]
@@ -164,7 +159,7 @@ style_property! {
     #[doc = " - `flex`: display element according to the"]
     #[doc = "   [Flexbox](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flexible_Box_Layout)."]
     #[doc = " "]
-    #[doc = " Default: `flex`"]
+    #[doc = " <!-- @property-category=Layout Control -->"]
     DisplayProperty("display") {
         Default = "flex";
         Item = Display;

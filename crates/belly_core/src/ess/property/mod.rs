@@ -524,6 +524,7 @@ macro_rules! compound_style_property {
     ) => {
         #[derive(Default)]
         $(#[doc = $s])*
+        #[doc = concat!(" <!-- @property-name=", $prop_name, " -->")]
         pub struct $typename;
         impl $crate::ess::CompoundProperty for $typename {
             fn name() -> $crate::Tag {
@@ -531,9 +532,6 @@ macro_rules! compound_style_property {
             }
             fn extract($value: $crate::build::Variant) -> Result<::bevy::utils::HashMap<$crate::Tag, $crate::ess::PropertyValue>, $crate::ElementsError> {
                 $body
-            }
-            fn docstring() -> &'static str {
-                concat!($($s,"\n",)*)
             }
         }
     }

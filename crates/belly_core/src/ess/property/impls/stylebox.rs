@@ -12,22 +12,28 @@ use bevy_stylebox::*;
 use tagstr::tag;
 
 compound_style_property! {
-    #[doc = " Specify how to fill the element with sliced by 9 parts region of image."]
+    #[doc = " Specify how to fill the element with region of image sliced by 9 parts."]
     #[doc = " The `stylebox` property is shorthand property for:"]
     #[doc = " - `stylebox-source` specifies the source of the image"]
-    #[doc = " - `stylebox-region` specifies the region of the image"]
     #[doc = " - `stylebox-slice` specifies how to slice the image"]
+    #[doc = " - `stylebox-region` specifies the region of the image"]
     #[doc = " - `stylebox-width` specifies how to resize edges"]
     #[doc = " - `stylebox-modulate` specifies what color the image should be multiplied by"]
     #[doc = " "]
     #[doc = " The format of property is:"]
+    #[doc = " ```"]
+    #[doc = " source, slice, width, region, modulate"]
+    #[doc = " ```"]
+    #[doc = " Every tail element is optional (you can omit `modulate` for example. If you do,"]
+    #[doc = " you can ompit `region` then. And so on.)"]
     #[doc = " "]
-    #[doc = " 'source, slice, width, region, modulate'"]
-    #[doc = "  "]
     #[doc = " Example:"]
     #[doc = " ```css"]
     #[doc = "   stylebox: \"background.png\", 16px 12px, 100%, 0px, blue"]
+    #[doc = "   stylebox: \"background.png\", 5px 20%"]
     #[doc = " ```"]
+    #[doc = " <!-- @property-type=source, slice, region, width, modulate -->"]
+    #[doc = " <!-- @property-category=Stylebox -->"]
     StyleboxProperty("stylebox", value) {
         let props = match value {
             Variant::String(unparsed) => StyleProperty::try_from(unparsed)?,
@@ -58,6 +64,7 @@ compound_style_property! {
 style_property! {
     #[doc = " The `stylebox-source` property specifies the path to the image to be used"]
     #[doc = " as a stylebox. The property accepts `String` values."]
+    #[doc = " <!-- @property-category=Stylebox -->"]
     StyleboxSourceProperty("stylebox-source") {
         Default = "none";
         Item = Option<String>;
@@ -95,11 +102,11 @@ style_property! {
     #[doc = " The `stylebox-slice` property specifies how to slice the image region"]
     #[doc = " specified by `stylebox-source` and `stylebox-region`. The image is"]
     #[doc = " always sliced into nine sections: four corners, four edges and the middle."]
-    #[doc = " The property accepts `rect-shorthand`:"]
+    #[doc = " Property accepts [`$rect`](#$rect):"]
     #[doc = " - when `px` specified, region sliced to the exact amount of pixels"]
     #[doc = " - when `%` specified, region sliced relative to it size"]
     #[doc = " - `auto` & `undefined` treated as `50%`"]
-    #[doc = " <!-- (TODO: link rect-shorthand) -->"]
+    #[doc = " <!-- @property-category=Stylebox -->"]
     StyleboxSliceProperty("stylebox-slice") {
         Default = "50%";
         Item = UiRect;
@@ -116,13 +123,11 @@ style_property! {
 
 style_property! {
     #[doc = " The `stylebox-width` property specifies the width of the edgets of sliced region."]
-    #[doc = " The property accepts `rect-shorthand` values:"]
+    #[doc = " Property accepts [`$rect`](#$rect):"]
     #[doc = " - edges specified by `px` values resizes to exact amout of pixels"]
     #[doc = " - edges specified by `%` resized relative to width provided by `stylebox-slice`"]
     #[doc = " - `auto` & `undefined` treated as `100%`"]
-    #[doc = " "]
-    #[doc = " Default value for `stylebox-width` is `100%`"]
-    #[doc = " <!-- (TODO: link rect-shorthand) -->"]
+    #[doc = " <!-- @property-category=Stylebox -->"]
     StyleboxWidthProperty("stylebox-width") {
         Default = "100%";
         Item = UiRect;
@@ -140,13 +145,11 @@ style_property! {
 style_property! {
     #[doc = " The `stylebox-region` property specifies which region of the image should be sliced."]
     #[doc = " By default the hole area of image defined by `stylebox-source` is used."]
-    #[doc = " The property accepts `rect-shorthand` values:"]
+    #[doc = " Property accepts [`$rect`](#$rect):"]
     #[doc = " - `px` values defines exact offset from the edges in pixels"]
     #[doc = " - `%` values defines offset from the edges relative to the image size"]
     #[doc = " - `auto` & `undefined` treated as `0px`"]
-    #[doc = " "]
-    #[doc = " Default value for `stylebox-region` is `0px`"]
-    #[doc = " <!-- (TODO: link rect-shorthand) -->"]
+    #[doc = " <!-- @property-category=Stylebox -->"]
     StyleboxRegionProperty("stylebox-region") {
         Default = "0px";
         Item = UiRect;
@@ -164,10 +167,7 @@ style_property! {
 style_property! {
     #[doc = " The `stylebox-modulate` property specifies what color the original image"]
     #[doc = " should be multiplied by."]
-    #[doc = " The property accepts `color` values (hex representation or color name)."]
-    #[doc = " "]
-    #[doc = " Default value for `stylebox-modulate` is `white`"]
-    #[doc = " <!-- (TODO: link color) -->"]
+    #[doc = " <!-- @property-category=Stylebox -->"]
     StyleboxModulateProperty("stylebox-modulate") {
         Default = "white";
         Item = Color;

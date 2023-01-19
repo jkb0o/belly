@@ -16,6 +16,7 @@ use bevy::prelude::*;
 
 style_property! {
     #[doc = " TODO: write BacgroundColor description"]
+    #[doc = " <!-- @property-category=General -->"]
     BackgroundColorProperty("background-color") {
         Default = "transparent";
         Item = Color;
@@ -30,6 +31,7 @@ style_property! {
     }
 }
 
+/// auto|$local|$global
 pub struct OptionalZIndexParser;
 impl PropertyParser<Option<ZIndex>> for OptionalZIndexParser {
     fn parse(value: &StyleProperty) -> Result<Option<ZIndex>, ElementsError> {
@@ -67,6 +69,7 @@ impl PropertyParser<Option<ZIndex>> for OptionalZIndexParser {
 
 style_property! {
     #[doc = " TODO: write ZIndex description"]
+    #[doc = " <!-- @property-category=General -->"]
     ZIndexProperty("z-index") {
         Default = "auto";
         Item = Option<ZIndex>;

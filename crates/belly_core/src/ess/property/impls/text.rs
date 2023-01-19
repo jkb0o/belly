@@ -49,6 +49,7 @@ impl PropertyParser<FontPath> for FontParser {
 
 style_property! {
     #[doc = " TODO: wtite FontProperty description"]
+    #[doc = " <!-- @property-category=Text -->"]
     FontProperty("font") {
         Default = "regular";
         Item = FontPath;
@@ -88,6 +89,7 @@ style_property! {
 
 style_property! {
     #[doc = " TODO: remove depricate ColorProperty"]
+    #[doc = " <!-- @property-category=Text -->"]
     ColorProperty("color") {
         Default = "#cfcfcf";
         Item = Color;
@@ -107,6 +109,7 @@ style_property! {
 
 style_property! {
     #[doc = " TODO: write FontSizeProperty description"]
+    #[doc = " <!-- @property-category=Text -->"]
     FontSizeProperty("font-size") {
         Default = "24";
         Item = f32;

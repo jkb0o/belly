@@ -19,8 +19,7 @@ style_property! {
     #[doc = " - `row-reverse`: Behaves the same as `row` but opposite to the content direction."]
     #[doc = " - `column-reverse`: Behaves the same as `row` but items are placed from bottom to"]
     #[doc = "    top."]
-    #[doc = " "]
-    #[doc = " Default: `row`"]
+    #[doc = " <!-- @property-category=Flex Container -->"]
     FlexDirectionProperty("flex-direction") {
         Default = "row";
         Item = FlexDirection;
@@ -51,8 +50,7 @@ style_property! {
     #[doc = " - `wrap`: The flex items break into multiple lines."]
     #[doc = " - `wrap-reverse`: Behaves the same as wrap but the new line is placed before"]
     #[doc = "    the previous"]
-    #[doc = " "]
-    #[doc = " Default: `no-wrap`"]
+    #[doc = " <!-- @property-category=Flex Container -->"]
     FlexWrapProperty("flex-wrap") {
         Default = "no-wrap";
         Item = FlexWrap;
@@ -89,8 +87,7 @@ style_property! {
     #[doc = "   [flex container baselines](https://drafts.csswg.org/css-flexbox-1/#flex-baselines) align"]
     #[doc = " - `stretch`: Flex items are stretched such that the cross-size of the item's margin"]
     #[doc = "   box is the same as the line while respecting width and height constraints."]
-    #[doc = " "]
-    #[doc = " Default: `stretch`"]
+    #[doc = " <!-- @property-category=Flex Container -->"]
     AlignItemsProperty("align-items") {
         Default = "stretch";
         Item = AlignItems;
@@ -107,6 +104,7 @@ style_property! {
 
 style_property! {
     #[doc = " TODO: write AlignContent description"]
+    #[doc = " <!-- @property-category=Flex Container -->"]
     AlignContentProperty("align-content") {
         Default = "stretch";
         Item = AlignContent;
@@ -123,6 +121,7 @@ style_property! {
 
 style_property! {
     #[doc = " TODO: write JustifyContent description"]
+    #[doc = " <!-- @property-category=Flex Container -->"]
     JustifyContentProperty("justify-content") {
         Default = "flex-start";
         Item = JustifyContent;
