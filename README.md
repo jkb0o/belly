@@ -4,6 +4,14 @@
 
 The `belly` is a plugin for a `bevy` game engine that helps to declaratively define a user interface with `eml` markup (macros & asset), style it with a very CSS-like `ess` syntax, and define data flow using `from!` & `to!` bind macros and/or connect to signals (events) with `connect!` macro.
 
+#### API Reference
+
+- [Style Properties](docs/style-properties.md)
+- Widgets & Tags (work in progress)
+- Crate docs (work in progress)
+
+#### Example
+
 ```rust
 // examples/color-picker.rs
 // cargo run --example color-picker
