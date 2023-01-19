@@ -8,6 +8,7 @@ The `belly` is a plugin for a `bevy` game engine that helps to declaratively def
 
 - [Style Properties](docs/style-properties.md)
 - Widgets & Tags (work in progress)
+- Bind transformers (work in progress)
 - Crate docs (work in progress)
 
 #### Example
