@@ -82,10 +82,8 @@ impl Plugin for PropertyPlugin {
         app.register_property::<impls::size_constraints::AspectRatioProperty>();
 
         // text
-        // TODO: remove this depricated one when `font-color` got implemented
         app.register_property::<impls::text::ColorProperty>();
         app.register_property::<impls::text::FontProperty>();
-        app.register_property::<impls::text::FontColorProperty>();
         app.register_property::<impls::text::FontSizeProperty>();
 
         // stylebox

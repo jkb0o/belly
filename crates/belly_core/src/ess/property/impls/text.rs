@@ -17,7 +17,7 @@ pub enum FontPath {
     Custom(String),
 }
 
-/// Oh my gosh, it is amazing font ! (TODO: make this joke bit more fun)
+/// regular|bold|italic|bold-italic|$string
 pub struct FontParser;
 impl PropertyParser<FontPath> for FontParser {
     fn parse(prop: &StyleProperty) -> Result<FontPath, ElementsError> {
@@ -97,24 +97,6 @@ style_property! {
         Parser = parse::ColorParser;
         Apply = |value, text, _assets, _commands, _entity| {
             // TODO: mark it deprecated
-            text
-                .sections
-                .iter_mut()
-                .for_each(|section| section.style.color = *value);
-        };
-    }
-}
-
-style_property! {
-    #[doc = " TODO: wtite FontColorProperty description"]
-    FontColorProperty("font-color") {
-        Default = "#cfcfcf";
-        Item = Color;
-        Components = &'static mut Text;
-        Filters = With<Node>;
-        AffectsVirtual = true;
-        Parser = parse::ColorParser;
-        Apply = |value, text, _assets, _commands, _entity| {
             text
                 .sections
                 .iter_mut()
