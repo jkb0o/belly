@@ -4,19 +4,17 @@ use belly_core::build::*;
 use belly_macro::*;
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
-const CURSOR_WIDTH: f32 = 2.;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
-pub enum TextInputLabel {
-    Focus,
-    Mouse,
-    Keyboard,
+pub mod prelude {
+    pub use super::TextInput;
+    pub use super::TextinputWidgetExtension;
 }
+
+const CURSOR_WIDTH: f32 = 2.;
 
 pub struct TextInputPlugin;
 impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut App) {
-        app.register_widget::<TextInput>();
+        app.register_widget::<TextinputWidget>();
         app.add_system(blink_cursor)
             .add_system_to_stage(
                 CoreStage::PreUpdate,
@@ -39,13 +37,81 @@ impl Plugin for TextInputPlugin {
     }
 }
 
-#[derive(Component, Widget)]
-#[alias(textinput)]
+#[widget]
+#[param(value: String => TextInput:value)]
+#[styles = TEXTINPUT_STYLES]
+fn textinput(ctx: &mut WidgetContext, ti: &mut TextInput) {
+    let this = ctx.this().id();
+    let cursor = ti.cursor;
+    let text = ti.text;
+    let container = ti.container;
+    let selection = ti.selection;
+    ctx.add(from!(this, TextInput: value) >> to!(text, Label: value));
+    ctx.render(eml! {
+        <div interactable="block" c:text-input c:text-input-border>
+            <div c:text-input-background>
+                <div {container} c:text-input-container>
+                    <div {selection} c:text-input-selection s:display=managed()/>
+                    <label {text} c:text-input-value/>
+                    <div {cursor} c:text-input-cursor
+                        s:position-type="absolute"
+                        s:width=format!("{:.0}px", CURSOR_WIDTH)
+                        s:display=managed()
+                    />
+                </div>
+            </div>
+        </div>
+    });
+}
+
+ess_define! {
+    TEXTINPUT_STYLES,
+    .text-input {
+        width: 200px;
+    }
+    .text-input-border {
+        background-color: #2f2f2f00;
+        padding: 1px;
+    }
+    .text-input-background {
+        padding: 1px;
+        width: 100%;
+        height: 100%;
+        background-color: #efefef;
+    }
+    .text-input-container {
+        width: 100%;
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+    }
+    .text-input-selection {
+        position-type: absolute;
+        height: 100%;
+        background-color: #9f9f9f;
+    }
+    .text-input-value {
+        color: #2f2f2f;
+    }
+    .text-input-cursor {
+        top: 1px;
+        bottom: 1px;
+        background-color: #2f2f2f;
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
+pub enum TextInputLabel {
+    Focus,
+    Mouse,
+    Keyboard,
+}
+
+#[derive(Component)]
+// #[alias(textinput)]
 /// The `<inputtext>` tag specifies a text input field
 /// where the user can enter data.
 pub struct TextInput {
-    #[param]
-    #[bindto(text, Label:value)]
     pub value: String,
     index: usize,
     selected: Selection,
@@ -55,65 +121,17 @@ pub struct TextInput {
     cursor: Entity,
 }
 
-impl WidgetBuilder for TextInput {
-    fn setup(&mut self, ctx: &mut ElementContext) {
-        let cursor = self.cursor;
-        let text = self.text;
-        let container = self.container;
-        let selection = self.selection;
-        ctx.render(eml! {
-            <div interactable="block" c:text-input c:text-input-border>
-                <div c:text-input-background>
-                    <div {container} c:text-input-container>
-                        <div {selection} c:text-input-selection s:display=managed()/>
-                        <label {text} c:text-input-value/>
-                        <div {cursor} c:text-input-cursor
-                            s:position-type="absolute"
-                            s:width=format!("{:.0}px", CURSOR_WIDTH)
-                            s:display=managed()
-                        />
-                    </div>
-                </div>
-            </div>
-        });
-    }
-    fn styles() -> &'static str {
-        r##"
-
-        .text-input {
-            width: 200px;
+impl FromWorldAndParams for TextInput {
+    fn from_world_and_params(world: &mut World, params: &mut belly_core::eml::Params) -> Self {
+        TextInput {
+            value: params.try_get("value").unwrap_or_default(),
+            index: 0,
+            selected: Selection::default(),
+            text: world.spawn_empty().id(),
+            container: world.spawn_empty().id(),
+            selection: world.spawn_empty().id(),
+            cursor: world.spawn_empty().id(),
         }
-        .text-input-border {
-            background-color: #2f2f2f00;
-            padding: 1px;
-        }
-        .text-input-background {
-            padding: 1px;
-            width: 100%;
-            height: 100%;
-            background-color: #efefef;
-        }
-        .text-input-container {
-            width: 100%;
-            height: 100%;
-            width: 100%;
-            overflow: hidden;
-        }
-        .text-input-selection {
-            position-type: absolute;
-            height: 100%;
-            background-color: #9f9f9f;
-        }
-        .text-input-value {
-            color: #2f2f2f;
-        }
-        .text-input-cursor {
-            top: 1px;
-            bottom: 1px;
-            background-color: #2f2f2f;
-        }
-
-        "##
     }
 }
 

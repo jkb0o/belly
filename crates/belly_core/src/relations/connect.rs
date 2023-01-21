@@ -1,7 +1,4 @@
-use crate::{
-    eml::build::ElementsBuilder, input::PointerInput, prelude::Elements,
-    relations::RelationsSystems,
-};
+use crate::{element::Elements, eml::Eml, input::PointerInput, relations::RelationsSystems};
 use bevy::{
     asset::Asset,
     ecs::{
@@ -91,12 +88,12 @@ impl<'a, 'w, 's, 'c, S: Signal> ConnectionEntityContext<'a, 'w, 's, 'c, S> {
         self.elements.commands.entity(target)
     }
 
-    pub fn render(&mut self, eml: ElementsBuilder) {
+    pub fn render(&mut self, eml: Eml) {
         let entity = self.target;
         self.commands().add(eml.with_entity(entity));
     }
 
-    pub fn replace(&mut self, eml: ElementsBuilder) {
+    pub fn replace(&mut self, eml: Eml) {
         self.target().despawn_descendants();
         self.render(eml);
     }

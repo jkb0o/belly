@@ -530,7 +530,7 @@ macro_rules! compound_style_property {
             fn name() -> $crate::Tag {
                 $crate::tag!($prop_name)
             }
-            fn extract($value: $crate::build::Variant) -> Result<::bevy::utils::HashMap<$crate::Tag, $crate::ess::PropertyValue>, $crate::ElementsError> {
+            fn extract($value: $crate::eml::Variant) -> Result<::bevy::utils::HashMap<$crate::Tag, $crate::ess::PropertyValue>, $crate::ElementsError> {
                 $body
             }
         }

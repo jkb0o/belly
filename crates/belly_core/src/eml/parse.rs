@@ -147,7 +147,7 @@ fn walk(node: roxmltree::Node, loader: &EmlLoader) -> Result<EmlNode, Error> {
         Ok(EmlNode::Slot(slot_name.as_tag(), slot_elements))
     } else if node.is_element() {
         let node_name = node.tag_name().name().as_tag();
-        if !loader.registry.has_builder(node_name) {
+        if !loader.registry.has(node_name) {
             return Err(Error::InvalidElement(node_name.to_string(), pos));
         }
 

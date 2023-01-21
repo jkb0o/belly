@@ -1,5 +1,6 @@
 // examples/sliders.rs
 // cargo run --example sliders
+// TODO: rename to progressbars
 use belly::prelude::*;
 use bevy::prelude::*;
 

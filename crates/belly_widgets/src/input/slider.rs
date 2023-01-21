@@ -5,6 +5,10 @@ use belly_core::input;
 use belly_macro::*;
 use bevy::prelude::*;
 
+pub mod prelude {
+    pub use super::SliderWidgetExtension;
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
 enum Label {
     GrabberInput,
@@ -19,22 +23,22 @@ impl Plugin for SliderPlugin {
                 .after(input::Label::Signals)
                 .label(Label::GrabberInput),
         );
-        app.register_widget::<slider>();
+        app.register_widget::<SliderWidget>();
     }
 }
 
 #[widget]
-#[extends(styles=Range)]
-#[extends(descriptor=Range)]
-#[style(
-    "slider .slider-grabber",
-    "  margin: 0px",
-    "  min-width: 16px",
-    "  min-height: 16px",
-    "  width: 16px",
-    "  height: 16px"
+#[extends(RangeWidget)]
+#[styles(
+    slider .slider-grabber {
+      margin: 0px;
+      min-width: 16px;
+      min-height: 16px;
+      width: 16px;
+      height: 16px;
+    }
 )]
-fn slider(ctx: &mut ElementContext) {
+fn slider(ctx: &mut WidgetContext) {
     let grabber = SliderGrabber {
         slider: ctx.entity(),
     };

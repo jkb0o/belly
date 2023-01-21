@@ -1,6 +1,6 @@
 use crate::{
     element::Element,
-    eml::build::ElementsBuilder,
+    eml::Eml,
     relations::{
         bind::{BindableSource, BindableTarget, FromComponent, FromResourceWithTransformer},
         RelationsSystems,
@@ -101,7 +101,7 @@ impl IntoContent for Vec<Entity> {
     }
 }
 
-impl<T: Iterator, F: Fn(T::Item) -> ElementsBuilder> IntoContent for ExpandElements<T, F> {
+impl<T: Iterator, F: Fn(T::Item) -> Eml> IntoContent for ExpandElements<T, F> {
     fn into_content(self, _parent: Entity, world: &mut World) -> Vec<Entity> {
         let mut result = vec![];
         for builder in self {
@@ -113,7 +113,7 @@ impl<T: Iterator, F: Fn(T::Item) -> ElementsBuilder> IntoContent for ExpandEleme
     }
 }
 
-impl IntoContent for Vec<ElementsBuilder> {
+impl IntoContent for Vec<Eml> {
     fn into_content(self, _parent: Entity, world: &mut World) -> Vec<Entity> {
         let mut result = vec![];
         for builder in self {
@@ -125,14 +125,14 @@ impl IntoContent for Vec<ElementsBuilder> {
     }
 }
 
-impl IntoContent for ElementsBuilder {
+impl IntoContent for Eml {
     fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity> {
         self.with_entity(parent)(world);
         vec![parent]
     }
 }
 
-pub struct ExpandElements<I: Iterator, F: Fn(I::Item) -> ElementsBuilder> {
+pub struct ExpandElements<I: Iterator, F: Fn(I::Item) -> Eml> {
     mapper: F,
     previous: I,
 }
@@ -140,9 +140,9 @@ pub struct ExpandElements<I: Iterator, F: Fn(I::Item) -> ElementsBuilder> {
 impl<I, F> Iterator for ExpandElements<I, F>
 where
     I: Iterator,
-    F: Fn(I::Item) -> ElementsBuilder,
+    F: Fn(I::Item) -> Eml,
 {
-    type Item = ElementsBuilder;
+    type Item = Eml;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(x) = self.previous.next() {
@@ -153,7 +153,7 @@ where
 }
 
 pub trait ExpandElementsExt: Iterator {
-    fn elements<F: Fn(Self::Item) -> ElementsBuilder>(self, mapper: F) -> ExpandElements<Self, F>
+    fn elements<F: Fn(Self::Item) -> Eml>(self, mapper: F) -> ExpandElements<Self, F>
     where
         Self: Sized,
     {

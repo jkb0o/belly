@@ -5,17 +5,16 @@ pub mod text;
 use bevy::prelude::Plugin;
 
 pub mod prelude {
-    pub use super::button::*;
-    pub use super::slider::*;
-    pub use super::text::TextInput;
-    pub use super::text::TextInputWidgetExtension;
+    pub use super::button::prelude::*;
+    pub use super::slider::prelude::*;
+    pub use super::text::prelude::*;
 }
 
 pub struct InputPlugins;
 impl Plugin for InputPlugins {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_plugin(text::TextInputPlugin);
         app.add_plugin(button::ButtonPlugin);
         app.add_plugin(slider::SliderPlugin);
+        app.add_plugin(text::TextInputPlugin);
     }
 }

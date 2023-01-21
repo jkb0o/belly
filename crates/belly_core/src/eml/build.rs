@@ -1,8 +1,8 @@
-use crate::{
-    build::ConnectionBuilder, element::Element, eml::Params, eml::StyleParams, eml::Variant,
-    ess::PropertyExtractor, ess::PropertyTransformer, ess::StyleRule, ess::StyleSheetParser,
-    relations::Signal, tags,
+use std::{
+    mem,
+    sync::{Arc, RwLock},
 };
+
 use bevy::{
     asset::Asset,
     ecs::system::{Command, CommandQueue, EntityCommands},
@@ -11,206 +11,103 @@ use bevy::{
     utils::{HashMap, HashSet},
 };
 use itertools::Itertools;
-use std::{
-    mem,
-    sync::{Arc, RwLock},
-};
-use tagstr::*;
+use tagstr::{tag, Tag};
 
-pub struct BuildPligin;
-impl Plugin for BuildPligin {
+use crate::{
+    element::Element,
+    ess::{PropertyExtractor, PropertyTransformer, StyleRule, StyleSheetParser},
+    relations::{ConnectionBuilder, Signal},
+    tags,
+};
+
+use super::{Params, StyleParams, Variant};
+
+pub struct BuildPlugin;
+impl Plugin for BuildPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<RequestReadyEvent>();
         app.add_event::<ReadyEvent>();
-        app.init_resource::<Slots>();
         app.add_system_to_stage(CoreStage::PostUpdate, emit_ready_signal);
+        app.init_resource::<Slots>();
     }
 }
 
-pub trait FromWorldAndParam {
-    fn from_world_and_param(world: &mut World, param: Variant) -> Self;
-}
+#[derive(Resource, Clone, Default, Deref)]
+pub struct WidgetRegistry(Arc<RwLock<HashMap<Tag, WidgetBuilder>>>);
 
-impl<T: TryFrom<Variant, Error = impl std::fmt::Display> + Default + 'static> FromWorldAndParam
-    for T
-{
-    fn from_world_and_param(_world: &mut World, param: Variant) -> Self {
-        if let Some(value) = param.try_get::<Self>() {
-            value
-        } else {
-            Self::default()
-        }
+impl WidgetRegistry {
+    pub fn default_styles(&self, parser: &StyleSheetParser) -> Vec<StyleRule> {
+        self.0
+            .read()
+            .unwrap()
+            .values()
+            .map(|b| b.default_styles())
+            .flat_map(|s| parser.parse(s))
+            .collect()
     }
 }
-
-pub fn entity_from_world_and_param(world: &mut World, param: Variant) -> Entity {
-    if let Some(entity) = param.take::<Entity>() {
-        entity
-    } else {
-        world.spawn_empty().id()
-    }
-}
-
-pub trait Widget: Sized + Component + 'static {
-    fn names() -> &'static [&'static str];
-    fn aliases() -> &'static [&'static str] {
-        &[]
+impl WidgetRegistry {
+    pub fn get<T: Into<Tag>>(&self, name: T) -> Option<WidgetBuilder> {
+        self.0.read().unwrap().get(&name.into()).copied()
     }
 
-    #[allow(unused_variables)]
-    fn construct_component(world: &mut World, params: &mut Params) -> Option<Self> {
-        None
-    }
-
-    #[allow(unused_variables)]
-    fn bind_component(&mut self, ctx: &mut ElementContext) {}
-}
-
-pub trait WidgetBuilder: Widget {
-    #[allow(unused_variables)]
-    fn setup(&mut self, ctx: &mut ElementContext) {
-        panic!("Not implemented")
-    }
-    #[allow(unused_variables)]
-    fn construct(ctx: &mut ElementContext) {
-        panic!("Not implemented")
-    }
-
-    fn styles() -> &'static str {
-        ""
-    }
-
-    fn build(world: &mut World, mut data: ElementContextData) {
-        let component = Self::construct_component(world, &mut data.params);
-        let mut queue = CommandQueue::default();
-        let commands = Commands::new(&mut queue, world);
-        let asset_server = world.resource::<AssetServer>().clone();
-        let transformer = world.resource::<PropertyTransformer>().clone();
-        let extractor = world.resource::<PropertyExtractor>().clone();
-        let mut ctx = ElementContext {
-            commands,
-            data,
-            asset_server,
-            transformer,
-            extractor,
-        };
-        if let Some(mut component) = component {
-            component.bind_component(&mut ctx);
-            component.setup(&mut ctx);
-            ctx.insert(component);
-        } else {
-            Self::construct(&mut ctx);
-        }
-        Self::post_process(&mut ctx);
-        queue.apply(world);
-    }
-
-    fn post_process(ctx: &mut ElementContext) {
-        let names = Self::names().iter().map(|n| n.as_tag()).collect();
-        let aliases = Self::aliases().iter().map(|n| n.as_tag()).collect();
-        // println!("adding tag {}", names.ite
-        ctx.apply_commands();
-        let focus_policy = match ctx.param(tag!("interactable")) {
-            Some(Variant::Bool(true)) => Some(FocusPolicy::Block),
-            Some(Variant::String(s)) if &s == "block" => Some(FocusPolicy::Block),
-            Some(Variant::String(s)) if &s == "pass" => Some(FocusPolicy::Pass),
-            _ => None,
-        };
-        if let Some(policy) = focus_policy {
-            ctx.insert(policy);
-            ctx.insert(Interaction::default());
-        }
-        let id = ctx.id();
-        let classes = ctx.classes();
-        let styles = ctx.styles().transform(|tag, variant| {
-            if ctx.extractor.is_compound_property(tag) {
-                match ctx.extractor.extract(tag, variant) {
-                    Ok(mut props) => props.drain().collect(),
-                    Err(e) => {
-                        error!("Ignoring property {}: {}", tag, e);
-                        vec![]
-                    }
-                }
-            } else {
-                match ctx.transformer.transform(tag, variant) {
-                    Ok(variant) => vec![(tag, variant)],
-                    Err(e) => {
-                        error!("Ignoring property {}: {}", tag, e);
-                        vec![]
-                    }
-                }
-            }
-        });
-        let entity = ctx.entity();
-        ctx.commands.add(move |world: &mut World| {
-            world
-                .resource_mut::<Events<RequestReadyEvent>>()
-                .send(RequestReadyEvent(entity));
-        });
-        ctx.update_element(move |element| {
-            element.names = names;
-            element.aliases = aliases;
-            element.id = id;
-            element.classes.extend(classes);
-            element.styles.extend(styles);
-        });
-    }
-
-    fn as_builder() -> ElementBuilder {
-        ElementBuilder {
-            build_func: |world, ctx| Self::build(world, ctx),
-            styles_func: Self::styles,
-            names_func: Self::names,
-            aliases_func: Self::aliases,
-        }
+    pub fn has<T: Into<Tag>>(&self, name: T) -> bool {
+        self.0.read().unwrap().contains_key(&name.into())
     }
 }
 
-pub struct ElementContextData {
+pub trait RegisterWidget {
+    fn register_widget<T: Widget + Sync + Send + 'static>(&mut self) -> &mut Self;
+}
+
+impl RegisterWidget for App {
+    fn register_widget<T: Widget + Sync + Send + 'static>(&mut self) -> &mut Self {
+        let registry = self
+            .world
+            .get_resource_or_insert_with(WidgetRegistry::default)
+            .clone();
+        let widget = T::instance();
+        let name = Widget::name(widget);
+
+        registry.write().unwrap().insert(name, widget.as_builder());
+        self
+    }
+}
+
+/// Data collect by `eml!` macro ot `eml` asset and passed to
+/// [`Widget::build_for_world`] for all heavy world
+pub struct WidgetData {
+    /// Widget entity (generated or provided by user)
     pub entity: Entity,
-    pub names: Names,
+    /// Children already processed by [`Widget::build`]
     pub children: Vec<Entity>,
+    /// Attributes defined within the tag
     pub params: Params,
 }
 
-impl ElementContextData {
-    pub fn new(entity: Entity) -> ElementContextData {
-        ElementContextData {
+impl WidgetData {
+    pub fn new(entity: Entity) -> WidgetData {
+        WidgetData {
             entity,
-            names: || &[],
             children: vec![],
-            params: Default::default(),
+            params: Params::default(),
         }
     }
 }
 
-#[derive(Resource, Default, Clone)]
-pub struct Slots(Arc<RwLock<HashMap<Tag, Vec<Entity>>>>);
-
-impl Slots {
-    pub fn insert(&self, tag: Tag, entities: Vec<Entity>) {
-        self.0.write().unwrap().insert(tag, entities);
-    }
-
-    pub fn remove(&self, tag: Tag) -> Option<Vec<Entity>> {
-        self.0.write().unwrap().remove(&tag)
-    }
-
-    pub fn keys(&self) -> HashSet<Tag> {
-        self.0.read().unwrap().keys().copied().collect()
-    }
-}
-
-pub struct ElementContext<'w, 's> {
-    data: ElementContextData,
+/// Context passed to widget builder func.
+pub struct WidgetContext<'w, 's> {
+    data: WidgetData,
     commands: Commands<'w, 's>,
     asset_server: AssetServer,
     extractor: PropertyExtractor,
     transformer: PropertyTransformer,
-    // extractors
 }
 
-impl<'w, 's> ElementContext<'w, 's> {
+impl<'w, 's> WidgetContext<'w, 's> {
+    pub fn this<'a>(&'a mut self) -> EntityCommands<'w, 's, 'a> {
+        self.commands.entity(self.data.entity)
+    }
     pub fn load<T: Asset>(&self, path: &str) -> Handle<T> {
         self.asset_server.load(path)
     }
@@ -223,13 +120,17 @@ impl<'w, 's> ElementContext<'w, 's> {
         self.commands.spawn_empty().id()
     }
 
+    pub fn add<C: Command>(&mut self, command: C) {
+        self.commands.add(command)
+    }
+
     pub fn insert<'a>(&'a mut self, bundle: impl Bundle) -> EntityCommands<'w, 's, 'a> {
         let mut commands = self.commands.entity(self.data.entity);
         commands.insert(bundle);
         commands
     }
 
-    pub fn render(&mut self, elements: ElementsBuilder) {
+    pub fn render(&mut self, elements: Eml) {
         self.commands.add(elements.with_entity(self.data.entity));
     }
 
@@ -239,10 +140,6 @@ impl<'w, 's> ElementContext<'w, 's> {
 
     pub fn content(&mut self) -> Vec<Entity> {
         mem::take(&mut self.data.children)
-    }
-
-    pub fn names(&self) -> impl Iterator<Item = Tag> {
-        (self.data.names)().iter().map(|n| n.as_tag())
     }
 
     pub fn param(&mut self, key: Tag) -> Option<Variant> {
@@ -285,124 +182,280 @@ impl<'w, 's> ElementContext<'w, 's> {
     }
 }
 
-type Names = fn() -> &'static [&'static str];
+/// A tuple of component types. It us used for instantiating
+/// set of components and bypassing them `&mut Components` into [`BuildWidgetFunc`]:
+/// `invoke_build_widget(&mut ComponentA, &mut ComponentB)
+pub trait Components {
+    fn instantiate(world: &mut World, params: &mut Params) -> Self;
+    fn write(self, commands: EntityCommands);
+}
+
+/// The fuctions that can act like widget builders:
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use belly_core::eml::WidgetContext;
+/// #[derive(Component, Default)]
+/// struct ComponentA {
+///     field: f32
+/// }
+/// #[derive(Component, Default)]
+/// struct ComponentB {
+///     field: String
+/// }
+/// fn my_widget(ctx: &mut WidgetContext, a: &mut ComponentA, b: &mut ComponentB) {
+///     a.field = 1.0;
+///     b.field = "1.0".into();
+/// }
+pub trait BuildWidgetFunc<Params: Components>: 'static {
+    fn invoke_build_widget(&self, ctx: &mut WidgetContext, params: &mut Params);
+}
+
+macro_rules! impl_components {
+    (@imp $($ident:ident,)*) => {
+        impl <$($ident: Component + FromWorldAndParams,)*> Components for ($($ident,)*) {
+            #[allow(unused_variables)]
+            fn instantiate(world: &mut World, params: &mut Params) -> Self {
+                ($($ident::from_world_and_params(world, params),)* )
+            }
+            fn write(self, mut commands: EntityCommands) {
+                commands.insert(self);
+            }
+        }
+        impl<Func: Fn(&mut WidgetContext, $(&mut $ident,)*) + 'static, $($ident: Component + FromWorldAndParams,)*> BuildWidgetFunc<($($ident,)*)> for Func {
+            fn invoke_build_widget(&self, ctx: &mut WidgetContext, params: &mut ($($ident,)*)) {
+                #[allow(non_snake_case)]
+                let ($($ident,)*) = params;
+                self(ctx, $($ident,)*);
+            }
+        }
+    };
+    ($ident:ident, $($rest:ident,)+) => {
+        impl_components! { @imp $ident, $($rest,)+ }
+        impl_components! { $($rest,)+ }
+    };
+    ($ident:ident,) => {
+        impl_components! { @imp $ident, }
+        impl_components! { @imp }
+    };
+}
+impl_components! { A, B, C, D, E, F, G, H, }
+
+/// Only the way I know to get the ref to the unit struct
+pub trait Singleton: 'static {
+    fn instance() -> &'static Self;
+}
+
+/// Instantiate components from world and params
+pub trait FromWorldAndParams {
+    fn from_world_and_params(world: &mut World, params: &mut Params) -> Self;
+}
+
+impl<T: Default> FromWorldAndParams for T {
+    fn from_world_and_params(_world: &mut World, _params: &mut Params) -> Self {
+        Self::default()
+    }
+}
+
+pub trait FromWorldAndParam {
+    fn from_world_and_param(world: &mut World, param: Variant) -> Self;
+}
+
+impl<T: Default> FromWorldAndParam for T {
+    fn from_world_and_param(_world: &mut World, _param: Variant) -> Self {
+        Self::default()
+    }
+}
+
+/// Unified Widget API
+pub trait Widget {
+    /// Additional components inserted into the entity
+    type Components: Components;
+    type BuildComponents: Components;
+    type OtherComponents: Components;
+    /// Generated by `#[widget]` macro predefined bindigs from properties
+    type BindingsFrom: Singleton;
+    /// Generated by `#[widget]` macro predefined bindigs to properties
+    type BindingsTo: Singleton;
+    /// Generated by `#[widget]` macro predefined connections
+    type Signals: Singleton;
+
+    // TODO: implement Query protocol for widgets
+    // /// Generated by `#[widget]` macro [`ReadOnlyWorldQuery`] implementation
+    // type ReadQuery: ReadOnlyWorldQuery + 'static;
+    // /// Generated by `#[widget]` macro [`WorldQuery`] implementation
+    // type WriteQuery: WorldQuery + 'static;
+
+    /// Obitain the reference to widget that is unit struct.
+    fn instance() -> &'static Self;
+
+    /// The widget name (it is the tag name)
+    fn name(&self) -> Tag;
+
+    /// Style alias for matchining extendent widgets. For example `<progressbar>`
+    /// widgets extends `<range>` widget. It has name name `tag!("progressbar")`
+    /// and alias `Some(tag!("range")). Any `range` style rule selectors will
+    /// also affect the `progressbar`.
+    fn alias(&self) -> Option<Tag> {
+        None
+    }
+
+    /// This function indirectly implemented by user. It should populate the tree,
+    /// add extra components, load assets, build the widget, you know.
+    fn build_widget(&self, ctx: &mut WidgetContext, components: &mut Self::BuildComponents);
+
+    /// Create instance of [`Self::Components`] based on provided widget attributes.
+    /// This method is generated by `#[widget]` macro.
+    fn instantiate_components(&self, world: &mut World, params: &mut Params) -> Self::Components;
+
+    fn split_components(
+        &self,
+        components: Self::Components,
+    ) -> (Self::BuildComponents, Self::OtherComponents);
+
+    // TODO: implement attribute-based binds
+    // fn bind_components(&self);
+
+    /// Obitain access to binding from properties
+    fn bind_from(&self) -> &Self::BindingsFrom {
+        Self::BindingsFrom::instance()
+    }
+    /// Obitain access to bindings to components
+    fn bind_to(&self) -> &Self::BindingsTo {
+        Self::BindingsTo::instance()
+    }
+
+    /// Obitain access to signals
+    // #[doc = include_str!("../../hello.md")]
+    fn on(&self) -> &Self::Signals {
+        Self::Signals::instance()
+    }
+
+    fn build(&self, world: &mut World, mut data: WidgetData) {
+        let components = self.instantiate_components(world, &mut data.params);
+        let mut queue = CommandQueue::default();
+        let commands = Commands::new(&mut queue, world);
+        let asset_server = world.resource::<AssetServer>().clone();
+        let transformer = world.resource::<PropertyTransformer>().clone();
+        let extractor = world.resource::<PropertyExtractor>().clone();
+        let mut ctx = WidgetContext {
+            data,
+            commands,
+            asset_server,
+            transformer,
+            extractor,
+        };
+
+        // TODO: implement attribute-based binds
+        // self.bind_components(&mut ctx, &components);
+        let (mut build_components, other_components) = self.split_components(components);
+        self.build_widget(&mut ctx, &mut build_components);
+        build_components.write(ctx.this());
+        other_components.write(ctx.this());
+
+        // post process
+        ctx.apply_commands();
+        let focus_policy = match ctx.param(tag!("interactable")) {
+            Some(Variant::Bool(true)) => Some(FocusPolicy::Block),
+            Some(Variant::String(s)) if &s == "block" => Some(FocusPolicy::Block),
+            Some(Variant::String(s)) if &s == "pass" => Some(FocusPolicy::Pass),
+            _ => None,
+        };
+        if let Some(policy) = focus_policy {
+            ctx.insert(policy);
+            ctx.insert(Interaction::default());
+        }
+        let names = vec![self.name()].into();
+        let aliases = if let Some(alias) = self.alias() {
+            vec![alias].into()
+        } else {
+            vec![].into()
+        };
+        let id = ctx.id();
+        let classes = ctx.classes();
+        let styles = ctx.styles().transform(|tag, variant| {
+            if ctx.extractor.is_compound_property(tag) {
+                match ctx.extractor.extract(tag, variant) {
+                    Ok(mut props) => props.drain().collect(),
+                    Err(e) => {
+                        error!("Ignoring property {}: {}", tag, e);
+                        vec![]
+                    }
+                }
+            } else {
+                match ctx.transformer.transform(tag, variant) {
+                    Ok(variant) => vec![(tag, variant)],
+                    Err(e) => {
+                        error!("Ignoring property {}: {}", tag, e);
+                        vec![]
+                    }
+                }
+            }
+        });
+        let entity = ctx.entity();
+        ctx.commands.add(move |world: &mut World| {
+            world
+                .resource_mut::<Events<RequestReadyEvent>>()
+                .send(RequestReadyEvent(entity));
+        });
+        ctx.update_element(move |element| {
+            element.names = names;
+            element.aliases = aliases;
+            element.id = id;
+            element.classes.extend(classes);
+            element.styles.extend(styles);
+        });
+
+        queue.apply(world)
+    }
+    fn default_styles(&self) -> &str {
+        ""
+    }
+    fn as_builder(&'static self) -> WidgetBuilder
+    where
+        Self: Sized + Sync + Send + 'static,
+    {
+        WidgetBuilder(self)
+    }
+}
 
 #[derive(Clone, Copy)]
-pub struct ElementBuilder {
-    build_func: fn(&mut World, ElementContextData),
-    styles_func: fn() -> &'static str,
-    aliases_func: Names,
-    names_func: Names,
-}
-
-impl ElementBuilder {
-    pub fn names(&self) -> impl Iterator<Item = Tag> {
-        (self.names_func)().iter().map(|s| s.as_tag())
+pub struct WidgetBuilder(&'static dyn WidgetUntyped);
+impl WidgetBuilder {
+    pub fn name(&self) -> Tag {
+        self.0.name()
     }
-
-    pub fn aliases(&self) -> impl Iterator<Item = Tag> {
-        (self.aliases_func)().iter().map(|s| s.as_tag())
+    pub fn build(&self, world: &mut World, data: WidgetData) {
+        self.0.build(world, data)
     }
-
-    pub fn build(&self, world: &mut World, ctx: ElementContextData) {
-        (self.build_func)(world, ctx);
-    }
-
-    pub fn styles(&self) -> &'static str {
-        (self.styles_func)()
+    pub fn default_styles(&self) -> &str {
+        self.0.default_styles()
     }
 }
 
-pub struct ElementsBuilder {
-    pub builder: Box<dyn FnOnce(&mut World, Entity) + Sync + Send>,
+pub trait WidgetUntyped: Send + Sync {
+    /// The widget name (it is the tag name)
+    fn name(&self) -> Tag;
+
+    fn build(&self, world: &mut World, data: WidgetData);
+
+    fn default_styles(&self) -> &str;
 }
 
-impl ElementsBuilder {
-    pub fn new<T>(builder: T) -> Self
-    where
-        T: FnOnce(&mut World, Entity) + Sync + Send + 'static,
-    {
-        ElementsBuilder {
-            builder: Box::new(builder),
-        }
+impl<T: Widget + Send + Sync> WidgetUntyped for T {
+    fn name(&self) -> Tag {
+        self.name()
     }
-
-    pub fn with_entity(self, entity: Entity) -> impl FnOnce(&mut World) {
-        move |world: &mut World| {
-            (self.builder)(world, entity);
-        }
+    fn build(&self, world: &mut World, data: WidgetData) {
+        self.build(world, data)
     }
-}
-
-impl Command for ElementsBuilder {
-    fn write(self, world: &mut World) {
-        let entity = world.spawn_empty().id();
-        self.with_entity(entity)(world);
+    fn default_styles(&self) -> &str {
+        self.default_styles()
     }
 }
 
-#[derive(Resource, Default, Clone)]
-pub struct ElementBuilderRegistry(Arc<RwLock<HashMap<Tag, ElementBuilder>>>);
-
-impl ElementBuilderRegistry {
-    pub fn add_builder(&self, name: Tag, builder: ElementBuilder) {
-        self.0.write().unwrap().insert(name, builder);
-    }
-
-    pub fn get_builder(&self, name: Tag) -> Option<ElementBuilder> {
-        self.0.read().unwrap().get(&name).map(|b| *b)
-    }
-
-    pub fn has_builder(&self, name: Tag) -> bool {
-        self.0.read().unwrap().contains_key(&name)
-    }
-
-    pub fn styles(&self, parser: StyleSheetParser) -> Vec<StyleRule> {
-        self.0
-            .read()
-            .unwrap()
-            .values()
-            .map(|b| b.styles())
-            .flat_map(|s| parser.parse(s))
-            .collect()
-    }
-}
-
-pub trait RegisterWidgetExtension {
-    fn register_widget<W: WidgetBuilder>(&mut self) -> &mut Self;
-}
-
-impl RegisterWidgetExtension for App {
-    fn register_widget<W: WidgetBuilder>(&mut self) -> &mut Self {
-        let registry = self
-            .world
-            .get_resource_or_insert_with(ElementBuilderRegistry::default);
-        for name in W::names().iter().map(|n| n.as_tag()) {
-            registry.add_builder(name, W::as_builder());
-        }
-        self
-    }
-}
-
-pub struct DefaultDescriptor;
-impl DefaultDescriptor {
-    pub fn get_instance() -> &'static DefaultDescriptor {
-        &&DefaultDescriptor
-    }
-
-    pub fn ready<C: Component, F: Fn(&mut ConnectionBuilder<C, ReadyEvent>)>(
-        &self,
-        world: &mut World,
-        source: Entity,
-        build: F,
-    ) {
-        let mut builder = ConnectionBuilder::<C, ReadyEvent>::default();
-        build(&mut builder);
-        if let Some(target) = builder.build() {
-            target.all().from(source).write(world)
-        }
-    }
-}
+pub struct DefaultBindingsFrom;
+pub struct DefaultBindingsTo;
+pub struct DefaultSignals;
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct RequestReadyEvent(pub(crate) Entity);
@@ -420,5 +473,67 @@ fn emit_ready_signal(
 ) {
     for req in requests.iter().unique() {
         writer.send(ReadyEvent([req.0]))
+    }
+}
+
+impl DefaultSignals {
+    pub fn ready<C: Component, F: Fn(&mut ConnectionBuilder<C, ReadyEvent>)>(
+        &self,
+        world: &mut World,
+        source: Entity,
+        connect: F,
+    ) {
+        let mut builder = ConnectionBuilder::<C, ReadyEvent>::default();
+        connect(&mut builder);
+        if let Some(target) = builder.build() {
+            target.filter(|_| true).from(source).write(world)
+        } else {
+            error!("Unable to create connection to `ready`");
+        }
+    }
+}
+
+pub struct Eml {
+    pub builder: Box<dyn FnOnce(&mut World, Entity) + Sync + Send>,
+}
+
+impl Eml {
+    pub fn new<T>(builder: T) -> Self
+    where
+        T: FnOnce(&mut World, Entity) + Sync + Send + 'static,
+    {
+        Eml {
+            builder: Box::new(builder),
+        }
+    }
+
+    pub fn with_entity(self, entity: Entity) -> impl FnOnce(&mut World) {
+        move |world: &mut World| {
+            (self.builder)(world, entity);
+        }
+    }
+}
+
+impl Command for Eml {
+    fn write(self, world: &mut World) {
+        let entity = world.spawn_empty().id();
+        self.with_entity(entity)(world);
+    }
+}
+
+#[derive(Resource, Default, Clone)]
+pub struct Slots(Arc<RwLock<HashMap<Tag, Vec<Entity>>>>);
+
+impl Slots {
+    pub fn insert(&self, tag: Tag, entities: Vec<Entity>) {
+        self.0.write().unwrap().insert(tag, entities);
+    }
+
+    pub fn remove(&self, tag: Tag) -> Option<Vec<Entity>> {
+        self.0.write().unwrap().remove(&tag)
+    }
+
+    pub fn keys(&self) -> HashSet<Tag> {
+        self.0.read().unwrap().keys().copied().collect()
     }
 }

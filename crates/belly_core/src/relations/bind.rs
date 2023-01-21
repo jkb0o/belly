@@ -130,10 +130,38 @@ impl<'a, 'c, C: Component, T> AsMut<T> for PropertyDescriptor<'a, 'c, C, T> {
     }
 }
 
-pub trait PropertyProtocol<T>: AsRef<T> + AsMut<T> {}
-impl<T, X: AsRef<T> + AsMut<T>> PropertyProtocol<T> for X {}
+pub trait PropertyProtocol<T> {
+    fn as_ref(&self) -> &T;
+    fn as_mut(&mut self) -> &mut T;
+}
+impl<'a, 'c, C: Component, T> PropertyProtocol<T> for PropertyDescriptor<'a, 'c, C, T> {
+    fn as_ref(&self) -> &T {
+        (self.ref_getter)(&self.component)
+    }
+
+    fn as_mut(&mut self) -> &mut T {
+        self.changed = true;
+        (self.mut_getter)(&mut self.component)
+    }
+}
+impl<T> PropertyProtocol<T> for &mut T {
+    fn as_mut(&mut self) -> &mut T {
+        self
+    }
+    fn as_ref(&self) -> &T {
+        self
+    }
+}
+
+// impl<T, X: AsRef<T> + AsMut<T>> PropertyProtocol<T> for X {}
 
 pub struct Prop<'a, T>(&'a mut dyn PropertyProtocol<T>);
+
+impl<'a, T> Prop<'a, T> {
+    pub fn new<P: PropertyProtocol<T>>(value: &'a mut P) -> Prop<'a, T> {
+        Prop(value)
+    }
+}
 
 impl<'a, T> Deref for Prop<'a, T> {
     type Target = T;
@@ -653,7 +681,19 @@ macro_rules! bind {
             writer: |c: &mut ::bevy::prelude::Mut<$cls>| &mut c.$($prop)+,
         }.transformed(|tr| tr.$transformer())
     };
-    // to!(entity, Component:some.propery | some:transformer)
+    // to!(entity, Component | transform)
+    (@bind to component $entity:expr, $cls:ty, - , transformable $transformer:ident ) => {
+    {
+        use ::std::ops::Deref;
+        use ::std::ops::DerefMut;
+        $crate::relations::bind::ToComponentTransformable {
+            id: $crate::relations::bind::bind_id::<$cls>("self"),
+            target: $entity,
+            reader: |c: &::bevy::prelude::Mut<$cls>| c.deref(),
+            writer: |c: &mut ::bevy::prelude::Mut<$cls>| c.deref_mut(),
+        }.transformed(|tr| tr.$transformer())
+    }};
+    // to!(entity, Component:some.propery | some.transformer)
     (@bind to component $entity:expr, $cls:ty, { $($prop:tt)+ }, $transformer:expr) => {
         $crate::relations::bind::ToComponent {
             id: $crate::relations::bind::bind_id::<$cls>(stringify!($($prop)+)),
@@ -762,6 +802,9 @@ macro_rules! bind {
     };
 
     // start here and move up
+    ( $direction:ident $entity:expr, $cls:ty | $transformer:ident ) => {
+        $crate::bind!(@bind $direction component $entity, $cls, - , transformable $transformer)
+    };
     ( $direction:ident $cls:ty: $($args:tt)+ ) => {
         $crate::bind!(@args {resource $direction $cls}: $($args)+ )
     };
@@ -789,7 +832,7 @@ macro_rules! to {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::prelude::ColorTransformerExtension;
+    use crate::relations::transform::ColorTransformerExtension;
     use crate::*;
 
     #[derive(Component, Default)]

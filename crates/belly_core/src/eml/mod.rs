@@ -4,9 +4,10 @@ pub mod content;
 pub mod params;
 pub mod parse;
 pub mod variant;
+pub use self::build::*;
 pub use self::params::*;
 pub use self::variant::*;
-use crate::{eml::build::ElementBuilderRegistry, ess::PropertyExtractor, ess::PropertyTransformer};
+use crate::ess::{PropertyExtractor, PropertyTransformer};
 use asset::{update_eml_scene, EmlAsset, EmlLoader};
 use bevy::prelude::*;
 
@@ -26,7 +27,7 @@ impl Plugin for EmlPlugin {
             .clone();
         let registry = app
             .world
-            .get_resource_or_insert_with(ElementBuilderRegistry::default)
+            .get_resource_or_insert_with(WidgetRegistry::default)
             .clone();
         app.add_asset_loader(EmlLoader {
             transformer: validator,

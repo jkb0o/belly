@@ -1,10 +1,10 @@
 use super::parse;
-use crate::build::PropertyValue;
-use crate::build::StyleProperty;
-use crate::build::StylePropertyMethods;
 use crate::compound_style_property;
+use crate::element::Element;
 use crate::eml::Variant;
-use crate::prelude::Element;
+use crate::ess::PropertyValue;
+use crate::ess::StyleProperty;
+use crate::ess::StylePropertyMethods;
 use crate::style_property;
 use bevy::prelude::*;
 use bevy::utils::HashMap;
@@ -43,7 +43,7 @@ compound_style_property! {
         let mut stream = props.as_stream();
         let mut result = HashMap::default();
         if let Some(path) = stream.single() {
-            result.insert(tag!("stylebox-source"), PropertyValue::new(path.string()?));
+            result.insert(tag!("stylebox-source"), PropertyValue::new(path.option_string()?));
         }
         if let Some(slice) = stream.compound() {
             result.insert(tag!("stylebox-slice"), PropertyValue::new(slice.rect()?));

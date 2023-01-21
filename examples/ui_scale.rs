@@ -1,5 +1,6 @@
 use belly::prelude::*;
 use bevy::{prelude::*, render::camera::ScalingMode, text::TextSettings};
+// TODO: rename to ui-scale, add example comment
 
 fn main() {
     App::new()
@@ -21,7 +22,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         ..default()
     });
-    commands.spawn(EmlScene::new(asset_server.load("test.eml")));
     commands.spawn(SpriteBundle {
         texture: asset_server.load("icon.png"),
         ..default()
@@ -31,6 +31,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         allow_dynamic_font_size: true,
         ..default()
     });
+    commands.add(eml! {
+        <body s:flex-direction="column">
+            <span s:height="15px"/>
+            <span s:width="50px" s:height="15px" s:background-color="rebeccapurple"/>
+            <span s:margin-left="50px" s:font-size="36px">"Resize the window to see the difference."</span>
+            <span s:width="50px" s:height="15px" s:background-color="rebeccapurple"/>
+        </body>
+    })
 }
 
 pub fn scale(mut cached_size: Local<Vec2>, mut ui_scale: ResMut<UiScale>, windows: Res<Windows>) {

@@ -3,11 +3,12 @@ pub mod connect;
 pub mod ops;
 pub mod transform;
 
-use crate::prelude::Elements;
+use crate::element::Elements;
 
 use self::bind::{BindableSource, BindableTarget, ChangesState};
 pub use self::connect::{
-    Connect, ConnectionEntityContext, ConnectionGeneralContext, ConnectionTo, Connections, Signal,
+    Connect, ConnectionBuilder, ConnectionEntityContext, ConnectionGeneralContext, ConnectionTo,
+    Connections, Signal,
 };
 use bevy::{
     log::Level,

@@ -1,7 +1,6 @@
 use crate::{
-    build::{StyleProperty, StylePropertyMethods},
     eml::Params,
-    ess::ColorFromHexExtension,
+    ess::{ColorFromHexExtension, StyleProperty, StylePropertyMethods},
     ElementsError,
 };
 use bevy::prelude::*;

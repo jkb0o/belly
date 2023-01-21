@@ -1,4 +1,4 @@
-use belly::build::*;
+use belly::prelude::*;
 use bevy::prelude::*;
 
 fn main() {
@@ -9,32 +9,11 @@ fn main() {
         .add_startup_system(setup)
         .add_system(greet)
         .add_system(debug_my_event)
-        .register_widget::<orange>()
         .run();
 }
 
 struct MyEvent {
     emited_at: f32,
-}
-
-#[widget]
-#[extends(descriptor=Btn)]
-#[style("background-color: darkorange")]
-#[style("padding: 5px")]
-#[style("color: #2f2f2f")]
-#[style("margin: 5px")]
-// the rest of the styles should be extended
-// from button (now them are copy-pasted)
-// TODO: link gihub issue here
-#[style("justify-content: space-around")]
-#[style("align-content: center")]
-#[style("min-width: 40px")]
-#[style("min-height: 40px")]
-fn orange(ctx: &mut ElementContext) {
-    let content = ctx.content();
-    ctx.render(eml! {
-        <button>{content}</button>
-    })
 }
 
 #[derive(Component, Default)]
@@ -59,7 +38,7 @@ fn setup(mut commands: Commands) {
     let label = commands.spawn_empty().insert(Greet::default()).id();
     let that = commands.spawn_empty().id();
     let colorbox = commands.spawn_empty().insert(ColorBox::Red).id();
-    let orange = commands.spawn_empty().id();
+    let grow = commands.spawn_empty().id();
     commands.add(eml! {
         <body>
             <div>
@@ -116,15 +95,15 @@ fn setup(mut commands: Commands) {
                 <br/>
             </div>
             <div>
-                <orange {orange} on:press=connect!(orange, |s: Style| {
-                    s.size.width = Val::Px(if let Val::Px(height) = s.size.width {
-                        height + 5.
+                <button {grow} s:width=managed() on:press=connect!(grow, |s: Style| {
+                    s.size.width = Val::Px(if let Val::Px(width) = s.size.width {
+                        width + 5.
                     } else {
                         205.
                     });
                 })>
                     "I can grow!"
-                </orange>
+                </button>
             </div>
         </body>
     });

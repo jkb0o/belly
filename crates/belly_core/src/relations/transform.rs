@@ -44,6 +44,23 @@ macro_rules! impl_color_channel_transformer {
     };
 }
 
+pub trait PropertySetter<P, V> {
+    fn set(&self, property: &mut P, value: &V);
+}
+
+impl<F: Fn(&V, Prop<P>) -> TransformationResult, P, V> PropertySetter<P, V> for F {
+    fn set(&self, mut prop: &mut P, value: &V) {
+        let prop = Prop::new(&mut prop);
+        if let Err(e) = self(value, prop) {
+            error!("{e}")
+        }
+    }
+}
+
+fn t(color: &mut BackgroundColor) {
+    Color::as_transformer().a().set(&mut color.0, &0.5)
+}
+
 // pub struct AssociatedColorTransformer
 
 pub struct ColorTransformer;

@@ -1,8 +1,6 @@
 use crate::element::Element;
-use crate::eml::{
-    build::{ElementBuilderRegistry, ElementContextData, Slots},
-    parse, Param,
-};
+use crate::eml::WidgetData;
+use crate::eml::{parse, Param, Slots};
 use crate::ess::{PropertyExtractor, PropertyTransformer};
 use bevy::{
     asset::{AssetLoader, LoadedAsset},
@@ -12,6 +10,8 @@ use bevy::{
 };
 use std::sync::Arc;
 use tagstr::*;
+
+use super::build::WidgetRegistry;
 
 pub enum EmlNode {
     Element(EmlElement),
@@ -78,25 +78,22 @@ fn walk(node: &EmlNode, world: &mut World, parent: Option<Entity>) -> Option<Ent
             None
         }
         EmlNode::Element(elem) => {
-            let Some(builder) = world
-                .resource::<ElementBuilderRegistry>()
-                .get_builder(elem.name)
-            else {
+            let Some(builder) = world.resource::<WidgetRegistry>().get(elem.name) else {
                 error!("Invalid tag name: {}", elem.name.as_str());
                 return None;
             };
             let entity = parent.unwrap_or_else(|| world.spawn_empty().id());
-            let mut context = ElementContextData::new(entity);
+            let mut data = WidgetData::new(entity);
             for (name, value) in elem.params.iter() {
                 let attr = Param::new(name, value.clone().into());
-                context.params.add(attr);
+                data.params.add(attr);
             }
             for child in elem.children.iter() {
                 if let Some(entity) = walk(child, world, None) {
-                    context.children.push(entity);
+                    data.children.push(entity);
                 }
             }
-            builder.build(world, context);
+            builder.build(world, data);
             Some(entity)
         }
     }
@@ -104,7 +101,7 @@ fn walk(node: &EmlNode, world: &mut World, parent: Option<Entity>) -> Option<Ent
 
 #[derive(Default)]
 pub(crate) struct EmlLoader {
-    pub(crate) registry: ElementBuilderRegistry,
+    pub(crate) registry: WidgetRegistry,
     pub(crate) transformer: PropertyTransformer,
     pub(crate) extractor: PropertyExtractor,
 }

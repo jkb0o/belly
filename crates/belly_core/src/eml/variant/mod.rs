@@ -1,7 +1,6 @@
 mod impls;
 use crate::{
-    eml::build::ElementsBuilder,
-    eml::Params,
+    eml::{Eml, Params},
     ess::{PropertyValue, StyleProperty, StylePropertyMethods},
 };
 use bevy::{ecs::system::EntityCommands, prelude::*};
@@ -31,7 +30,7 @@ pub enum Variant {
     /// ready to use with Property trait.
     Property(PropertyValue),
     Commands(ApplyCommands),
-    Elements(ElementsBuilder),
+    Elements(Eml),
     Params(Params),
     Boxed(Box<dyn Any>),
 }
@@ -97,7 +96,7 @@ impl Variant {
             Variant::Style(_) => TypeId::of::<T>() == TypeId::of::<StyleProperty>(),
             Variant::Property(_) => TypeId::of::<T>() == TypeId::of::<PropertyValue>(),
             Variant::Commands(_) => TypeId::of::<T>() == TypeId::of::<ApplyCommands>(),
-            Variant::Elements(_) => TypeId::of::<T>() == TypeId::of::<ElementsBuilder>(),
+            Variant::Elements(_) => TypeId::of::<T>() == TypeId::of::<Eml>(),
             Variant::Params(_) => TypeId::of::<T>() == TypeId::of::<Params>(),
             Variant::Boxed(v) => v.is::<T>(),
         }
@@ -112,7 +111,7 @@ impl Variant {
             Variant::Style(v) => try_cast::<T, StyleProperty>(v),
             Variant::Property(v) => try_cast::<T, PropertyValue>(v),
             Variant::Commands(v) => try_cast::<T, ApplyCommands>(v),
-            Variant::Elements(v) => try_cast::<T, ElementsBuilder>(v),
+            Variant::Elements(v) => try_cast::<T, Eml>(v),
             Variant::Params(v) => try_cast::<T, Params>(v),
             Variant::Boxed(v) => v.downcast_ref::<T>(),
         }
@@ -126,7 +125,7 @@ impl Variant {
             Variant::Style(v) => try_cast_mut::<T, StyleProperty>(v),
             Variant::Property(v) => try_cast_mut::<T, PropertyValue>(v),
             Variant::Commands(v) => try_cast_mut::<T, ApplyCommands>(v),
-            Variant::Elements(v) => try_cast_mut::<T, ElementsBuilder>(v),
+            Variant::Elements(v) => try_cast_mut::<T, Eml>(v),
             Variant::Params(v) => try_cast_mut::<T, Params>(v),
             Variant::Boxed(v) => v.downcast_mut::<T>(),
         }
@@ -141,7 +140,7 @@ impl Variant {
             Variant::Style(v) => try_take::<T, StyleProperty>(v),
             Variant::Property(v) => try_take::<T, PropertyValue>(v),
             Variant::Commands(v) => try_take::<T, ApplyCommands>(v),
-            Variant::Elements(v) => try_take::<T, ElementsBuilder>(v),
+            Variant::Elements(v) => try_take::<T, Eml>(v),
             Variant::Params(v) => try_take::<T, Params>(v),
             Variant::Boxed(v) => match v.downcast::<T>() {
                 Ok(v) => Some(*v),

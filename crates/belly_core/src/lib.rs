@@ -4,12 +4,12 @@ pub mod ess;
 pub mod input;
 pub mod relations;
 pub mod tags;
-use crate::eml::build::BuildPligin;
 use crate::eml::EmlPlugin;
 use crate::ess::EssPlugin;
 use crate::input::ElementsInputPlugin;
 use crate::relations::RelationsPlugin;
 use bevy::prelude::*;
+use eml::BuildPlugin;
 pub use tagstr;
 pub use tagstr::*;
 
@@ -26,6 +26,7 @@ pub mod prelude {
     // traits
     pub use crate::eml::content::ExpandElementsExt;
     pub use crate::eml::content::IntoContent;
+    pub use crate::eml::Widget;
     pub use crate::ess::ColorFromHexExtension;
     pub use crate::relations::transform::ColorTransformerExtension;
     pub use crate::relations::Signal;
@@ -39,6 +40,7 @@ pub mod prelude {
     pub use crate::relations::ConnectionEntityContext;
     pub use crate::relations::ConnectionGeneralContext;
 }
+
 pub mod build {
     pub use super::prelude::*;
 
@@ -48,10 +50,8 @@ pub mod build {
     pub use crate::tag;
 
     // traits
-    pub use crate::eml::build::FromWorldAndParam;
-    pub use crate::eml::build::RegisterWidgetExtension;
-    pub use crate::eml::build::Widget;
-    pub use crate::eml::build::WidgetBuilder;
+    pub use crate::eml::FromWorldAndParams;
+    pub use crate::eml::RegisterWidget;
     pub use crate::ess::RegisterProperty;
     pub use crate::ess::StylePropertyMethods;
     pub use crate::relations::bind::AsTransformer;
@@ -62,11 +62,9 @@ pub mod build {
     // structs
     pub use crate::element::ElementBundle;
     pub use crate::element::TextElementBundle;
-    pub use crate::eml::build::ElementBuilder;
-    pub use crate::eml::build::ElementContext;
-    pub use crate::eml::build::ElementContextData;
-    pub use crate::eml::build::ElementsBuilder;
     pub use crate::eml::Variant;
+    pub use crate::eml::WidgetContext;
+    pub use crate::eml::WidgetData;
     pub use crate::ess::PropertyValue;
     pub use crate::ess::StyleProperty;
     pub use crate::input::PointerInput;
@@ -81,7 +79,7 @@ impl Plugin for ElementsCorePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(ElementsInputPlugin)
             .add_plugin(RelationsPlugin)
-            .add_plugin(BuildPligin)
+            .add_plugin(BuildPlugin)
             .add_plugin(EssPlugin)
             .add_plugin(EmlPlugin);
     }

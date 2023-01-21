@@ -1,8 +1,9 @@
-use crate::common::*;
+use crate::common::prelude::*;
 use crate::tags;
 use belly_core::build::*;
 use belly_core::input;
 use belly_macro::*;
+
 use bevy::{
     prelude::*,
     utils::{HashMap, HashSet},
@@ -10,13 +11,24 @@ use bevy::{
 use std::fmt::Debug;
 use std::hash::Hash;
 
+pub mod prelude {
+    pub use super::Btn;
+    pub use super::BtnGroup;
+    pub use super::BtnMode;
+    pub use super::BtnModeGroup;
+    pub use super::BtnModeRepeat;
+    pub use super::ButtonWidgetExtension;
+    pub use super::ButtongroupWidgetExtension;
+}
+
 pub(crate) struct ButtonPlugin;
 impl Plugin for ButtonPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<BtnEvent>();
         app.add_event::<ValueChanged<String>>();
         app.init_resource::<BtnGroups>();
-        app.register_widget::<Btn>();
+        app.register_widget::<ButtonWidget>();
+        app.register_widget::<ButtongroupWidget>();
         app.add_system(process_btngroups_system);
         app.add_system(force_btngroups_reconfiguration_system);
         app.add_system_to_stage(
@@ -37,6 +49,88 @@ impl Plugin for ButtonPlugin {
                 .after(Label::HadnleStates)
                 .label(Label::ReportChanges),
         );
+    }
+}
+
+#[widget]
+#[signal(value_change: ValueChanged<String>)]
+#[param(value: String => BtnGroup:value)]
+fn buttongroup(ctx: &mut WidgetContext) {
+    let content = ctx.content();
+    ctx.render(eml! {
+        <div>{content}</div>
+    })
+}
+
+#[widget]
+#[signal(press:BtnEvent => |e| e.pressed())]
+#[signal(release:BtnEvent => |e| e.released())]
+#[param(pressed:bool => Btn:pressed)]
+#[param(mode:BtnMode => Btn:mode)]
+#[param(value:String => Btn:value)]
+#[styles = BUTTON_STYLES]
+/// The `<button>` tag defines a clickable button.
+/// Inside a `<button>` element you can put text (and tags
+/// like `<i>`, `<b>`, `<strong>`, `<br>`, `<img>`, etc.)
+fn button(ctx: &mut WidgetContext) {
+    let content = ctx.content();
+    ctx.render(eml! {
+        <span c:button interactable>
+            <span c:button-shadow s:position-type="absolute"/>
+            <span c:button-background>
+                <span c:button-foreground>
+                    {content}
+                </span>
+            </span>
+        </span>
+    });
+}
+
+ess_define! {
+    BUTTON_STYLES,
+    button {
+        align-content: center;
+        min-width: 40px;
+        min-height: 40px;
+        margin: 5px;
+    }
+    button:hover .button-foreground {
+        background-color: white;
+    }
+    button:active .button-background {
+        margin: 1px -1px -1px 1px;
+    }
+    button:pressed .button-background {
+        margin: 1px -1px -1px 1px;
+    }
+    button:pressed .button-foreground {
+        background-color: #bfbfbf;
+    }
+    .button-shadow {
+        background-color: #4f4f4fb8;
+        top: 1px;
+        left: 1px;
+        bottom: -1px;
+        right: -1px;
+    }
+    .button-background {
+        width: 100%;
+        margin: -1px 1px 1px -1px;
+        padding: 1px;
+        background-color: #2f2f2f;
+    }
+    .button-foreground {
+        width: 100%;
+        height: 100%;
+        background-color: #dfdfdf;
+        color: #2f2f2f;
+        justify-content: center;
+        align-content: center;
+        align-items: center;
+        padding: 5px;
+    }
+    .button-foreground * {
+        color: #2f2f2f;
     }
 }
 
@@ -253,105 +347,18 @@ impl TryFrom<&str> for BtnModeRepeat {
     }
 }
 
-#[derive(Component, Widget)]
-#[signal(press, BtnEvent, pressed)]
-#[signal(release, BtnEvent, released)]
-#[alias(button)]
-/// The `<button>` tag defines a clickable button.
-/// Inside a `<button>` element you can put text (and tags
-/// like `<i>`, `<b>`, `<strong>`, `<br>`, `<img>`, etc.)
+#[derive(Component, Default)]
 pub struct Btn {
-    #[param]
     pub pressed: bool,
-    #[param]
     pub mode: BtnMode,
-    #[param]
     pub value: String,
 }
 
-impl WidgetBuilder for Btn {
-    fn setup(&mut self, ctx: &mut ElementContext) {
-        let content = ctx.content();
-        ctx.render(eml! {
-            <span c:button interactable>
-                <span c:button-shadow s:position-type="absolute"/>
-                <span c:button-background>
-                    <span c:button-foreground>
-                        {content}
-                    </span>
-                </span>
-            </span>
-        })
-    }
-
-    fn styles() -> &'static str {
-        r##"
-            button {
-                align-content: center;
-                min-width: 40px;
-                min-height: 40px;
-                margin: 5px;
-            }
-            button:hover .button-foreground {
-                background-color: white;
-            }
-            button:active .button-background {
-                margin: 1px -1px -1px 1px;
-            }
-            button:pressed .button-background {
-                margin: 1px -1px -1px 1px;
-            }
-            button:pressed .button-foreground {
-                background-color: #bfbfbf;
-            }
-            .button-shadow {
-                background-color: #4f4f4fb8;
-                top: 1px;
-                left: 1px;
-                bottom: -1px;
-                right: -1px;
-            }
-            .button-background {
-                width: 100%;
-                margin: -1px 1px 1px -1px;
-                padding: 1px;
-                background-color: #2f2f2f;
-            }
-            .button-foreground {
-                width: 100%;
-                height: 100%;
-                background-color: #dfdfdf;
-                color: #2f2f2f;
-                justify-content: center;
-                align-content: center;
-                align-items: center;
-                padding: 5px;
-            }
-            .button-foreground * {
-                color: #2f2f2f;
-            }
-        "##
-    }
-}
-
-type BtnGroupValueChanged = ValueChanged<String>;
-#[derive(Component, Widget)]
-#[alias(buttongroup)]
-#[signal(value_change, BtnGroupValueChanged, any)]
+#[derive(Component, Default)]
 pub struct BtnGroup {
-    #[param]
     pub value: String,
 
     configurated: bool,
-}
-
-impl WidgetBuilder for BtnGroup {
-    fn setup(&mut self, ctx: &mut ElementContext) {
-        let content = ctx.content();
-        ctx.render(eml! {
-            <div>{content}</div>
-        })
-    }
 }
 
 struct BtnGroupState {
@@ -426,11 +433,11 @@ impl RepeatState {
         self.button.is_some()
     }
 
-    fn start(&mut self, button: Entity, repeat: BtnModeRepeat) {
+    fn start(&mut self, btn: Entity, repeat: BtnModeRepeat) {
         self.paused = false;
         self.step = 1;
         self.seconds_to_hit = if repeat.is_empty() { 1.0 } else { repeat[0] };
-        self.button = Some((button, repeat));
+        self.button = Some((btn, repeat));
     }
 }
 
@@ -465,23 +472,23 @@ fn handle_input_system(
             }
             if event.up() {
                 for instant in instant_pressed.iter() {
-                    if let Ok(mut button) = buttons.get_mut(*instant) {
-                        if button.pressed {
-                            button.pressed = false;
+                    if let Ok(mut btn) = buttons.get_mut(*instant) {
+                        if btn.pressed {
+                            btn.pressed = false;
                         }
                     }
                 }
                 instant_pressed.clear()
             }
 
-            let Ok(mut button) = buttons.get_mut(*entity) else {
+            let Ok(mut btn) = buttons.get_mut(*entity) else {
                 continue;
             };
 
-            match (&button.mode, &event.data) {
+            match (&btn.mode, &event.data) {
                 (BtnMode::Instant, PointerInputData::Down { presses: _ }) => {
-                    if !button.pressed {
-                        button.pressed = true;
+                    if !btn.pressed {
+                        btn.pressed = true;
                     }
                     instant_pressed.insert(*entity);
                     button_events.send(BtnEvent::Pressed([*entity]));
@@ -497,17 +504,17 @@ fn handle_input_system(
                     button_events.send(BtnEvent::Pressed([*entity]));
                 }
                 (BtnMode::Toggle, PointerInputData::Pressed { presses: _ }) => {
-                    if button.pressed {
-                        button.pressed = false;
+                    if btn.pressed {
+                        btn.pressed = false;
                         button_events.send(BtnEvent::Released([*entity]));
                     } else {
-                        button.pressed = true;
+                        btn.pressed = true;
                         button_events.send(BtnEvent::Pressed([*entity]));
                     }
                 }
                 (BtnMode::Group(group), PointerInputData::Pressed { presses: _ }) => {
-                    if !button.pressed {
-                        state_changes.insert(group.clone(), (*entity, button.value.clone()));
+                    if !btn.pressed {
+                        state_changes.insert(group.clone(), (*entity, btn.value.clone()));
                         button_events.send(BtnEvent::Pressed([*entity]));
                     } else {
                     }
@@ -532,10 +539,10 @@ fn handle_input_system(
         state.selected = pressed_entity;
         state.value = pressed_value;
         for entity in state.buttons.iter() {
-            if let Ok(mut button) = buttons.get_mut(*entity) {
+            if let Ok(mut btn) = buttons.get_mut(*entity) {
                 let pressed = *entity == pressed_entity;
-                if button.pressed != pressed {
-                    button.pressed = pressed;
+                if btn.pressed != pressed {
+                    btn.pressed = pressed;
                 }
             }
         }

@@ -1,4 +1,4 @@
-use belly::build::*;
+use belly::prelude::*;
 use bevy::prelude::*;
 
 fn main() {

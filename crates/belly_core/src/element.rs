@@ -5,7 +5,7 @@ use smallvec::SmallVec;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
-use crate::eml::build::ElementsBuilder;
+use crate::eml::Eml;
 use crate::ess::{ElementsBranch, PropertyValue, Selector};
 use crate::tags;
 use crate::tags::*;
@@ -89,6 +89,8 @@ pub struct Element {
     pub display: DisplayElement,
     pub content: Option<Entity>,
     pub styles: HashMap<Tag, PropertyValue>,
+    // content_entity: Entity
+    // content_func: ContentFunc
 }
 
 impl Element {
@@ -296,13 +298,13 @@ impl<'w, 's> Elements<'w, 's> {
         }
     }
 
-    pub fn add_child(&mut self, entity: Entity, eml: ElementsBuilder) {
+    pub fn add_child(&mut self, entity: Entity, eml: Eml) {
         let ch = self.commands.spawn_empty().id();
         self.commands.entity(entity).add_child(ch);
         self.commands.add(eml.with_entity(ch));
     }
 
-    pub fn replace(&mut self, entity: Entity, eml: ElementsBuilder) {
+    pub fn replace(&mut self, entity: Entity, eml: Eml) {
         self.commands.entity(entity).despawn_descendants();
         self.commands.add(eml.with_entity(entity));
     }

@@ -1,7 +1,7 @@
 use super::parse;
-use crate::build::StyleProperty;
 use crate::ess::defaults::Defaults;
 use crate::ess::PropertyParser;
+use crate::ess::StyleProperty;
 use crate::ess::StylePropertyToken;
 use crate::style_property;
 use crate::ElementsError;

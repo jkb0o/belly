@@ -1,15 +1,23 @@
 use belly_core::build::*;
 use belly_macro::*;
+
 use bevy::{
     prelude::*,
     utils::{HashMap, HashSet},
 };
 use std::str::FromStr;
 
+pub mod prelude {
+    pub use super::Img;
+    pub use super::ImgEvent;
+    pub use super::ImgMode;
+    pub use super::ImgWidgetExtension;
+}
+
 pub(crate) struct ImgPlugin;
 impl Plugin for ImgPlugin {
     fn build(&self, app: &mut App) {
-        app.register_widget::<Img>();
+        app.register_widget::<ImgWidget>();
 
         app.init_resource::<ImageRegistry>();
         app.add_system(load_img);
@@ -96,7 +104,36 @@ impl From<ImgMode> for Variant {
     }
 }
 
-#[derive(Component, Widget)]
+#[derive(Component)]
+pub struct Img {
+    pub src: String,
+    pub mode: ImgMode,
+    pub modulate: Color,
+    handle: Handle<Image>,
+    entity: Entity,
+    size: Vec2,
+}
+
+impl FromWorldAndParams for Img {
+    fn from_world_and_params(world: &mut World, params: &mut belly_core::eml::Params) -> Self {
+        Img {
+            src: params.try_get("src").unwrap_or_default(),
+            mode: params.try_get("mode").unwrap_or_default(),
+            modulate: params.try_get("modulate").unwrap_or_default(),
+            handle: Default::default(),
+            entity: world.spawn_empty().id(),
+            size: Default::default(),
+        }
+    }
+}
+
+#[widget]
+// #[bindto(entity, BackgroundColor:0)]
+#[signal(load:ImgEvent => |e| e.loaded())]
+#[signal(unload:ImgEvent => |e| e.unloaded())]
+#[param(src:String => Img:src)]
+#[param(mode:ImgMode => Img:mode)]
+#[param(modulate:Color => Img:modulate)]
 /// The `<img>` tag is used to load image and show it content on the UI screen.
 /// The `<img>` tag has two properties:
 /// - `src`: Specifies the path to the image
@@ -105,37 +142,20 @@ impl From<ImgMode> for Variant {
 ///   - `cover`: resize the image to cover the box keeping it aspect ratio
 ///   - `stretch`: resize image to take all the space ignoring the aspect ratio
 ///   - `source`: do not resize the imagezzz
-#[alias(img)]
-#[signal(load, ImgEvent, loaded)]
-#[signal(unload, ImgEvent, unloaded)]
-pub struct Img {
-    #[param]
-    pub src: String,
-    #[param]
-    pub mode: ImgMode,
-    #[param]
-    //#[bind(to entity@BacktroundColor:0)]
-    #[bindto(entity, BackgroundColor:0)]
-    pub modulate: Color,
-    handle: Handle<Image>,
-    entity: Entity,
-    size: Vec2,
-}
-
-impl WidgetBuilder for Img {
-    fn setup(&mut self, ctx: &mut ElementContext) {
-        let content = ctx.content();
-        ctx.commands().entity(self.entity).insert(ImageBundle {
-            style: Style {
-                display: Display::None,
-                ..default()
-            },
+fn img(ctx: &mut WidgetContext, img: &mut Img) {
+    let this = ctx.entity();
+    let content = ctx.content();
+    ctx.add(from!(this, Img: modulate) >> to!(img.entity, BackgroundColor:0));
+    ctx.commands().entity(img.entity).insert(ImageBundle {
+        style: Style {
+            display: Display::None,
             ..default()
-        });
-        ctx.insert(ElementBundle::default())
-            .push_children(&[self.entity]);
-        ctx.commands().entity(self.entity).push_children(&content);
-    }
+        },
+        ..default()
+    });
+    ctx.insert(ElementBundle::default())
+        .push_children(&[img.entity]);
+    ctx.commands().entity(img.entity).push_children(&content);
 }
 
 fn load_img(

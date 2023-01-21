@@ -1,4 +1,4 @@
-use crate::eml::build::ElementBuilderRegistry;
+use crate::eml::WidgetRegistry;
 use crate::ess::PropertyExtractor;
 use crate::ess::PropertyTransformer;
 use crate::ess::StyleSheet;
@@ -18,7 +18,7 @@ pub fn setup_defaults(
     mut commands: Commands,
     mut fonts: ResMut<Assets<Font>>,
     mut defaults: ResMut<Defaults>,
-    elements_registry: Res<ElementBuilderRegistry>,
+    widgets: Res<WidgetRegistry>,
     extractor: Res<PropertyExtractor>,
     validator: Res<PropertyTransformer>,
 ) {
@@ -51,8 +51,8 @@ pub fn setup_defaults(
             }
         "#,
     );
-    for rule in elements_registry.styles(parser) {
-        rules.push(rule)
+    for rule in widgets.default_styles(&parser) {
+        rules.push(rule);
     }
     commands.add(StyleSheet::add_default(rules));
 }
