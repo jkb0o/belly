@@ -56,6 +56,7 @@ pub mod build {
     pub use crate::ess::StylePropertyMethods;
     pub use crate::relations::bind::AsTransformer;
     pub use crate::relations::bind::TransformationResult;
+    pub use crate::relations::connect::ConnectionBuilder;
     pub use crate::relations::transform::TransformableTo;
 
     // structs
