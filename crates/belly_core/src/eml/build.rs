@@ -1,6 +1,6 @@
 use crate::{
-    element::Element, eml::Params, eml::StyleParams, eml::Variant, ess::PropertyExtractor,
-    ess::PropertyTransformer, ess::StyleRule, ess::StyleSheetParser, relations::ConnectionTo,
+    build::ConnectionBuilder, element::Element, eml::Params, eml::StyleParams, eml::Variant,
+    ess::PropertyExtractor, ess::PropertyTransformer, ess::StyleRule, ess::StyleSheetParser,
     relations::Signal, tags,
 };
 use bevy::{
@@ -390,18 +390,22 @@ impl DefaultDescriptor {
         &&DefaultDescriptor
     }
 
-    pub fn ready<C: Component>(
+    pub fn ready<C: Component, F: Fn(&mut ConnectionBuilder<C, ReadyEvent>)>(
         &self,
         world: &mut World,
         source: Entity,
-        target: ConnectionTo<C, ReadyEvent>,
+        build: F,
     ) {
-        target.all().from(source).write(world)
+        let mut builder = ConnectionBuilder::<C, ReadyEvent>::default();
+        build(&mut builder);
+        if let Some(target) = builder.build() {
+            target.all().from(source).write(world)
+        }
     }
 }
 
 #[derive(PartialEq, Eq, Hash)]
-pub struct RequestReadyEvent(Entity);
+pub struct RequestReadyEvent(pub(crate) Entity);
 pub struct ReadyEvent([Entity; 1]);
 
 impl Signal for ReadyEvent {

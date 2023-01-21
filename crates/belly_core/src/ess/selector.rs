@@ -246,6 +246,10 @@ impl Selector {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.elements.is_empty()
+    }
+
     pub fn tail(&self) -> SelectorEntry {
         SelectorEntry {
             offset: 0,

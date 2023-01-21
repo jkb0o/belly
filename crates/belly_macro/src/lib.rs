@@ -921,10 +921,10 @@ fn parse_signals(attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStream> {
             let span = attr.span();
             // let signal_decl = attr.tokens.clone();
             let Ok(meta) = attr.parse_meta() else {
-                return Err(syn::Error::new(span,  "Invalid syntax fo #[signal(name, Event, filter)] attribute."));
+                return Err(syn::Error::new(span,  "Invalid syntax fo #[signal(name, Event, filter)] attribute"));
             };
             let syn::Meta::List(signal_cfg) = meta else {
-                return Err(syn::Error::new(span, "Invalid syntax fo #[signal(name, Event, filter)] attribute."));    
+                return Err(syn::Error::new(span, "Invalid syntax fo #[signal(name, Event, filter)] attribute"));    
             };
             let signal_cfg: Vec<_> = signal_cfg.nested.iter().collect();
             if signal_cfg.len() != 3 {
@@ -956,16 +956,26 @@ fn parse_signals(attrs: &Vec<syn::Attribute>) -> syn::Result<TokenStream> {
             let event = event.path();
             connect_body = quote! {
                 #connect_body
-                pub fn #name<C: ::bevy::prelude::Component>(
+                pub fn #name<
+                    C: ::bevy::prelude::Component,
+                    F: Fn(&mut #core::build::ConnectionBuilder<C, #event>)
+                >(
                     &self,
                     world: &mut ::bevy::prelude::World,
                     source: ::bevy::prelude::Entity,
-                    target: #core::build::ConnectionTo<C, #event>
+                    build: F,
+                    // target: #core::build::ConnectionTo<C, #event>
                 ) {
-                    target
-                        .filter(|e| e.#filter())
-                        .from(source)
-                        .write(world)
+                    let mut builder = #core::build::ConnectionBuilder::<C, #event>::default();
+                    build(&mut builder);
+                    if let Some(target) = builder.build() {
+                        target
+                            .filter(|e| e.#filter())
+                            .from(source)
+                            .write(world)
+                    } else {
+                        ::bevy::prelude::error!("Unable to create connection");
+                    }
                 }
             }
         }

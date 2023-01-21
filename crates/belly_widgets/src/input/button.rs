@@ -14,6 +14,7 @@ pub(crate) struct ButtonPlugin;
 impl Plugin for ButtonPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<BtnEvent>();
+        app.add_event::<ValueChanged<String>>();
         app.init_resource::<BtnGroups>();
         app.register_widget::<Btn>();
         app.add_system(process_btngroups_system);
@@ -30,6 +31,12 @@ impl Plugin for ButtonPlugin {
                 .after(Label::HandleInput)
                 .label(Label::HadnleStates),
         );
+        app.add_system_to_stage(
+            CoreStage::PreUpdate,
+            report_btngroup_changes
+                .after(Label::HadnleStates)
+                .label(Label::ReportChanges),
+        );
     }
 }
 
@@ -37,11 +44,43 @@ impl Plugin for ButtonPlugin {
 enum Label {
     HandleInput,
     HadnleStates,
+    ReportChanges,
 }
 
 pub enum BtnEvent {
     Pressed([Entity; 1]),
     Released([Entity; 1]),
+}
+
+pub struct ValueChanged<T> {
+    entity: [Entity; 1],
+    old_value: T,
+    new_value: T,
+}
+
+impl<T> ValueChanged<T> {
+    pub fn new(entity: Entity, old_value: T, new_value: T) -> ValueChanged<T> {
+        ValueChanged {
+            entity: [entity],
+            old_value,
+            new_value,
+        }
+    }
+    pub fn old_value(&self) -> &T {
+        &self.old_value
+    }
+    pub fn new_value(&self) -> &T {
+        &self.new_value
+    }
+    pub fn any(&self) -> bool {
+        true
+    }
+}
+
+impl<T: Send + Sync + 'static> Signal for ValueChanged<T> {
+    fn sources(&self) -> &[Entity] {
+        &self.entity
+    }
 }
 
 impl BtnEvent {
@@ -295,8 +334,10 @@ impl WidgetBuilder for Btn {
     }
 }
 
+type BtnGroupValueChanged = ValueChanged<String>;
 #[derive(Component, Widget)]
 #[alias(buttongroup)]
+#[signal(value_change, BtnGroupValueChanged, any)]
 pub struct BtnGroup {
     #[param]
     pub value: String,
@@ -315,15 +356,19 @@ impl WidgetBuilder for BtnGroup {
 
 struct BtnGroupState {
     selected: Entity,
+    value: String,
+    reported_value: String,
     buttons: HashSet<Entity>,
 }
 
 impl BtnGroupState {
-    fn single(entity: Entity) -> BtnGroupState {
+    fn single(selected: Entity) -> BtnGroupState {
         let mut buttons = HashSet::default();
-        buttons.insert(entity);
+        buttons.insert(selected);
         BtnGroupState {
-            selected: entity,
+            selected,
+            value: "".into(),
+            reported_value: "".into(),
             buttons,
         }
     }
@@ -395,7 +440,7 @@ fn handle_input_system(
     mut buttons: Query<&mut Btn>,
     mut groups: ResMut<BtnGroups>,
     mut btn_groups: Query<&mut BtnGroup>,
-    mut state_changes: Local<HashMap<BtnModeGroup, Entity>>,
+    mut state_changes: Local<HashMap<BtnModeGroup, (Entity, String)>>,
     mut repeat_state: Local<RepeatState>,
     mut instant_pressed: Local<HashSet<Entity>>,
     time: Res<Time>,
@@ -462,7 +507,7 @@ fn handle_input_system(
                 }
                 (BtnMode::Group(group), PointerInputData::Pressed { presses: _ }) => {
                     if !button.pressed {
-                        state_changes.insert(group.clone(), *entity);
+                        state_changes.insert(group.clone(), (*entity, button.value.clone()));
                         button_events.send(BtnEvent::Pressed([*entity]));
                     } else {
                     }
@@ -471,7 +516,7 @@ fn handle_input_system(
             }
         }
     }
-    for (group, pressed_entity) in state_changes.drain() {
+    for (group, (pressed_entity, pressed_value)) in state_changes.drain() {
         if let BtnModeGroup::Entity(btn_group_id) = &group {
             if let Ok(mut btn_group) = btn_groups.get_mut(*btn_group_id) {
                 if let Ok(btn) = buttons.get(pressed_entity) {
@@ -485,6 +530,7 @@ fn handle_input_system(
             .entry(group)
             .or_insert_with(|| BtnGroupState::single(pressed_entity));
         state.selected = pressed_entity;
+        state.value = pressed_value;
         for entity in state.buttons.iter() {
             if let Ok(mut button) = buttons.get_mut(*entity) {
                 let pressed = *entity == pressed_entity;
@@ -579,20 +625,45 @@ fn process_btngroups_system(
             }
             found_state = Some(state)
         }
-        if let Some(value) = pressed_value {
-            if group.value != value {
-                group.value = value;
+        if let Some(value) = &pressed_value {
+            if &group.value != value {
+                group.value = value.clone();
             }
         }
         if let Some(state) = found_state {
             if let Some(btnid) = default_pressed {
                 state.selected = btnid;
+                if let Some(value) = pressed_value {
+                    if state.value != value {
+                        state.value = value;
+                    }
+                }
                 if let Ok(mut btn) = buttons.get_mut(btnid) {
                     if !btn.pressed {
                         btn.pressed = true;
                     }
                 }
             }
+        }
+    }
+}
+
+fn report_btngroup_changes(
+    groups: Query<Entity, Changed<BtnGroup>>,
+    mut states: ResMut<BtnGroups>,
+    mut events: EventWriter<ValueChanged<String>>,
+) {
+    for entity in groups.iter() {
+        let Some(state) = states.get_mut(&BtnModeGroup::Entity(entity)) else {
+            continue
+        };
+        if state.value != state.reported_value {
+            events.send(ValueChanged::new(
+                entity,
+                state.reported_value.clone(),
+                state.value.clone(),
+            ));
+            state.reported_value = state.value.clone();
         }
     }
 }

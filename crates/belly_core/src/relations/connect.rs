@@ -24,7 +24,7 @@ impl Signal for PointerInput {
     }
 }
 
-pub struct ConnectionGeneralContext<'a, 'w, 's, S: Signal> {
+pub struct ConnectionGeneralContext<'a, 'w, 's, S: Signal + 'static> {
     pub(crate) source_event: &'a S,
     pub(crate) source: Entity,
     pub(crate) time_resource: &'a Time,
@@ -32,8 +32,16 @@ pub struct ConnectionGeneralContext<'a, 'w, 's, S: Signal> {
     pub(crate) elements: &'a mut Elements<'w, 's>,
 }
 
+// pub struct EventRef<'a, S>(&'a S);
+// impl<'a, S> std::ops::Deref for EventRef<'a, S> {
+//     type Target = S;
+//     fn deref(&self) -> &'a S
+//         self.0
+//     }
+// }
+
 impl<'a, 'w, 's, S: Signal> ConnectionGeneralContext<'a, 'w, 's, S> {
-    pub fn event(&self) -> &S {
+    pub fn event(&self) -> &'a S {
         self.source_event
     }
     pub fn source<'x>(&'x mut self) -> EntityCommands<'w, 's, 'x> {
@@ -181,6 +189,41 @@ impl<S: Signal> ConnectionTo<WithoutComponent, S> {
     }
 }
 
+pub struct ConnectionBuilder<C: Component, S: Signal> {
+    connection: Option<ConnectionTo<C, S>>,
+}
+
+impl<C: Component, S: Signal> Default for ConnectionBuilder<C, S> {
+    fn default() -> Self {
+        ConnectionBuilder { connection: None }
+    }
+}
+
+impl<C: Component, S: Signal> ConnectionBuilder<C, S> {
+    pub fn build(self) -> Option<ConnectionTo<C, S>> {
+        self.connection
+    }
+    pub fn component<F: Fn(&mut ConnectionEntityContext<S>, &mut Mut<C>) + 'static>(
+        &mut self,
+        entity: Entity,
+        handler: F,
+    ) {
+        self.connection = Some(ConnectionTo::component(entity, handler));
+    }
+}
+impl<S: Signal> ConnectionBuilder<WithoutComponent, S> {
+    pub fn general<F: Fn(&mut ConnectionGeneralContext<S>) + 'static>(&mut self, handler: F) {
+        self.connection = Some(ConnectionTo::general(handler));
+    }
+    pub fn entity<F: Fn(&mut ConnectionEntityContext<S>) + 'static>(
+        &mut self,
+        entity: Entity,
+        handler: F,
+    ) {
+        self.connection = Some(ConnectionTo::entity(entity, handler));
+    }
+}
+
 pub struct Connection<C: Component, S: Signal> {
     pub target: ConnectionTo<C, S>,
     filter: fn(&S) -> bool,
@@ -279,47 +322,58 @@ impl<C: Component, S: Signal> Connections<C, S> {
 #[macro_export]
 macro_rules! connect {
     ($entity:expr, |$ctx:ident, $arg:ident: $typ:ty| $cb:expr) => {
-        $crate::relations::ConnectionTo::component(
-            $entity,
-            move |$ctx, $arg: &mut ::bevy::prelude::Mut<$typ>| {
-                $cb;
-            },
-        )
+        |builder| {
+            builder.component(
+                $entity,
+                move |$ctx, $arg: &mut ::bevy::prelude::Mut<$typ>| {
+                    $cb;
+                },
+            )
+        }
     };
     ($entity:expr, |$ctx:ident, $arg:ident: $typ:ty| $cb:block) => {
-        $crate::relations::ConnectionTo::component(
-            $entity,
-            move |$ctx, $arg: &mut ::bevy::prelude::Mut<$typ>| {
-                $cb;
-            },
-        )
+        |builder| {
+            builder.component(
+                $entity,
+                move |$ctx, $arg: &mut ::bevy::prelude::Mut<$typ>| {
+                    $cb;
+                },
+            )
+        }
     };
     ($entity:expr, |$arg:ident: $typ:ty| $cb:expr) => {
-        $crate::relations::ConnectionTo::component(
-            $entity,
-            move |_, $arg: &mut ::bevy::prelude::Mut<$typ>| {
+        |builder| {
+            builder.component($entity, move |_, $arg: &mut ::bevy::prelude::Mut<$typ>| {
                 $cb;
-            },
-        )
+            })
+        }
     };
     ($entity:expr, |$arg:ident: $typ:ty| $cb:block) => {
-        $crate::relations::ConnectionTo::component($entity, move |_, $arg| {
-            $cb;
-        })
+        |builder| {
+            builder.component($entity, move |_, $arg| {
+                $cb;
+            })
+        }
     };
     ($entity:expr, |$ctx:ident| $cb:expr) => {
-        $crate::relations::ConnectionTo::entity($entity, move |$ctx| {
-            $cb;
-        })
+        |builder| {
+            builder.entity($entity, move |$ctx| {
+                $cb;
+            })
+        }
     };
     (|$ctx:ident| $cb:expr) => {
-        $crate::relations::ConnectionTo::general(move |$ctx| {
-            $cb;
-        })
+        |builder| {
+            builder.general(move |$ctx| {
+                $cb;
+            })
+        }
     };
     ($func:expr) => {
-        $crate::relations::ConnectionTo::general(move |ctx| {
-            $func(ctx);
-        })
+        |builder| {
+            builder.general(move |ctx| {
+                $func(ctx);
+            })
+        }
     };
 }

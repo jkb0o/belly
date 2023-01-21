@@ -203,6 +203,12 @@ impl<'w, 's> Elements<'w, 's> {
     pub fn select<'e>(&'e mut self, query: &str) -> SelectedElements<'w, 's, 'e> {
         let selector: Selector = query.into();
         let mut result = vec![];
+        if selector.is_empty() {
+            return SelectedElements {
+                elements: self,
+                entities: result,
+            };
+        }
         for root in self.roots.iter() {
             let mut branch = vec![];
             // branch.append(&*entuty);

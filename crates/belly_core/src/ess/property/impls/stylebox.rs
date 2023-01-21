@@ -21,7 +21,7 @@ compound_style_property! {
     #[doc = " - `stylebox-modulate` specifies what color the image should be multiplied by"]
     #[doc = " "]
     #[doc = " The format of property is:"]
-    #[doc = " ```"]
+    #[doc = " ```css"]
     #[doc = " source, slice, width, region, modulate"]
     #[doc = " ```"]
     #[doc = " Every tail element is optional (you can omit `modulate` for example. If you do,"]
