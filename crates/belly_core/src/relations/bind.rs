@@ -1,14 +1,14 @@
-use super::RelationsSystems;
+use crate::build::GetProperties;
+
+use super::{
+    props::{Prop, PropertyDescriptor},
+    RelationsSystems,
+};
 use bevy::{ecs::system::Command, prelude::*, utils::HashMap};
 use itertools::Itertools;
 use smallvec::SmallVec;
 use std::{
-    any::type_name,
-    convert::Infallible,
-    fmt::Debug,
-    marker::PhantomData,
-    num::ParseFloatError,
-    ops::{Deref, DerefMut},
+    any::type_name, convert::Infallible, fmt::Debug, marker::PhantomData, num::ParseFloatError,
 };
 use tagstr::Tag;
 
@@ -34,9 +34,9 @@ fn write_component_changes<W: Component, S: BindableSource, T: BindableTarget>(
         for (id, source) in sources {
             for write_descriptor in writers.iter().filter(|w| &w.id == id) {
                 let mut prop_descriptor = write_descriptor.prop_descripror(&mut component);
-                if let Err(e) = write_descriptor.transform(source, prop_descriptor.prop()) {
+                if let Err(e) = write_descriptor.transform(source, prop_descriptor.as_prop()) {
                     error!("Error transforming {:?}: {}", id, e.0);
-                } else if prop_descriptor.changed {
+                } else if prop_descriptor.changed() {
                     // TODO: protect infinity circular loops by tracking property changes
                     // info!("[bind] just writed {:?}", id);
                     component_change.set_changed();
@@ -103,78 +103,6 @@ pub(crate) fn watch_changes<W: Component>(
 
 #[derive(Deref, DerefMut)]
 pub struct ActiveChanges<S: BindableSource>(HashMap<Entity, SmallVec<[(BindId, S); 16]>>);
-
-pub struct PropertyDescriptor<'a, 'c, C: Component, T> {
-    changed: bool,
-    component: &'a mut Mut<'c, C>,
-    ref_getter: for<'b> fn(&'b Mut<C>) -> &'b T,
-    mut_getter: for<'b> fn(&'b mut Mut<C>) -> &'b mut T,
-}
-
-impl<'a, 'c, C: Component, T> PropertyDescriptor<'a, 'c, C, T> {
-    fn prop(&mut self) -> Prop<T> {
-        Prop(self)
-    }
-}
-
-impl<'a, 'c, C: Component, T> AsRef<T> for PropertyDescriptor<'a, 'c, C, T> {
-    fn as_ref(&self) -> &T {
-        (self.ref_getter)(&self.component)
-    }
-}
-
-impl<'a, 'c, C: Component, T> AsMut<T> for PropertyDescriptor<'a, 'c, C, T> {
-    fn as_mut(&mut self) -> &mut T {
-        self.changed = true;
-        (self.mut_getter)(&mut self.component)
-    }
-}
-
-pub trait PropertyProtocol<T> {
-    fn as_ref(&self) -> &T;
-    fn as_mut(&mut self) -> &mut T;
-}
-impl<'a, 'c, C: Component, T> PropertyProtocol<T> for PropertyDescriptor<'a, 'c, C, T> {
-    fn as_ref(&self) -> &T {
-        (self.ref_getter)(&self.component)
-    }
-
-    fn as_mut(&mut self) -> &mut T {
-        self.changed = true;
-        (self.mut_getter)(&mut self.component)
-    }
-}
-impl<T> PropertyProtocol<T> for &mut T {
-    fn as_mut(&mut self) -> &mut T {
-        self
-    }
-    fn as_ref(&self) -> &T {
-        self
-    }
-}
-
-// impl<T, X: AsRef<T> + AsMut<T>> PropertyProtocol<T> for X {}
-
-pub struct Prop<'a, T>(&'a mut dyn PropertyProtocol<T>);
-
-impl<'a, T> Prop<'a, T> {
-    pub fn new<P: PropertyProtocol<T>>(value: &'a mut P) -> Prop<'a, T> {
-        Prop(value)
-    }
-}
-
-impl<'a, T> Deref for Prop<'a, T> {
-    type Target = T;
-    fn deref(&self) -> &Self::Target {
-        self.0.as_ref()
-    }
-}
-
-impl<'a, T> DerefMut for Prop<'a, T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.0.as_mut()
-    }
-}
 
 impl<S: BindableSource> ActiveChanges<S> {
     fn add_change(&mut self, id: BindId, value: S) {
@@ -264,12 +192,7 @@ impl<W: Component, S: BindableSource, T: BindableTarget> WriteDescriptor<W, S, T
         &self,
         component: &'a mut Mut<'c, W>,
     ) -> PropertyDescriptor<'a, 'c, W, T> {
-        PropertyDescriptor {
-            component,
-            changed: false,
-            ref_getter: self.ref_getter,
-            mut_getter: self.mut_getter,
-        }
+        PropertyDescriptor::new(component, self.ref_getter, self.mut_getter)
     }
 
     fn transform(&self, source: &S, prop: Prop<T>) -> TransformationResult {
@@ -429,24 +352,24 @@ pub trait AsTransformer {
     fn as_transformer() -> Self::Transformer;
 }
 
-pub struct ToComponentTransformable<W: Component, T: BindableTarget + AsTransformer> {
+pub struct ToComponentTransformable<W: Component, T: BindableTarget + GetProperties> {
     pub id: Tag,
     pub target: Entity,
     pub reader: RefReader<W, T>,
     pub writer: MutReader<W, T>,
 }
 
-impl<W: Component, T: BindableTarget + AsTransformer> ToComponentTransformable<W, T> {
+impl<W: Component, T: BindableTarget + GetProperties> ToComponentTransformable<W, T> {
     pub fn transformed<S: BindableSource>(
         self,
-        make_transformer: fn(T::Transformer) -> Transformer<S, T>,
+        make_transformer: fn(&'static T::Item) -> Transformer<S, T>,
     ) -> ToComponent<W, S, T> {
         ToComponent {
             id: self.id,
             target: self.target,
             reader: self.reader,
             writer: self.writer,
-            transformer: make_transformer(T::as_transformer()),
+            transformer: make_transformer(T::get_properties()),
         }
     }
 }
@@ -653,7 +576,7 @@ macro_rules! bind {
             }
         }
     };
-    // from!(Resource:some.property | some:transformer)
+    // from!(Resource:some.property | Struct.property)
     (@bind from resource $cls:ty, { $($prop:tt)+ }, $transformer:expr) => {
         $crate::relations::bind::FromResourceWithTransformer {
             transformer: $transformer,
@@ -679,7 +602,7 @@ macro_rules! bind {
             target: $entity,
             reader: |c: &::bevy::prelude::Mut<$cls>| &c.$($prop)+,
             writer: |c: &mut ::bevy::prelude::Mut<$cls>| &mut c.$($prop)+,
-        }.transformed(|tr| tr.$transformer())
+        }.transformed(|tr| tr.$transformer().as_transformer())
     };
     // to!(entity, Component | transform)
     (@bind to component $entity:expr, $cls:ty, - , transformable $transformer:ident ) => {
@@ -691,9 +614,9 @@ macro_rules! bind {
             target: $entity,
             reader: |c: &::bevy::prelude::Mut<$cls>| c.deref(),
             writer: |c: &mut ::bevy::prelude::Mut<$cls>| c.deref_mut(),
-        }.transformed(|tr| tr.$transformer())
+        }.transformed(|tr| tr.$transformer().as_transformer())
     }};
-    // to!(entity, Component:some.propery | some.transformer)
+    // to!(entity, Component:some.propery | Struct.transformer)
     (@bind to component $entity:expr, $cls:ty, { $($prop:tt)+ }, $transformer:expr) => {
         $crate::relations::bind::ToComponent {
             id: $crate::relations::bind::bind_id::<$cls>(stringify!($($prop)+)),
@@ -730,15 +653,15 @@ macro_rules! bind {
     };
     (@transform $converter:ident.$method:ident ) => {
         |s, t| {
-            let transformer = $crate::Transformers::$converter().$method();
-            transformer(s, t)
+            $converter::get_properties().$method().set(t, s);
+            Ok(())
         }
     };
     (@transform $converter:ident:$method:ident ) => {
         |s, t| {
             $crate::relations::bind::deprecated_transformer();
-            let transformer = $crate::Transformers::$converter().$method();
-            transformer(s, t)
+            $converter::get_properties().$method().set(t, s);
+            Ok(())
         }
     };
     // This works for global transformers, but while associated transformers
@@ -832,7 +755,6 @@ macro_rules! to {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::relations::transform::ColorTransformerExtension;
     use crate::*;
 
     #[derive(Component, Default)]
@@ -915,9 +837,9 @@ mod test {
         let _bind = from!(e, Health: current) >> to!(e, HealthBar: output | fmt.val("{val}"));
         let _bind = from!(e, Health: current | fmt.val("{val}")) >> to!(e, HealthBar: output);
 
-        let _bind = from!(e, Health: percent()) >> to!(e, HealthBar: color | color.one_minus_r);
-        let _bind = to!(e, HealthBar: color | color.r) << from!(e, Health: percent());
-        let _bind = from!(e, Health: percent() | color.r) >> to!(e, HealthBar: color);
+        let _bind = from!(e, Health: percent()) >> to!(e, HealthBar: color | Color.one_minus_r);
+        let _bind = to!(e, HealthBar: color | Color.r) << from!(e, Health: percent());
+        let _bind = from!(e, Health: percent() | Color.r) >> to!(e, HealthBar: color);
 
         let _bind = from!(e, HealthBar: output) >> to!(e, Btn: mode);
         let _bind = to!(e, Btn: mode) << from!(e, HealthBar: output);

@@ -1,5 +1,5 @@
 use super::common::*;
-use belly_core::build::*;
+use belly_core::{build::*, impl_properties};
 use belly_macro::*;
 use bevy::{prelude::*, utils::HashMap};
 use std::str::FromStr;
@@ -185,36 +185,12 @@ impl RangeValue {
     }
 }
 
-impl AsTransformer for RangeValue {
-    type Transformer = RangeValueTransformer;
-    fn as_transformer() -> Self::Transformer {
-        RangeValueTransformer
-    }
-}
-
-pub struct RangeValueTransformer;
-
-macro_rules! impl_transform {
-    ($method:ident, $setter:ident) => {
-        pub fn $method<T: TransformableTo<f32>>(
-            &self,
-        ) -> fn(&T, Prop<RangeValue>) -> TransformationResult {
-            |source, mut range| {
-                let val = T::transform(source)?;
-                if val != range.$method() {
-                    range.$setter(val);
-                }
-                return Ok(());
-            }
-        }
-    };
-}
-impl RangeValueTransformer {
-    impl_transform! { absolute, set_absolute }
-    impl_transform! { minimum, set_minimum }
-    impl_transform! { maximum, set_maximum }
-    impl_transform! { relative, set_relative }
-}
+impl_properties! { RangeValueProperties for RangeValue {
+    absolute(set_absolute, absolute) => |v: f32| v.clone();
+    minimum(set_minimum, minimum) => |v: f32| v.clone();
+    maximum(set_maximum, maximum) => |v: f32| v.clone();
+    relative(set_relative, relative) => |v: f32| v.clone();
+}}
 
 #[derive(Component)]
 pub struct Range {

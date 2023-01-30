@@ -758,7 +758,7 @@ fmt.some_vec("({}, {})", some_vec.x, some_vec.y)
 
 ```rust
 commands.add(
-    from!(player, Health:value) >> to!(health, BackgroundColor:0|color.r)
+    from!(player, Health:value) >> to!(health, BackgroundColor:0|Color.r)
 )
 ```
 
@@ -771,7 +771,7 @@ This bind says: when `value` of `Health` component on `player` entity changes, c
 The last thing I want to notice here: you can pass global transformers to any `from!` or `to!` macro, but not both. The previous piece of code could be written like this:
 ```rust
 commands.add(
-    from!(player, Health:value|color.r) >> to!(health, BackgroundColor:0)
+    from!(player, Health:value|Color.r) >> to!(health, BackgroundColor:0)
 )
 ```
 
@@ -784,10 +784,10 @@ commands.add(
 Let's look at the first piece of code from the previous chapter closer:
 ```rust
 commands.add(
-    from!(player, Health:value) >> to!(health, BackgroundColor:0|color.r)
+    from!(player, Health:value) >> to!(health, BackgroundColor:0|Color.r)
 )
 ```
-Look at this part: `BackgroundColor:0|color.r`. You may notice that writing `color` is unnecessary because you (and the compiler) know that `BackroundColor:0` is a type of `Color` and you are about to use the `color` transformer here. Actually you can omit the the `color` part and write this bind like this:
+Look at this part: `BackgroundColor:0|Color.r`. You may notice that writing `Color` is unnecessary because you (and the compiler) know that `BackroundColor:0` is a type of `Color` and you are about to use the `Color` transformer here. Actually you can omit the the `color` part and write this bind like this:
 
 ```rust
 commands.add(
@@ -795,13 +795,13 @@ commands.add(
 )
 ```
 
-It is possible because the trait `AsTransformer` is implemented for the `Color` struct. The macro expands the transformer part to something like this:
+It is possible because the trait `GetProperties` is implemented for the `Color` struct. The macro expands the transformer part to something like this:
 
 ```rust
 // bind
 ToComponent {
     // ...
-    transformer: Color::as_transformer().r()
+    transformer: Color::get_properties().r().as_transformer()
 }
 ```
 

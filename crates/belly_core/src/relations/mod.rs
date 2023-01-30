@@ -1,7 +1,7 @@
 pub mod bind;
 pub mod connect;
 pub mod ops;
-pub mod transform;
+pub mod props;
 
 use crate::element::Elements;
 

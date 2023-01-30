@@ -1,20 +1,5 @@
-use super::bind::*;
+use super::{bind::*, props::try_transform};
 use bevy::prelude::*;
-
-fn transform<
-    S: BindableSource,
-    T: TryFrom<S, Error = E> + BindableTarget,
-    E: Into<TransformationError>,
->(
-    incoming: &S,
-    mut current: Prop<T>,
-) -> TransformationResult {
-    let new_value = T::try_from(incoming.clone()).map_err(E::into)?;
-    if new_value != *current {
-        *current = new_value;
-    }
-    Ok(())
-}
 
 // from!(entity, Component:property) >> to!(entity, Component:property | filter)
 impl<R: Component, W: Component, S: BindableSource, T: BindableTarget>
@@ -68,7 +53,7 @@ where
             target: to.target,
             reader: to.reader,
             writer: to.writer,
-            transformer: transform::<S, T, E>,
+            transformer: try_transform::<S, T, E>,
         }
         .bind_component(self)
     }
@@ -108,7 +93,7 @@ where
             target: self.target,
             reader: self.reader,
             writer: self.writer,
-            transformer: transform::<S, T, E>,
+            transformer: try_transform::<S, T, E>,
         }
         .bind_component(from)
     }
@@ -165,7 +150,7 @@ where
             target: to.target,
             reader: to.reader,
             writer: to.writer,
-            transformer: transform::<S, T, E>,
+            transformer: try_transform::<S, T, E>,
         }
         .bind_resource(self)
     }
@@ -186,7 +171,7 @@ where
             target: self.target,
             reader: self.reader,
             writer: self.writer,
-            transformer: transform::<S, T, E>,
+            transformer: try_transform::<S, T, E>,
         }
         .bind_resource(from)
     }

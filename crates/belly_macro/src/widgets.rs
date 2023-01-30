@@ -606,21 +606,29 @@ impl<'a> WidgetAttributes<'a> {
                         component_params.insert(#param_name, component_param);
                     }
                 };
-                let mut setter = quote! { component };
-                if let Some(prop) = &param.target.property {
-                    setter = quote! { #setter.#prop }
+                let mut prop_body = quote! { component };
+                if let Some(getter) = &param.target.property {
+                    prop_body = quote! { #prop_body.#getter }
                 }
                 if let Some(transformer) = &param.target.transformer {
-                    let method = format_ident!("set_{}", &transformer.expr.to_string());
-                    setter = quote! { #setter.#method(value.into()) };
+                    let tr_type = &transformer.ty;
+                    let tr_path = &transformer.expr;
+                    prop_body = quote! {
+                        {
+                            let transform = #tr_type::get_properties().#tr_path().as_transformer();
+                            if let Err(e) = transform(&value, (&mut #prop_body).into()) {
+                                ::bevy::prelude::error!("Can't transform property {}: {}", #param_name, e)
+                            }
+                        }
+                    }
                 } else {
-                    setter = quote! { #setter = value.into() };
+                    prop_body = quote! { #prop_body = value.into() };
                 }
                 setters = quote! {
                     #setters
                     if let Some(value) = component_params.drop_variant(#param_name.into()) {
                         match #param_type::try_from(value) {
-                            Ok(value) => #setter,
+                            Ok(value) => #prop_body,
                             Err(err) => ::bevy::prelude::error!("Can't set {}.{}: {}", #widget_name, #param_name, err),
                         }
                     }
