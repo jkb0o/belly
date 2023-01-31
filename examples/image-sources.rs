@@ -19,14 +19,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.add(StyleSheet::parse(
         "
         body { padding: 50px; }
-        body > img { width: 150px; height: 150px; }
+        body > img { width: 150px; height: 150px; margin: 50px; }
     ",
     ));
     commands.add(eml! {
         <body>
-            <img src=img0/><br/>
-            <img src=img1/><br/>
-            <img src=img2/><br/>
+            <img src=img0/>
+            <img src=img1/>
+            <img src=img2/>
         </body>
     });
 }
