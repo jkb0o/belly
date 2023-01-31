@@ -211,7 +211,10 @@ impl syn::parse::Parse for Param {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let name = input.parse::<syn::Ident>()?;
         input.parse::<syn::Token![:]>()?;
-        let ty = input.parse::<syn::Type>()?;
+        let span = input.span();
+        let ty = input
+            .parse::<syn::Type>()
+            .map_err(|e| syn::Error::new(span, format!("smth wrong: {e:?}")))?;
         input.parse::<syn::Token![=>]>()?;
         let component = input.parse::<syn::Type>()?;
         let property = if input.peek(syn::Token![:]) {

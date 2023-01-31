@@ -2,6 +2,7 @@ use belly_core::build::*;
 use belly_macro::*;
 
 use bevy::{
+    asset::Asset,
     prelude::*,
     utils::{HashMap, HashSet},
 };
@@ -104,9 +105,67 @@ impl From<ImgMode> for Variant {
     }
 }
 
+#[derive(Clone)]
+pub enum AssetSource<T: Asset> {
+    Path(String),
+    Handle(Handle<T>),
+}
+
+pub type ImageSource = AssetSource<Image>;
+
+impl<T: Asset> Default for AssetSource<T> {
+    fn default() -> Self {
+        Self::Path("".into())
+    }
+}
+
+impl<T: Asset> PartialEq for AssetSource<T> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Path(s), Self::Path(o)) => s == o,
+            (Self::Handle(s), Self::Handle(o)) => s == o,
+            _ => false,
+        }
+    }
+}
+
+impl<T: Asset> From<String> for AssetSource<T> {
+    fn from(s: String) -> Self {
+        AssetSource::Path(s)
+    }
+}
+
+impl<T: Asset> From<Handle<T>> for AssetSource<T> {
+    fn from(h: Handle<T>) -> Self {
+        AssetSource::Handle(h)
+    }
+}
+
+impl<T: Asset> TryFrom<Variant> for AssetSource<T> {
+    type Error = String;
+    fn try_from(value: Variant) -> Result<Self, Self::Error> {
+        match value {
+            Variant::String(s) => Ok(AssetSource::Path(s)),
+            Variant::Boxed(h) if h.is::<String>() => {
+                Ok(AssetSource::Path(match h.downcast::<String>() {
+                    Ok(path) => *path,
+                    Err(e) => return Err(format!("Cant convert '{e:?}' to AssetSource")),
+                }))
+            }
+            Variant::Boxed(h) if h.is::<Handle<T>>() => {
+                Ok(AssetSource::Handle(match h.downcast::<Handle<T>>() {
+                    Ok(handle) => *handle,
+                    Err(e) => return Err(format!("Cant convert '{e:?}' to AssetSource")),
+                }))
+            }
+            e => Err(format!("Cant convert '{:?}' to AssetSource", e)),
+        }
+    }
+}
+
 #[derive(Component)]
 pub struct Img {
-    pub src: String,
+    pub src: AssetSource<Image>,
     pub mode: ImgMode,
     pub modulate: Color,
     handle: Handle<Image>,
@@ -131,12 +190,12 @@ impl FromWorldAndParams for Img {
 // #[bindto(entity, BackgroundColor:0)]
 #[signal(load:ImgEvent => |e| e.loaded())]
 #[signal(unload:ImgEvent => |e| e.unloaded())]
-#[param(src:String => Img:src)]
-#[param(mode:ImgMode => Img:mode)]
-#[param(modulate:Color => Img:modulate)]
+#[param( src: ImageSource => Img:src )]
+#[param( mode: ImgMode => Img:mode )]
+#[param( modulate: Color => Img:modulate )]
 /// The `<img>` tag is used to load image and show it content on the UI screen.
 /// The `<img>` tag has two properties:
-/// - `src`: Specifies the path to the image
+/// - `src`: Specifies the path to the image or custom Handle<Image>
 /// - `mode`: Specifies how an image should fits the space:
 ///   - `fit`: resize the image to fit the box keeping it aspect ratio
 ///   - `cover`: resize the image to cover the box keeping it aspect ratio
@@ -168,10 +227,10 @@ fn load_img(
     mut signals: EventWriter<ImgEvent>,
 ) {
     for (entity, mut img) in elements.iter_mut() {
-        let handle = if img.src.is_empty() {
-            Handle::default()
-        } else {
-            asset_server.load(&img.src)
+        let handle = match &img.src {
+            AssetSource::Path(s) if s.is_empty() => Handle::default(),
+            AssetSource::Path(s) => asset_server.load(s),
+            AssetSource::Handle(h) => h.clone(),
         };
         if handle != img.handle {
             if assets.contains(&img.handle) {

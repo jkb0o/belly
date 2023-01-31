@@ -1,9 +1,11 @@
+use std::any::type_name;
+
 use crate::{
     eml::Params,
     ess::{ColorFromHexExtension, StyleProperty, StylePropertyMethods},
     ElementsError,
 };
-use bevy::prelude::*;
+use bevy::{asset::Asset, prelude::*};
 
 use super::{ApplyCommands, Variant};
 
@@ -193,5 +195,24 @@ impl TryFrom<Variant> for UiRect {
                 )))?,
         };
         Ok(rect)
+    }
+}
+
+impl<T: Asset> From<Handle<T>> for Variant {
+    fn from(value: Handle<T>) -> Self {
+        Variant::boxed(value)
+    }
+}
+
+impl<T: Asset> TryFrom<Variant> for Handle<T> {
+    type Error = String;
+    fn try_from(value: Variant) -> Result<Self, Self::Error> {
+        match value {
+            Variant::Boxed(v) if v.is::<Handle<T>>() => Ok(*v.downcast::<Handle<T>>().unwrap()),
+            e => Err(format!(
+                "Can't extract Handle<{}> from variant '{e:?}",
+                type_name::<T>()
+            )),
+        }
     }
 }
