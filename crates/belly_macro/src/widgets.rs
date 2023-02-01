@@ -63,6 +63,7 @@ pub fn widget(ast: syn::ItemFn) -> Result<TokenStream, syn::Error> {
     let signals_impl = attrs.impl_signals();
     let signals_deref = attrs.impl_signals_deref();
     let default_styles_impl = attrs.impl_default_styles();
+    let docs = attrs.build_docs();
 
     let alias = if let Some(extends) = &attrs.extends {
         quote!( Some(<#extends as #core::eml::Widget>::instance().name()) )
@@ -70,6 +71,7 @@ pub fn widget(ast: syn::ItemFn) -> Result<TokenStream, syn::Error> {
         quote!(None)
     };
     Ok(quote! {
+        #docs
         pub struct #widget_struct;
         impl #core::eml::Widget for #widget_struct {
             type Components = #components_associated_type;
@@ -150,6 +152,7 @@ pub fn widget(ast: syn::ItemFn) -> Result<TokenStream, syn::Error> {
             #signals_deref
         }
         pub trait #widget_extenstion {
+            #docs
             fn #widget_ident() -> &'static #widget_struct {
                 &#widget_struct
             }
@@ -205,6 +208,7 @@ struct Param {
     name: syn::Ident,
     ty: syn::Type,
     target: ParamTarget,
+    docs: Vec<String>,
 }
 
 impl syn::parse::Parse for Param {
@@ -263,6 +267,7 @@ impl syn::parse::Parse for Param {
                 property,
                 transformer,
             },
+            docs: vec![]
         })
         // let property = if lookahead.peek(Token![:]) {
         //     input.peek(token)
@@ -280,6 +285,7 @@ struct Signal {
     name: syn::Ident,
     ty: syn::Type,
     filter: TokenStream,
+    docs: Vec<String>,
 }
 
 impl syn::parse::Parse for Signal {
@@ -293,7 +299,7 @@ impl syn::parse::Parse for Signal {
             input.parse::<syn::Token![=>]>()?;
             input.parse::<TokenStream>()?
         };
-        Ok(Signal { name, ty, filter })
+        Ok(Signal { name, ty, filter, docs: vec![] })
     }
 }
 
@@ -349,6 +355,7 @@ struct WidgetAttributes<'a> {
     signals: HashMap<String, Signal>,
     default_styles: DefaultStyles,
     extends: Option<syn::Type>,
+    docs: Vec<String>,
 }
 
 impl<'a> WidgetAttributes<'a> {
@@ -363,11 +370,16 @@ impl<'a> WidgetAttributes<'a> {
             signals: HashMap::new(),
             default_styles: DefaultStyles::new(),
             extends: None,
+            docs: vec![],
         };
+        let mut docs = vec![];
 
         for attr in ast.attrs.iter() {
-            if attr.path.is_ident("param") {
-                let param = attr.parse_args::<Param>()?;
+            if attr.path.is_ident("doc") {
+                let doc: AttributeValue::<syn::LitStr> = syn::parse2(attr.tokens.clone())?;
+                docs.push(doc.value.value())
+            } else if attr.path.is_ident("param") {
+                let mut param = attr.parse_args::<Param>()?;
                 if !attrs.build_components.0.contains(&param.target.component) {
                     if !attrs.rest_components.0.contains(&param.target.component) {
                         attrs.rest_components.0.push(param.target.component.clone());
@@ -377,9 +389,13 @@ impl<'a> WidgetAttributes<'a> {
                 if attrs.params.contains_key(&name) {
                     throw!(attr.span(), "Param `{name}` already defined")
                 }
+                param.docs = docs;
+                docs = vec![];
                 attrs.params.insert(name, param);
             } else if attr.path.is_ident("signal") {
-                let signal = attr.parse_args::<Signal>()?;
+                let mut signal = attr.parse_args::<Signal>()?;
+                signal.docs = docs;
+                docs = vec![];
                 attrs.signals.insert(signal.name.to_string(), signal);
             } else if attr.path.is_ident("styles") {
                 if let Ok(AttributeValue::<syn::Ident> { value }) = syn::parse2(attr.tokens.clone())
@@ -388,14 +404,12 @@ impl<'a> WidgetAttributes<'a> {
                 } else {
                     attrs.default_styles = DefaultStyles::Value(attr.parse_args()?)
                 }
-            } else if attr.path.is_ident("styl") {
-                throw!(attr.span(), "Tree: {}", attr.tokens.to_string())
-                // attrs.default_styles = attr.parse_args()?;
             } else if attr.path.is_ident("extends") {
                 attrs.extends = Some(attr.parse_args()?);
             }
         }
 
+        attrs.docs = docs;
         attrs.components.0.extend(attrs.build_components.0.clone());
         attrs.components.0.extend(attrs.rest_components.0.clone());
         Ok(attrs)
@@ -657,5 +671,73 @@ impl<'a> WidgetAttributes<'a> {
                 (#instantiate_body)
             }
         })
+    }
+
+    pub fn build_docs(&self) -> TokenStream {
+        let mut docs = quote!{};
+        for doc in self.docs.iter() {
+
+            docs = quote! {
+                #docs
+                #[doc = #doc]
+            }
+        }
+        if !self.params.is_empty() {
+            docs = quote! {
+                #docs
+                #[doc = " "]
+                #[doc = " Params:"]
+            }
+        }
+        for param in self.params.values() {
+            let param_signature = format!(
+                " - `{}:` [`{}`]",
+                param.name.to_string(),
+                param.ty.to_token_stream().to_string().replace(" ", "")
+            );
+            docs = quote! {
+                #docs
+                #[doc = #param_signature]
+            };
+            for doc in param.docs.iter() {
+                docs = quote! { 
+                    #docs
+                    #[doc = #doc]
+                }
+            }
+            docs = quote! {
+                #docs
+                #[doc = " "]
+            }
+        }
+        if !self.signals.is_empty() {
+            docs = quote! {
+                #docs
+                #[doc = " "]
+                #[doc = " Signals:"]
+            }
+        }
+        for signal in self.signals.values() {
+            let signal_signature = format!(
+                " - `{}:` [`{}`]",
+                signal.name.to_string(),
+                signal.ty.to_token_stream().to_string().replace(" ", "")
+            );
+            docs = quote! { 
+                #docs
+                #[doc = #signal_signature]
+            };
+            for doc in signal.docs.iter() {
+                docs = quote! {
+                    #docs
+                    #[doc = #doc]
+                }
+            }
+            docs = quote! {
+                #docs
+                #[doc = " "]
+            }
+        }
+        docs
     }
 }

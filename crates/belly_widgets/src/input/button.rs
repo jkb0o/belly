@@ -65,6 +65,7 @@ fn buttongroup(ctx: &mut WidgetContext) {
 #[widget]
 #[signal(press:BtnEvent => |e| e.pressed())]
 #[signal(release:BtnEvent => |e| e.released())]
+/// if button is pressed or not
 #[param(pressed:bool => Btn:pressed)]
 #[param(mode:BtnMode => Btn:mode)]
 #[param(value:String => Btn:value)]
