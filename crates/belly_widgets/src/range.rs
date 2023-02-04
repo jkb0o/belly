@@ -21,10 +21,15 @@ impl Plugin for RangePlugin {
 
 #[widget]
 #[styles = RANGE_STYLES]
+/// Specifies the minimum value
 #[param(minimum:f32 => Range:value|RangeValue.minimum)]
+/// Specifies the maximum value
 #[param(maximum:f32 => Range:value|RangeValue.maximum)]
+/// Specifies absolute value in minimum..maximum range
 #[param(value:f32 => Range:value|RangeValue.absolute)]
+/// Specifies raltive value in 0..1 range
 #[param(relative:f32 => Range:value|RangeValue.relative)]
+/// <!-- @inline LayoutMode -->
 #[param(mode:LayoutMode => Range:mode)]
 fn range(ctx: &mut WidgetContext, rng: &mut Range) {
     let holder = rng.holder;
@@ -215,9 +220,16 @@ impl FromWorldAndParams for Range {
 }
 
 #[derive(Clone, Copy, PartialEq, Debug, Default)]
+/// Specifies the widget layout arrange.
+/// <!-- @alter
+/// - `verrtical`: arrange the widget vertically
+/// - `horizontal`: arrange the widget horisontally
+/// -->
 pub enum LayoutMode {
+    /// arrange items from top to bottom
     Vertical,
     #[default]
+    /// arrange items from left to right
     Horizontal,
 }
 

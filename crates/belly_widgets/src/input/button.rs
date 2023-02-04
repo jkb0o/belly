@@ -54,7 +54,18 @@ impl Plugin for ButtonPlugin {
 
 #[widget]
 #[signal(value_change: ValueChanged<String>)]
+/// The current value of the `<buttongroup>`. When you set this property, the
+/// corresponding button will become pressed, and all other buttons in the
+/// group will have their pressed state removed.
 #[param(value: String => BtnGroup:value)]
+/// A container for multiple toggle buttons. When a button inside a
+/// `<buttongroup>` is clicked, it will toggle its pressed state and emit the
+/// `pressed` and `released` signals as appropriate. The `<buttongroup>` will
+/// update its own `value` property to match the pressed state of the buttons.
+///
+/// When you set the `value` property of a `<buttongroup>`, the corresponding
+/// button will become pressed, and all other buttons in the group will have
+/// their pressed state removed.
 fn buttongroup(ctx: &mut WidgetContext) {
     let content = ctx.content();
     ctx.render(eml! {
@@ -67,12 +78,19 @@ fn buttongroup(ctx: &mut WidgetContext) {
 #[signal(release:BtnEvent => |e| e.released())]
 /// if button is pressed or not
 #[param(pressed:bool => Btn:pressed)]
+/// <!-- @inline BtnMode -->
 #[param(mode:BtnMode => Btn:mode)]
+/// Specifies the `<button>` value passed to parent `<buttongroup>`
+/// when this button becomes pressed.
 #[param(value:String => Btn:value)]
 #[styles = BUTTON_STYLES]
 /// The `<button>` tag defines a clickable button.
-/// Inside a `<button>` element you can put text (and tags
-/// like `<i>`, `<b>`, `<strong>`, `<br>`, `<img>`, etc.)
+/// Inside a `<button>` widget you can put text (and tags
+/// like `<strong>`, `<br>`, `<img>`, etc.)
+/// A button can emit `pressed` and `released` signals.
+/// The button behaviour is defined by the `mode` param.
+/// When changing its pressed state, button adds `:pressed` ess
+/// state to element if it pressed and remove `:pressed` if it releases.
 fn button(ctx: &mut WidgetContext) {
     let content = ctx.content();
     ctx.render(eml! {
@@ -201,8 +219,40 @@ impl Signal for BtnEvent {
         }
     }
 }
+pub struct BtnCustom;
 
 #[derive(Clone, Default, PartialEq, Debug)]
+/// Specifies the button behavior:
+///
+/// - `press`: When the button is clicked, it will act as if it was pressed
+///   for a single frame after the mouse/touch is released if it was down on
+///   the same button. The `released` signal will emit on the same frame,
+///   immediately following the `pressed` signal.
+///
+/// - `instant`: The button will act as if it was pressed immediately after
+///   the mouse/touch is clicked, unless it is released first. The button will
+///   emit the `pressed` signal immediately after the mouse/touch is clicked,
+///   and the `released` signal after the mouse/touch is released.
+///
+/// - `toggle`: The button will toggle its pressed state on and off. The
+///   `pressed` signal will emit when the button is pressed down and the
+///   `released` signal will emit when the button is released, unless it is
+///   still pressed down, in which case the `pressed` signal will not be
+///   emitted.
+///
+/// - `repeat($speed)`: This mode is similar to `instant`, but the `pressed`
+///   signal will also emit periodically based on `$speed`. `$speed` can be
+///   a constant value or a sequence of delays between emissions. The following
+///   values are accepted:
+///   - `fast`, `normal`, and `slow` emit signals starting with some base delay
+///     and reduce it over time until the minimum delay is reached.
+///   - A sequence in the form `0.5 0.4 0.4 0.25`, with any number of elements,
+///     where each element specifies the delay between the previous `pressed`
+///     emission and the next one.
+///
+/// - `group($name)`: Associates the button with a virtual named group. Buttons
+///   in the same group will act like toggle buttons, but only one button may
+///   have the pressed state at a time.
 pub enum BtnMode {
     #[default]
     Press,
@@ -285,6 +335,7 @@ impl TryFrom<&str> for BtnModeGroup {
 struct FloatSequence(Vec<f32>);
 
 #[derive(PartialEq, Clone, Debug, Deref)]
+/// <!-- @type-alias=$repeat -->
 pub struct BtnModeRepeat(Vec<f32>);
 
 impl BtnModeRepeat {
@@ -495,15 +546,23 @@ fn handle_input_system(
                     button_events.send(BtnEvent::Pressed([*entity]));
                 }
                 (BtnMode::Instant, PointerInputData::Pressed { presses: _ }) => {
-                    button_events.send(BtnEvent::Pressed([*entity]));
+                    if btn.pressed {
+                        btn.pressed = false;
+                    }
+                    button_events.send(BtnEvent::Released([*entity]));
                 }
                 (BtnMode::Press, PointerInputData::Pressed { presses: _ }) => {
                     button_events.send(BtnEvent::Pressed([*entity]));
+                    button_events.send(BtnEvent::Released([*entity]));
                 }
                 (BtnMode::Repeat(repeat), PointerInputData::Down { presses: _ }) => {
                     repeat_state.start(*entity, repeat.clone());
                     button_events.send(BtnEvent::Pressed([*entity]));
                 }
+                (BtnMode::Repeat(_), PointerInputData::Pressed { presses: _ }) => {
+                    button_events.send(BtnEvent::Released([*entity]));
+                }
+
                 (BtnMode::Toggle, PointerInputData::Pressed { presses: _ }) => {
                     if btn.pressed {
                         btn.pressed = false;
@@ -544,6 +603,9 @@ fn handle_input_system(
                 let pressed = *entity == pressed_entity;
                 if btn.pressed != pressed {
                     btn.pressed = pressed;
+                    if !btn.pressed {
+                        button_events.send(BtnEvent::Released([*entity]));
+                    }
                 }
             }
         }
@@ -555,6 +617,7 @@ fn handle_states_system(
     mut elements: Elements,
     mut buttons: Query<(Entity, &mut Btn), Changed<Btn>>,
     mut drop_pressed: Local<HashSet<Entity>>,
+    mut button_events: EventWriter<BtnEvent>,
 ) {
     drop_pressed.clear();
     for (entity, mut btn) in buttons.iter_mut() {
@@ -575,6 +638,7 @@ fn handle_states_system(
                 groups.insert(group.clone(), BtnGroupState::single(entity));
                 if !btn.pressed {
                     btn.pressed = true;
+                    button_events.send(BtnEvent::Pressed([entity]));
                 }
                 elements.set_state(entity, tags::pressed(), true);
             }
@@ -584,6 +648,7 @@ fn handle_states_system(
         if let Ok((entity, mut btn)) = buttons.get_mut(*entity) {
             if btn.pressed {
                 btn.pressed = false;
+                button_events.send(BtnEvent::Released([entity]));
             }
             elements.set_state(entity, tags::pressed(), false);
         }
