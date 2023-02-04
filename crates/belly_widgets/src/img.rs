@@ -21,11 +21,56 @@ impl Plugin for ImgPlugin {
         app.register_widget::<ImgWidget>();
 
         app.init_resource::<ImageRegistry>();
-        app.add_system(load_img);
-        app.add_system(update_img_size);
-        app.add_system(update_img_layout);
+        app.add_system(load_img.label(ImgLabel::Load));
+        app.add_system(
+            update_img_size
+                .label(ImgLabel::UpdateSize)
+                .after(ImgLabel::Load),
+        );
+        app.add_system(
+            update_img_layout
+                .label(ImgLabel::UpdatLayout)
+                .after(ImgLabel::UpdateSize),
+        );
         app.add_event::<ImgEvent>();
     }
+}
+
+#[widget]
+#[signal(load:ImgEvent => |e| e.loaded())]
+#[signal(unload:ImgEvent => |e| e.unloaded())]
+#[param( src: ImageSource => Img:src )]
+#[param( mode: ImgMode => Img:mode )]
+#[param( modulate: Color => Img:modulate )]
+/// The `<img>` tag is used to load image and show it content on the UI screen.
+/// The `<img>` tag has two properties:
+/// - `src`: Specifies the path to the image or custom Handle<Image>
+/// - `mode`: Specifies how an image should fits the space:
+///   - `fit`: resize the image to fit the box keeping it aspect ratio
+///   - `cover`: resize the image to cover the box keeping it aspect ratio
+///   - `stretch`: resize image to take all the space ignoring the aspect ratio
+///   - `source`: do not resize the imagezzz
+fn img(ctx: &mut WidgetContext, img: &mut Img) {
+    let this = ctx.entity();
+    let content = ctx.content();
+    ctx.add(from!(this, Img: modulate) >> to!(img.entity, BackgroundColor:0));
+    ctx.commands().entity(img.entity).insert(ImageBundle {
+        style: Style {
+            display: Display::None,
+            ..default()
+        },
+        ..default()
+    });
+    ctx.insert(ElementBundle::default())
+        .push_children(&[img.entity]);
+    ctx.commands().entity(img.entity).push_children(&content);
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
+pub enum ImgLabel {
+    Load,
+    UpdateSize,
+    UpdatLayout,
 }
 
 #[derive(Resource, Deref, DerefMut, Default)]
@@ -186,37 +231,6 @@ impl FromWorldAndParams for Img {
     }
 }
 
-#[widget]
-// #[bindto(entity, BackgroundColor:0)]
-#[signal(load:ImgEvent => |e| e.loaded())]
-#[signal(unload:ImgEvent => |e| e.unloaded())]
-#[param( src: ImageSource => Img:src )]
-#[param( mode: ImgMode => Img:mode )]
-#[param( modulate: Color => Img:modulate )]
-/// The `<img>` tag is used to load image and show it content on the UI screen.
-/// The `<img>` tag has two properties:
-/// - `src`: Specifies the path to the image or custom Handle<Image>
-/// - `mode`: Specifies how an image should fits the space:
-///   - `fit`: resize the image to fit the box keeping it aspect ratio
-///   - `cover`: resize the image to cover the box keeping it aspect ratio
-///   - `stretch`: resize image to take all the space ignoring the aspect ratio
-///   - `source`: do not resize the imagezzz
-fn img(ctx: &mut WidgetContext, img: &mut Img) {
-    let this = ctx.entity();
-    let content = ctx.content();
-    ctx.add(from!(this, Img: modulate) >> to!(img.entity, BackgroundColor:0));
-    ctx.commands().entity(img.entity).insert(ImageBundle {
-        style: Style {
-            display: Display::None,
-            ..default()
-        },
-        ..default()
-    });
-    ctx.insert(ElementBundle::default())
-        .push_children(&[img.entity]);
-    ctx.commands().entity(img.entity).push_children(&content);
-}
-
 fn load_img(
     asset_server: Res<AssetServer>,
     mut elements: Query<(Entity, &mut Img), Changed<Img>>,
@@ -282,13 +296,10 @@ fn update_img_size(
             }
             AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                 let Some(entities) = registry.get(&handle) else { continue };
-                // signals.send(ImgEvent::Loaded(entities.iter().map(|e| *e).collect::<Vec<_>>()));
                 for entity in entities.iter() {
                     let Ok(mut element) = elements.get_mut(*entity) else { continue };
                     let Some(asset) = assets.get(handle) else { continue };
-                    if element.size != asset.size() {
-                        element.size = asset.size();
-                    }
+                    element.size = asset.size();
                 }
             }
         }
