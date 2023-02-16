@@ -13,7 +13,7 @@ fn main() {
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
-    let names = &["Alice", "Cart", "François", "Yasha"];
+    let names = vec!["Alice", "Cart", "François", "Yasha"];
     commands.add(eml! {
         <body s:padding="50px">
             <for name in=names>
