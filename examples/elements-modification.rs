@@ -15,7 +15,7 @@ fn main() {
 
 pub struct ToggleClass(&'static str);
 
-fn swow_boxes<T: Signal>(ctx: &mut ConnectionGeneralContext<T>) {
+fn show_boxes<T: Signal>(ctx: &mut ConnectionGeneralContext<T>) {
     ctx.select(".box").add_class("hidden");
 }
 fn hide_boxes<T: Signal>(ctx: &mut ConnectionGeneralContext<T>) {
@@ -55,7 +55,7 @@ fn setup(mut commands: Commands) {
             <button on:press=connect!(|ctx| ctx.send_event(ToggleClass("red")))>
                 "Toggle .red class"
             </button>
-            <button on:press=connect!(swow_boxes)>
+            <button on:press=connect!(show_boxes)>
                 "Hide boxes"
             </button>
             <button on:press=connect!(hide_boxes)>
