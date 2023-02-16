@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="CPP_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/crates/belly_cli/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/belly_core/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/belly_macro/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/belly_widgets/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/bevy_stylebox/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/bevy_stylebox/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/tagstr/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/target" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>
