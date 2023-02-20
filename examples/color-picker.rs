@@ -1,6 +1,7 @@
 // examples/color-picker.rs
 // cargo run --example color-picker
 use belly::prelude::*;
+use belly_core::Widgets;
 use bevy::prelude::*;
 
 fn main() {
@@ -27,6 +28,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
     commands.add(StyleSheet::load("color-picker.ess"));
     let colorbox = commands.spawn_empty().id();
+    // Widgets::br
     commands.add(eml! {
         <body>
             <span c:controls on:ready=connect!(colorbox, |c: BackgroundColor| c.0 = Color::WHITE)>
@@ -50,6 +52,8 @@ fn setup(mut commands: Commands) {
             <img c:colorbox-holder src="trbg.png">
                 <span {colorbox} c:colorbox s:background-color=managed()/>
             </img>
+            <brl/>
+            <br/>
             <span c:colors>
             <for color in = COLORS>
                 <button on:press=connect!(colorbox, |c: BackgroundColor| { c.0 = Color::from_hex(color) })>

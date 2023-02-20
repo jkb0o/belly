@@ -86,9 +86,10 @@
 //! The `belly` crate is just container crate that makes it easier to consume subcrates.
 //! It has to main mods: `prelude` for using plugin and `build` for extending plugin.
 //!
-#![doc = ::embed_doc_image::embed_image!("color_picker", "docs/img/color-picker.gif")]
+#![doc = ::embed_doc_image::embed_image!("color_picker", "docs/img/examples/color-picker.gif")]
 
 pub use belly_core as core;
+pub use belly_widgets as widgets;
 
 /// `use belly::prelude::*` for adding the UI to your project
 pub mod prelude {

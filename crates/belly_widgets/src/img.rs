@@ -39,17 +39,13 @@ impl Plugin for ImgPlugin {
 #[widget]
 #[signal(load:ImgEvent => |e| e.loaded())]
 #[signal(unload:ImgEvent => |e| e.unloaded())]
+/// Specifies the path to the image or custom `Handle<Image>`
 #[param( src: ImageSource => Img:src )]
+/// <!-- @inline ImgMode -->
 #[param( mode: ImgMode => Img:mode )]
+/// Specifies the color the image should be multiplied
 #[param( modulate: Color => Img:modulate )]
-/// The `<img>` tag is used to load image and show it content on the UI screen.
-/// The `<img>` tag has two properties:
-/// - `src`: Specifies the path to the image or custom Handle<Image>
-/// - `mode`: Specifies how an image should fits the space:
-///   - `fit`: resize the image to fit the box keeping it aspect ratio
-///   - `cover`: resize the image to cover the box keeping it aspect ratio
-///   - `stretch`: resize image to take all the space ignoring the aspect ratio
-///   - `source`: do not resize the imagezzz
+/// The `<img>` is used to load image and show it content on the UI screen.
 fn img(ctx: &mut WidgetContext, img: &mut Img) {
     let this = ctx.entity();
     let content = ctx.content();
@@ -108,6 +104,11 @@ impl Signal for ImgEvent {
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Debug)]
+/// Specifies how an image should fits the space:
+/// - `fit`: resize the image to fit the box keeping it aspect ratio
+/// - `cover`: resize the image to cover the box keeping it aspect ratio
+/// - `stretch`: resize image to take all the space ignoring the aspect ratio
+/// - `source`: keep image at original size
 pub enum ImgMode {
     #[default]
     Fit,

@@ -1,5 +1,5 @@
-use bevy::utils::HashMap;
-use proc_macro2::{TokenStream, TokenTree};
+use bevy::utils::{HashMap, StableHashMap};
+use proc_macro2::{Span, TokenStream, TokenTree};
 use quote::*;
 use syn::spanned::Spanned;
 
@@ -70,6 +70,11 @@ pub fn widget(ast: syn::ItemFn) -> Result<TokenStream, syn::Error> {
     } else {
         quote!(None)
     };
+    let extends = if let Some(extends) = &attrs.extends {
+        quote!(#extends)
+    } else {
+        quote!(#core::eml::build::DefaultWidget)
+    };
     Ok(quote! {
         #docs
         pub struct #widget_struct;
@@ -80,6 +85,7 @@ pub fn widget(ast: syn::ItemFn) -> Result<TokenStream, syn::Error> {
             type BindingsFrom = #mod_relations::BindingsFrom;
             type BindingsTo = #mod_relations::BindingsTo;
             type Signals = #mod_relations::Signals;
+            type Extends = #extends;
 
             fn instance() -> &'static Self {
                 &#widget_struct
@@ -267,7 +273,7 @@ impl syn::parse::Parse for Param {
                 property,
                 transformer,
             },
-            docs: vec![]
+            docs: vec![],
         })
         // let property = if lookahead.peek(Token![:]) {
         //     input.peek(token)
@@ -299,7 +305,12 @@ impl syn::parse::Parse for Signal {
             input.parse::<syn::Token![=>]>()?;
             input.parse::<TokenStream>()?
         };
-        Ok(Signal { name, ty, filter, docs: vec![] })
+        Ok(Signal {
+            name,
+            ty,
+            filter,
+            docs: vec![],
+        })
     }
 }
 
@@ -345,13 +356,31 @@ impl DefaultStyles {
     }
 }
 
+pub trait SpanPos {
+    fn pos(&self) -> usize;
+}
+
+impl SpanPos for Span {
+    fn pos(&self) -> usize {
+        format!("{self:?}")
+            .split("(")
+            .nth(1)
+            .expect("[span] start not splited by (")
+            .split("..")
+            .next()
+            .expect("[span] start not splited by ..")
+            .parse()
+            .unwrap()
+    }
+}
+
 struct WidgetAttributes<'a> {
     ctx: &'a Context,
     name: String,
     components: Components,
     build_components: Components,
     rest_components: Components,
-    params: HashMap<String, Param>,
+    params: Vec<Param>,
     signals: HashMap<String, Signal>,
     default_styles: DefaultStyles,
     extends: Option<syn::Type>,
@@ -366,17 +395,18 @@ impl<'a> WidgetAttributes<'a> {
             components: Components::default(),
             build_components: Components::fetch_build_components(context, ast)?,
             rest_components: Components::default(),
-            params: HashMap::new(),
+            params: Vec::new(),
             signals: HashMap::new(),
             default_styles: DefaultStyles::new(),
             extends: None,
             docs: vec![],
         };
         let mut docs = vec![];
-
-        for attr in ast.attrs.iter() {
+        let mut fnattrs = ast.attrs.clone();
+        // fnattrs.sort_by(|a, b| a.span().pos().cmp(&b.span().pos()));
+        for attr in fnattrs {
             if attr.path.is_ident("doc") {
-                let doc: AttributeValue::<syn::LitStr> = syn::parse2(attr.tokens.clone())?;
+                let doc: AttributeValue<syn::LitStr> = syn::parse2(attr.tokens.clone())?;
                 docs.push(doc.value.value())
             } else if attr.path.is_ident("param") {
                 let mut param = attr.parse_args::<Param>()?;
@@ -386,12 +416,18 @@ impl<'a> WidgetAttributes<'a> {
                     }
                 }
                 let name = param.name.to_string();
-                if attrs.params.contains_key(&name) {
+                if attrs
+                    .params
+                    .iter()
+                    .filter(|p| p.name == name)
+                    .next()
+                    .is_some()
+                {
                     throw!(attr.span(), "Param `{name}` already defined")
                 }
                 param.docs = docs;
                 docs = vec![];
-                attrs.params.insert(name, param);
+                attrs.params.push(param);
             } else if attr.path.is_ident("signal") {
                 let mut signal = attr.parse_args::<Signal>()?;
                 signal.docs = docs;
@@ -452,7 +488,7 @@ impl<'a> WidgetAttributes<'a> {
     fn impl_bindings_from(&self) -> TokenStream {
         let core = self.ctx.core_path();
         let mut body = quote! {};
-        for param in self.params.values() {
+        for param in self.params.iter() {
             let ident = &param.name;
             let ty = &param.ty;
             let component = &param.target.component;
@@ -502,7 +538,7 @@ impl<'a> WidgetAttributes<'a> {
     fn impl_bindings_to(&self) -> TokenStream {
         let core = self.ctx.core_path();
         let mut body = quote! {};
-        for param in self.params.values() {
+        for param in self.params.iter() {
             let ident = &param.name;
             let ty = &param.ty;
             let component = &param.target.component;
@@ -612,7 +648,7 @@ impl<'a> WidgetAttributes<'a> {
             let mut setters = quote! {};
             for param in self
                 .params
-                .values()
+                .iter()
                 .filter(|p| component == &p.target.component)
             {
                 let param_name = param.name.to_string();
@@ -674,14 +710,21 @@ impl<'a> WidgetAttributes<'a> {
     }
 
     pub fn build_docs(&self) -> TokenStream {
-        let mut docs = quote!{};
+        let name = format!(" <!-- @widget-name={} -->", self.name.to_string());
+        let mut docs = quote! {
+            #[doc = #name]
+            #[doc = " <!-- @widget-body-begin -->"]
+        };
         for doc in self.docs.iter() {
-
             docs = quote! {
                 #docs
                 #[doc = #doc]
             }
         }
+        docs = quote! {
+            #docs
+            #[doc = " <!-- @widget-body-end -->"]
+        };
         if !self.params.is_empty() {
             docs = quote! {
                 #docs
@@ -689,7 +732,11 @@ impl<'a> WidgetAttributes<'a> {
                 #[doc = " Params:"]
             }
         }
-        for param in self.params.values() {
+        docs = quote! {
+            #docs
+            #[doc = " <!-- @widget-params-begin -->"]
+        };
+        for param in self.params.iter() {
             let param_signature = format!(
                 " - `{}:` [`{}`]",
                 param.name.to_string(),
@@ -700,7 +747,7 @@ impl<'a> WidgetAttributes<'a> {
                 #[doc = #param_signature]
             };
             for doc in param.docs.iter() {
-                docs = quote! { 
+                docs = quote! {
                     #docs
                     #[doc = #doc]
                 }
@@ -710,6 +757,11 @@ impl<'a> WidgetAttributes<'a> {
                 #[doc = " "]
             }
         }
+        docs = quote! {
+            #docs
+            #[doc = " <!-- @widget-params-end -->"]
+        };
+
         if !self.signals.is_empty() {
             docs = quote! {
                 #docs
@@ -717,13 +769,17 @@ impl<'a> WidgetAttributes<'a> {
                 #[doc = " Signals:"]
             }
         }
+        docs = quote! {
+            #docs
+            #[doc = " <!-- @widget-signals-begin -->"]
+        };
         for signal in self.signals.values() {
             let signal_signature = format!(
                 " - `{}:` [`{}`]",
                 signal.name.to_string(),
                 signal.ty.to_token_stream().to_string().replace(" ", "")
             );
-            docs = quote! { 
+            docs = quote! {
                 #docs
                 #[doc = #signal_signature]
             };
@@ -738,6 +794,11 @@ impl<'a> WidgetAttributes<'a> {
                 #[doc = " "]
             }
         }
+
+        docs = quote! {
+            #docs
+            #[doc = " <!-- @widget-signals-end -->"]
+        };
         docs
     }
 }

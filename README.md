@@ -7,7 +7,7 @@ The `belly` is a plugin for a `bevy` game engine that helps to declaratively def
 #### API Reference
 
 - [Style Properties](docs/style-properties.md)
-- Widgets & Tags (work in progress)
+- [Widgets](docs/widgets.md)
 - Bind transformers (work in progress)
 - Crate docs (work in progress)
 
@@ -77,7 +77,7 @@ fn setup(mut commands: Commands) {
     });
 }
 ```
-![Color Picker](docs/img/color-picker.gif)
+![Color Picker](docs/img/examples/color-picker.gif)
 
 The main tasks the plugin is about to solve are:
 - fill the space in the `bevy` UI system (inputs, scrolls, text layout, etc.)
@@ -444,7 +444,7 @@ fn setup(mut commands: Commands) {
     });
 }
 ```
-![Selectors](docs/img/selectors.gif)
+![Selectors](docs/img/examples/selectors.gif)
 
 In this example, I apply classes (`red`, `green`, `blue`, `content`) to the nodes and define `StyleSheet` with precise rules to achieve the task: three buttons of defined colors, each becoming white on hover.
 
@@ -611,7 +611,7 @@ fn update_label(mut query: Query<(&Counter, &mut Label), Changed<Counter>>) {
     }
 }
 ```
-![Counter Example](docs/img/counter.gif)
+![Counter Example](docs/img/examples/counter.gif)
 
 When you want to connect the signal to the handler you use `connect!` macro:
 ```rust
@@ -991,7 +991,7 @@ fn setup(mut commands: Commands) {
     });
 }
 ```
-![Sliders Example](docs/img/sliders.gif)
+![Sliders Example](docs/img/examples/sliders.gif)
 
 To understand this example better you need to remember (or read from docs when somebody writes it) that `<progressbar>` widget comes with `<slot define="separator">` with empty content inside (actually, this slot is defined inside the `<range>` widget which acts like a base widget for `<progressbar>`, I'll talk about widget extending later).
 

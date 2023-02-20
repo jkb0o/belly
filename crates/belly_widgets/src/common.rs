@@ -63,7 +63,7 @@ fn body(ctx: &mut WidgetContext) {
 #[styles(br { flex-basis: 100%; })]
 /// The `<br/>` tag inserts single line break. `<br/>` height is
 /// zero, so combining multiple `<br/>` tags has no effect. Use
-/// [`<brl/>`](brl) if you want to insert extra empty line.
+/// [`<brl/>`](BrlWidget) if you want to insert extra empty line.
 fn br(ctx: &mut WidgetContext) {
     ctx.insert(ElementBundle::default());
 }
@@ -114,7 +114,7 @@ fn span(ctx: &mut WidgetContext) {
 }
 
 #[widget]
-#[style("font: bold")]
+#[styles( strong: { font: bold; })]
 /// The `<strong>` tag highlights an important part of a text. It can be used
 /// for such important contents, as warnings. This can be one sentence that gives
 /// importance to the whole page, or it may be needed if you want to highlight

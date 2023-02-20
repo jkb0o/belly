@@ -1,10 +1,73 @@
+// usage from inside belly crate:
+// cargo run -p belly_cli -- gen widget-reference > docs/widgets.md
 use std::{collections::HashMap, fs::File, io::BufReader};
 
+use clap::{Parser, Subcommand};
 use rustdoc_json;
-use rustdoc_types::{Crate, ItemEnum, ItemKind, Type};
+use rustdoc_types::{Crate, Id, Item, ItemEnum, ItemKind, Module, Type};
 use serde_json::from_reader;
 
+#[derive(Debug, Parser)]
+#[command(name = "cargo-polako")]
+#[command(about = "Polako CLI", long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(Debug, Subcommand)]
+enum Command {
+    #[command(subcommand)]
+    Gen(Gen),
+}
+
+#[derive(Debug, Subcommand)]
+#[command(args_conflicts_with_subcommands = true)]
+enum Gen {
+    StyleReference,
+    WidgetReference,
+}
+
 fn main() {
+    let args = Cli::parse();
+    match args.command {
+        Command::Gen(Gen::StyleReference) => gen_style_docs(),
+        Command::Gen(Gen::WidgetReference) => gen_widget_docs(),
+    }
+}
+
+fn gen_widget_docs() {
+    let json_path = rustdoc_json::Builder::default()
+        .toolchain("nightly")
+        .manifest_path("crates/belly_widgets/Cargo.toml")
+        // .manifest_path("crates/belly_core/Cargo.toml")
+        .build()
+        .unwrap();
+
+    let f = File::open(&json_path)
+        .unwrap_or_else(|_| panic!("Could not open {}", json_path.to_str().unwrap()));
+    let rdr = BufReader::new(f);
+    let crt: Crate = from_reader(rdr).unwrap_or_else(|e| panic!("Can't parse json: {e:?}"));
+    let mut widgets = fetch_widgets(&crt);
+    widgets.sort_by_key(|k| k.name.clone());
+    for widget in widgets.iter() {
+        println!("## {}", widget.name);
+        if let Some(extends) = &widget.extends {
+            println!("\nextends: `<{}>`\n", extends.name);
+        }
+        let body = widget.docs_body();
+        if !body.is_empty() {
+            println!("\n{body}\n")
+        }
+        let params = widget.docs_params();
+        if !params.is_empty() {
+            println!("\nParams:\n\n{params}")
+        }
+        println!("");
+    }
+}
+
+fn gen_style_docs() {
     let json_path = rustdoc_json::Builder::default()
         .toolchain("nightly-2022-12-18")
         .manifest_path("crates/belly_core/Cargo.toml")
@@ -124,6 +187,139 @@ fn fetch_parsers(crt: &Crate) -> HashMap<String, String> {
     result
 }
 
+fn fetch_widgets(crt: &Crate) -> Vec<Widget> {
+    let widget_trait_id = crt
+        .paths
+        .iter()
+        .filter(|(_, p)| p.kind == ItemKind::Trait)
+        .map(|(i, p)| (i, p.path.join("::")))
+        .filter(|(_, p)| p.as_str() == "belly_core::eml::build::Widget")
+        .map(|(i, _)| i)
+        .next()
+        .expect("No Widget trait found");
+    let mut impls = vec![];
+    for item in crt.index.values() {
+        if let ItemEnum::Impl(imp) = &item.inner {
+            if let Some(path) = &imp.trait_ {
+                if &path.id == widget_trait_id {
+                    if let Type::ResolvedPath(impl_path) = &imp.for_ {
+                        if let Some(widget_impl) = crt.index.get(&impl_path.id) {
+                            impls.push(widget_impl);
+                        } else {
+                            eprintln!("Invalid crate for Widget implementation");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let mut result = vec![];
+    for item in impls {
+        let mut all_extends = fetch_widget_extends(crt, item);
+        let mut extends = None;
+        while let Some(extends_item) = all_extends.pop() {
+            let docs = Doc::new(extends_item.docs.as_ref().unwrap());
+            let name = docs.attr("widget-name").unwrap().into();
+            if let Some(module) = find_module(crt, extends_item) {
+                extends = Some(Box::new(Widget {
+                    docs,
+                    name,
+                    extends,
+                    crt,
+                    module,
+                    links: extends_item.links.clone(),
+                }))
+            } else {
+                break;
+            }
+        }
+        let docs = if let Some(docs) = &item.docs {
+            Doc::new(docs)
+        } else {
+            Doc::new("")
+        };
+        let Some(name) = docs.attr("widget-name") else {
+            eprintln!("No @widget-name found for {}", item.name.as_ref().unwrap());
+            continue;
+        };
+        if let Some(module) = find_module(crt, item) {
+            result.push(Widget {
+                name: name.into(),
+                docs,
+                extends,
+                crt,
+                module,
+                links: item.links.clone(),
+            })
+        }
+    }
+    result
+}
+
+fn fetch_widget_extends<'a>(crt: &'a Crate, for_item: &Item) -> Vec<&'a Item> {
+    let mut result = vec![];
+    let widget_trait_id = crt
+        .paths
+        .iter()
+        .filter(|(_, p)| p.kind == ItemKind::Trait)
+        .map(|(i, p)| (i, p.path.join("::")))
+        .filter(|(_, p)| p.as_str() == "belly_core::eml::build::Widget")
+        .map(|(i, _)| i)
+        .next()
+        .expect("No Widget trait found");
+    for item in crt.index.values() {
+        if let ItemEnum::Impl(imp) = &item.inner {
+            let Type::ResolvedPath(impl_for) = &imp.for_ else {
+                continue;
+            };
+            if impl_for.id != for_item.id {
+                continue;
+            }
+            if let Some(path) = &imp.trait_ {
+                if &path.id == widget_trait_id {
+                    let extends = imp
+                        .items
+                        .iter()
+                        .filter_map(|i| crt.index.get(i))
+                        .filter(|i| i.name == Some("Extends".into()))
+                        .next()
+                        .unwrap();
+                    let ItemEnum::AssocType { generics: _, bounds: _, default: Some(extends) } = &extends.inner else {
+                        panic!("Expected assoc type")
+                    };
+                    let Type::ResolvedPath(extends) = extends else {
+                        panic!("Expected ResolvedPath")
+                    };
+                    if let Some(extends) = crt.index.get(&extends.id) {
+                        result.push(extends);
+                        result.extend(fetch_widget_extends(crt, extends))
+                    }
+                }
+            }
+        }
+    }
+    result
+}
+
+fn find_module<'a>(crt: &'a Crate, for_item: &Item) -> Option<&'a Module> {
+    for item in crt.index.values() {
+        if let ItemEnum::Module(module) = &item.inner {
+            if module
+                .items
+                .iter()
+                .filter_map(|i| crt.index.get(i))
+                .filter(|i| i.id == for_item.id)
+                .next()
+                .is_some()
+            {
+                return Some(module);
+            }
+        }
+    }
+    None
+}
+
 fn fetch_properties(crt: &Crate) -> Vec<Property> {
     let property_trait_id = crt
         .paths
@@ -138,7 +334,6 @@ fn fetch_properties(crt: &Crate) -> Vec<Property> {
         .index
         .get(property_trait_id)
         .expect("Property trait not declared in current crate");
-    // println!("Found trait: {property_trait:?}");
     let ItemEnum::Trait(property_trait) = &property_trait.inner else {
         panic!("Property is not a trait")
     };
@@ -157,7 +352,6 @@ fn fetch_properties(crt: &Crate) -> Vec<Property> {
             eprintln!("Looks like {} implemented in outer crate", path.name);
             continue;
         };
-        // println!("{}", path.name);
         let Some(parser_assoc) = imp.items
             .iter()
             .filter_map(|id| crt.index.get(id))
@@ -237,7 +431,6 @@ fn fetch_compound_properties(crt: &Crate) -> Vec<Property> {
         .index
         .get(property_trait_id)
         .expect("CompoundProperty trait not declared in current crate");
-    // println!("Found trait: {property_trait:?}");
     let ItemEnum::Trait(property_trait) = &property_trait.inner else {
         panic!("CompoundProperty is not a trait")
     };
@@ -257,9 +450,9 @@ fn fetch_compound_properties(crt: &Crate) -> Vec<Property> {
             continue;
         };
         let docs = if let Some(docs) = &impl_item.docs {
-            Doc(docs.into())
+            Doc::new(docs)
         } else {
-            Doc("".into())
+            Doc::new("")
         };
         let prop_type = if let Some(pt) = docs.attr("property-type") {
             PropertyType::Inline(pt.into())
@@ -282,6 +475,58 @@ fn fetch_compound_properties(crt: &Crate) -> Vec<Property> {
         })
     }
     result
+}
+
+struct Widget<'a> {
+    crt: &'a Crate,
+    links: HashMap<String, Id>,
+    name: String,
+    module: &'a Module,
+    extends: Option<Box<Widget<'a>>>,
+    docs: Doc,
+}
+
+impl<'a> Widget<'a> {
+    pub fn docs_body(&self) -> String {
+        let body = if let Some(body) = self.docs.block("widget-body") {
+            body.trim()
+        } else {
+            ""
+        };
+        body.into()
+    }
+
+    pub fn docs_params(&self) -> String {
+        let mut result = "".to_string();
+        let mut widget = Some(self);
+        while let Some(w) = widget {
+            if let Some(params) = w.docs.block("widget-params") {
+                let mut params = params.trim().to_string();
+                for (link, id) in w.links.iter() {
+                    if let Some(item) = self.crt.index.get(id) {
+                        let docs = Doc::new(item.docs.as_ref().unwrap_or(&format!("")));
+                        let item_name = link.trim_matches('`');
+                        let inline = format!("<!-- @inline {item_name} -->");
+                        params = params.replace(
+                            &inline,
+                            docs.0.as_str().trim().replace("\n", "\n  ").as_str(),
+                        );
+                    }
+                    // TODO: replace with valid link to crate
+                    let type_link = format!("[{link}]");
+                    params = params.replace(&type_link, link);
+                }
+                if !params.is_empty() {
+                    if w.name != self.name {
+                        result += format!("\nfrom `<{}>`\n", w.name).as_str();
+                    }
+                    result += params.as_str();
+                }
+                widget = w.extends.as_ref().map(|b| b.as_ref())
+            }
+        }
+        result.trim().into()
+    }
 }
 
 enum PropertyType {
@@ -325,10 +570,19 @@ struct Doc(String);
 
 impl Doc {
     fn new<T: AsRef<str>>(value: T) -> Self {
-        Doc(value.as_ref().to_string())
+        Doc(value.as_ref().to_string()).alter()
     }
     fn attr(&self, name: &str) -> Option<&str> {
         docattr(name, self.0.as_str())
+    }
+    fn block(&self, name: &str) -> Option<&str> {
+        docblock(name, self.0.as_str())
+    }
+    fn alter(&self) -> Doc {
+        Doc(docalter(self.0.as_str()))
+    }
+    fn block_replace<F: Fn(&str) -> String>(&self, name: &str, repl: F) -> String {
+        docblock_replace(name, self.0.as_str(), repl)
     }
 }
 
@@ -365,4 +619,53 @@ fn docattr<'a>(name: &str, mut docstring: &'a str) -> Option<&'a str> {
         return Some(&item[0..idx].trim());
     }
     None
+}
+
+fn docalter<'a>(mut docstring: &'a str) -> String {
+    let mut result = String::new();
+    while let Some(idx) = docstring.find(format!("<!-- @alter").as_str()) {
+        result = result + &docstring[..idx];
+        docstring = &docstring[idx..];
+        docstring = docstring.strip_prefix("<!-- @alter").unwrap();
+        let next = docstring.find("-->").unwrap();
+        result = result + &docstring[..next];
+        docstring = &docstring[next..];
+        docstring = docstring.strip_prefix("-->").unwrap();
+    }
+    if result.is_empty() {
+        docstring.to_string()
+    } else {
+        result
+    }
+}
+
+fn docblock<'a>(name: &str, mut docstring: &'a str) -> Option<&'a str> {
+    while let Some(idx) = docstring.find(format!("<!-- @{name}-begin").as_str()) {
+        docstring = &docstring[idx..];
+        let start = docstring.find("-->").unwrap() + 3;
+        let end = docstring
+            .find(format!("<!-- @{name}-end").as_str())
+            .unwrap();
+        let found: &str = &docstring[start..end];
+        return Some(found);
+    }
+    None
+}
+
+fn docblock_replace<'a, F: Fn(&'a str) -> String>(
+    name: &str,
+    docstring: &'a str,
+    replace: F,
+) -> String {
+    while let Some(idx) = docstring.find(format!("<!-- @{name}-begin").as_str()) {
+        let docmatch = &docstring[idx..];
+        let start = docmatch.find("-->").unwrap() + 3;
+        let end = docmatch.find(format!("<!-- @{name}-end").as_str()).unwrap();
+        let found: &str = &docmatch[start..end];
+        let docmatch = &docmatch[end..];
+        let last = docmatch.find("-->").unwrap() + 3;
+
+        return docstring[..idx].to_string() + replace(found).as_str() + &docmatch[last..];
+    }
+    docstring.to_string()
 }
