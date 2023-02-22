@@ -2,7 +2,7 @@
 // cargo run --example image-sources
 //! Shows how to render to a texture and use it in an image component. Useful for mirrors, UI, or exporting images.
 //! This exemple show how to implement a 3D viewport.
-//! 
+//!
 
 use belly::prelude::*;
 use bevy::prelude::*;
@@ -18,10 +18,10 @@ use bevy::{
     },
 };
 
-
 //we must run "setup_viewport" befor "setup_ui"  so we create to startup stages for our app
+// Bevy event could be used in stead of stages
 #[derive(StageLabel)]
-enum AppSetup{
+enum AppSetup {
     Viewport,
     Ui,
 }
@@ -29,16 +29,15 @@ enum AppSetup{
 fn main() {
     App::new()
         .init_resource::<Viewport>()
-	    .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins)
         .add_plugin(BellyPlugin)
         .add_startup_stage(AppSetup::Viewport, SystemStage::parallel())
         .add_startup_stage_after(AppSetup::Viewport, AppSetup::Ui, SystemStage::parallel())
         .add_startup_system_to_stage(AppSetup::Viewport, setup_viewport)
         .add_startup_system_to_stage(AppSetup::Ui, setup_ui)
-	    .add_system(rotator_system)
+        .add_system(rotator_system)
         .run();
 }
-
 
 // Marks the first pass (rendered to a texture.)
 #[derive(Component)]
@@ -47,7 +46,7 @@ struct FirstPassViewport;
 #[derive(Resource)]
 struct Viewport {
     image_handle: Option<Handle<Image>>,
-    size         :Extent3d,
+    size: Extent3d,
 }
 
 impl Default for Viewport {
@@ -58,8 +57,8 @@ impl Default for Viewport {
             ..default()
         };
         Viewport {
-            image_handle : None,
-            size         :size,
+            image_handle: None,
+            size: size,
         }
     }
 }
@@ -88,7 +87,6 @@ fn setup_viewport(
         },
         ..default()
     };
-
 
     // fill image.data with zeroes
     image.resize(size);
@@ -127,52 +125,53 @@ fn setup_viewport(
     });
 
     commands
-    .spawn(Camera3dBundle {
-        camera_3d: Camera3d {
-            clear_color: ClearColorConfig::Custom(Color::WHITE),
+        .spawn(Camera3dBundle {
+            camera_3d: Camera3d {
+                clear_color: ClearColorConfig::Custom(Color::WHITE),
+                ..default()
+            },
+            camera: Camera {
+                // render before the "main pass" camera
+                priority: -1,
+                target: RenderTarget::Image(image_handle.clone()),
+                ..default()
+            },
+            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
+                .looking_at(Vec3::default(), Vec3::Y),
             ..default()
-        },
-        camera: Camera {
-            // render before the "main pass" camera
-            priority: -1,
-            target: RenderTarget::Image(image_handle.clone()),
-            ..default()
-        },
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0))
-            .looking_at(Vec3::default(), Vec3::Y),
-        ..default()
-    })
-    .insert(viewport_pass_layer);
+        })
+        .insert(viewport_pass_layer)
+        .insert(UiCameraConfig { show_ui: false });
 }
 
-fn setup_ui(
-    mut commands: Commands, 
-    asset_server: Res<AssetServer>,
-    viewport: ResMut<Viewport>,
-) {
+fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>, viewport: ResMut<Viewport>) {
     // Could be `None` if the viewport is not created yet
     let img_viewport = match viewport.image_handle.clone() {
         Some(handle) => handle,
         //if setup_viewport failed we show an image instead
-	    None        => asset_server.load("icon.png"),
+        None => asset_server.load("icon.png"),
     };
-    
+
     commands.spawn(Camera2dBundle::default());
     //use some css for the viewport if you want to
-    /*commands.add(StyleSheet::parse("
+    commands.add(StyleSheet::parse(
+        "
             body { padding: 50px; }
-            #viewport { margin: 50px; }
-        ",));*/
-    //set the width and the height of the viewport
-    let w = Val::Px(viewport.size.width as f32);
-    let h = Val::Px(viewport.size.height as f32);
+            #viewport {
+                margin: 50px;
+                width: 50%; 
+                height: 50%; 
+                background-color: grey;
+            }
+        ",
+    ));
+
     commands.add(eml! {
         <body>
-            <img  id="viewport" src=img_viewport s:width=w s:height=h ></img>
+            <img  id="viewport" src=img_viewport></img>
         </body>
     });
 }
-
 
 /// Rotates the inner cube (FirstPassViewport)
 fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<FirstPassViewport>>) {
