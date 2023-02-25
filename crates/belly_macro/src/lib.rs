@@ -2,10 +2,12 @@ mod context;
 mod eml;
 mod ess;
 mod ext;
+mod run;
 mod widgets;
 
 extern crate proc_macro;
 use quote::*;
+use run::Run;
 use syn::parse_macro_input;
 use syn_rsx::parse;
 
@@ -42,4 +44,10 @@ pub fn ess_define(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         const #ident: &'static str =
         #value;
     })
+}
+
+#[proc_macro]
+pub fn run(tree: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let run = parse_macro_input!(tree as Run);
+    proc_macro::TokenStream::from(run.build())
 }

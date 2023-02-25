@@ -1,11 +1,10 @@
-use bevy::utils::{HashMap, StableHashMap};
-use proc_macro2::{Span, TokenStream, TokenTree};
-use quote::*;
-use syn::spanned::Spanned;
-
 use super::context::Context;
 use super::ess::StyleSheet;
 use super::ext::*;
+use bevy::utils::HashMap;
+use proc_macro2::{Span, TokenStream, TokenTree};
+use quote::*;
+use syn::spanned::Spanned;
 
 macro_rules! throw {
     ($span:expr, $msg:literal $($args:tt)*) => {
@@ -402,9 +401,7 @@ impl<'a> WidgetAttributes<'a> {
             docs: vec![],
         };
         let mut docs = vec![];
-        let mut fnattrs = ast.attrs.clone();
-        // fnattrs.sort_by(|a, b| a.span().pos().cmp(&b.span().pos()));
-        for attr in fnattrs {
+        for attr in ast.attrs.iter() {
             if attr.path.is_ident("doc") {
                 let doc: AttributeValue<syn::LitStr> = syn::parse2(attr.tokens.clone())?;
                 docs.push(doc.value.value())
@@ -593,25 +590,8 @@ impl<'a> WidgetAttributes<'a> {
             let filter = &signal.filter;
             body = quote! {
                 #body
-                pub fn #name<
-                    C: ::bevy::prelude::Component,
-                    F: Fn(&mut #core::relations::ConnectionBuilder<C, #event>)
-                >(
-                    &self,
-                    world: &mut ::bevy::prelude::World,
-                    source: ::bevy::prelude::Entity,
-                    connect: F,
-                ) {
-                    let mut builder = #core::relations::ConnectionBuilder::<C, #event>::default();
-                    connect(&mut builder);
-                    if let Some(target) = builder.build() {
-                        target
-                            .filter(#filter)
-                            .from(source)
-                            .write(world)
-                    } else {
-                        ::bevy::prelude::error!("Unable to create connection");
-                    }
+                pub fn #name(&self) -> #core::relations::connect::EventFilter<#event> {
+                    #core::relations::connect::EventFilter::Entity(#filter)
                 }
             };
         }

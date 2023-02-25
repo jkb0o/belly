@@ -24,12 +24,12 @@ fn setup(mut commands: Commands) {
     commands.add(eml! {
         <body s:justify-content="center" s:align-items="center">
             // connect the press signal to closure executed on the Counter context
-            <button on:press=connect!(counter, |c: Counter| c.count += 1)>"+"</button>
+            <button on:press=run!(for counter |c: &mut Counter| c.count += 1)>"+"</button>
             <span s:width="150px" s:justify-content="center">
                 // insert label widget with Counter component to the predefined entity
                 <label {counter} with=Counter/>
             </span>
-            <button on:press=connect!(counter, |c: Counter| c.count -= 1)>"-"</button>
+            <button on:press=run!(for counter |c: &mut Counter| c.count -= 1)>"-"</button>
         </body>
     })
 }

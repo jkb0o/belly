@@ -2,6 +2,7 @@ use crate::common::prelude::*;
 use crate::tags;
 use belly_core::build::*;
 use belly_core::input;
+use belly_core::relations::connect::EventSource;
 use belly_macro::*;
 
 use bevy::{
@@ -53,7 +54,7 @@ impl Plugin for ButtonPlugin {
 }
 
 #[widget]
-#[signal(value_change: ValueChanged<String>)]
+#[signal(value_change: ValueChanged<String> => value_changed)]
 /// The current value of the `<buttongroup>`. When you set this property, the
 /// corresponding button will become pressed, and all other buttons in the
 /// group will have their pressed state removed.
@@ -74,8 +75,8 @@ fn buttongroup(ctx: &mut WidgetContext) {
 }
 
 #[widget]
-#[signal(press:BtnEvent => |e| e.pressed())]
-#[signal(release:BtnEvent => |e| e.released())]
+#[signal(press:BtnEvent => button_pressed)]
+#[signal(release:BtnEvent => button_released)]
 /// if button is pressed or not
 #[param(pressed:bool => Btn:pressed)]
 /// <!-- @inline BtnMode -->
@@ -93,15 +94,24 @@ fn buttongroup(ctx: &mut WidgetContext) {
 /// state to element if it pressed and remove `:pressed` if it releases.
 fn button(ctx: &mut WidgetContext) {
     let content = ctx.content();
-    ctx.render(eml! {
-        <span c:button interactable>
-            <span c:button-shadow s:position-type="absolute"/>
-            <span c:button-background>
-                <span c:button-foreground>
-                    {content}
+    let flat = ctx.param("flat".into()).is_some();
+    ctx.render(if flat {
+        eml! {
+            <span c:button interactable>
+                {content}
+            </span>
+        }
+    } else {
+        eml! {
+            <span c:button interactable>
+                <span c:button-shadow s:position-type="absolute"/>
+                <span c:button-background>
+                    <span c:button-foreground>
+                        {content}
+                    </span>
                 </span>
             </span>
-        </span>
+        }
     });
 }
 
@@ -113,16 +123,16 @@ ess_define! {
         min-height: 40px;
         margin: 5px;
     }
-    button:hover .button-foreground {
+    button:hover > span > .button-foreground {
         background-color: white;
     }
-    button:active .button-background {
+    button:active > .button-background {
         margin: 1px -1px -1px 1px;
     }
-    button:pressed .button-background {
+    button:pressed > .button-background {
         margin: 1px -1px -1px 1px;
     }
-    button:pressed .button-foreground {
+    button:pressed > span > .button-foreground {
         background-color: #bfbfbf;
     }
     .button-shadow {
@@ -161,41 +171,9 @@ enum Label {
 }
 
 pub enum BtnEvent {
-    Pressed([Entity; 1]),
-    Released([Entity; 1]),
+    Pressed(Entity),
+    Released(Entity),
 }
-
-pub struct ValueChanged<T> {
-    entity: [Entity; 1],
-    old_value: T,
-    new_value: T,
-}
-
-impl<T> ValueChanged<T> {
-    pub fn new(entity: Entity, old_value: T, new_value: T) -> ValueChanged<T> {
-        ValueChanged {
-            entity: [entity],
-            old_value,
-            new_value,
-        }
-    }
-    pub fn old_value(&self) -> &T {
-        &self.old_value
-    }
-    pub fn new_value(&self) -> &T {
-        &self.new_value
-    }
-    pub fn any(&self) -> bool {
-        true
-    }
-}
-
-impl<T: Send + Sync + 'static> Signal for ValueChanged<T> {
-    fn sources(&self) -> &[Entity] {
-        &self.entity
-    }
-}
-
 impl BtnEvent {
     pub fn pressed(&self) -> bool {
         match self {
@@ -211,14 +189,49 @@ impl BtnEvent {
     }
 }
 
-impl Signal for BtnEvent {
-    fn sources(&self) -> &[Entity] {
-        match self {
-            BtnEvent::Pressed(source) => source,
-            BtnEvent::Released(source) => source,
-        }
+fn button_pressed(event: &BtnEvent) -> EventSource {
+    match event {
+        BtnEvent::Pressed(entity) => EventSource::single(*entity),
+        _ => EventSource::none(),
     }
 }
+
+fn button_released(event: &BtnEvent) -> EventSource {
+    match event {
+        BtnEvent::Released(entity) => EventSource::single(*entity),
+        _ => EventSource::none(),
+    }
+}
+
+pub struct ValueChanged<T> {
+    entity: Entity,
+    old_value: T,
+    new_value: T,
+}
+
+impl<T> ValueChanged<T> {
+    pub fn new(entity: Entity, old_value: T, new_value: T) -> ValueChanged<T> {
+        ValueChanged {
+            entity,
+            old_value,
+            new_value,
+        }
+    }
+    pub fn old_value(&self) -> &T {
+        &self.old_value
+    }
+    pub fn new_value(&self) -> &T {
+        &self.new_value
+    }
+    pub fn any(&self) -> bool {
+        true
+    }
+}
+
+fn value_changed<T: Send + Sync + 'static>(event: &ValueChanged<T>) -> EventSource {
+    EventSource::single(event.entity)
+}
+
 pub struct BtnCustom;
 
 #[derive(Clone, Default, PartialEq, Debug)]
@@ -507,11 +520,11 @@ fn handle_input_system(
     state_changes.clear();
 
     if let Some(entity) = repeat_state.hits(time.delta_seconds()) {
-        button_events.send(BtnEvent::Pressed([entity]));
+        button_events.send(BtnEvent::Pressed(entity));
     }
 
     for event in pointer_events.iter() {
-        for entity in event.sources() {
+        for entity in event.entities.iter() {
             if repeat_state.is_active() {
                 if event.up() {
                     repeat_state.reset();
@@ -543,39 +556,39 @@ fn handle_input_system(
                         btn.pressed = true;
                     }
                     instant_pressed.insert(*entity);
-                    button_events.send(BtnEvent::Pressed([*entity]));
+                    button_events.send(BtnEvent::Pressed(*entity));
                 }
                 (BtnMode::Instant, PointerInputData::Pressed { presses: _ }) => {
                     if btn.pressed {
                         btn.pressed = false;
                     }
-                    button_events.send(BtnEvent::Released([*entity]));
+                    button_events.send(BtnEvent::Released(*entity));
                 }
                 (BtnMode::Press, PointerInputData::Pressed { presses: _ }) => {
-                    button_events.send(BtnEvent::Pressed([*entity]));
-                    button_events.send(BtnEvent::Released([*entity]));
+                    button_events.send(BtnEvent::Pressed(*entity));
+                    button_events.send(BtnEvent::Released(*entity));
                 }
                 (BtnMode::Repeat(repeat), PointerInputData::Down { presses: _ }) => {
                     repeat_state.start(*entity, repeat.clone());
-                    button_events.send(BtnEvent::Pressed([*entity]));
+                    button_events.send(BtnEvent::Pressed(*entity));
                 }
                 (BtnMode::Repeat(_), PointerInputData::Pressed { presses: _ }) => {
-                    button_events.send(BtnEvent::Released([*entity]));
+                    button_events.send(BtnEvent::Released(*entity));
                 }
 
                 (BtnMode::Toggle, PointerInputData::Pressed { presses: _ }) => {
                     if btn.pressed {
                         btn.pressed = false;
-                        button_events.send(BtnEvent::Released([*entity]));
+                        button_events.send(BtnEvent::Released(*entity));
                     } else {
                         btn.pressed = true;
-                        button_events.send(BtnEvent::Pressed([*entity]));
+                        button_events.send(BtnEvent::Pressed(*entity));
                     }
                 }
                 (BtnMode::Group(group), PointerInputData::Pressed { presses: _ }) => {
                     if !btn.pressed {
                         state_changes.insert(group.clone(), (*entity, btn.value.clone()));
-                        button_events.send(BtnEvent::Pressed([*entity]));
+                        button_events.send(BtnEvent::Pressed(*entity));
                     } else {
                     }
                 }
@@ -604,7 +617,7 @@ fn handle_input_system(
                 if btn.pressed != pressed {
                     btn.pressed = pressed;
                     if !btn.pressed {
-                        button_events.send(BtnEvent::Released([*entity]));
+                        button_events.send(BtnEvent::Released(*entity));
                     }
                 }
             }
@@ -638,7 +651,7 @@ fn handle_states_system(
                 groups.insert(group.clone(), BtnGroupState::single(entity));
                 if !btn.pressed {
                     btn.pressed = true;
-                    button_events.send(BtnEvent::Pressed([entity]));
+                    button_events.send(BtnEvent::Pressed(entity));
                 }
                 elements.set_state(entity, tags::pressed(), true);
             }
@@ -648,7 +661,7 @@ fn handle_states_system(
         if let Ok((entity, mut btn)) = buttons.get_mut(*entity) {
             if btn.pressed {
                 btn.pressed = false;
-                button_events.send(BtnEvent::Released([entity]));
+                button_events.send(BtnEvent::Released(entity));
             }
             elements.set_state(entity, tags::pressed(), false);
         }

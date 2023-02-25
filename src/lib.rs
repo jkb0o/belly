@@ -44,9 +44,7 @@
 //!     let colorbox = commands.spawn_empty().id();
 //!     commands.add(eml! {
 //!         <body>
-//!             <span c:controls on:ready=connect!(
-//!                 colorbox, |c: BackgroundColor| c.0 = Color::WHITE
-//!             )>
+//!             <span c:controls>
 //!                 <slider c:red
 //!                     bind:value=to!(colorbox, BackgroundColor:0|r)
 //!                     bind:value=from!(colorbox, BackgroundColor:0.r())
@@ -65,12 +63,14 @@
 //!                 />
 //!             </span>
 //!             <img c:colorbox-holder src="trbg.png">
-//!                 <span {colorbox} c:colorbox/>
+//!                 <span {colorbox} c:colorbox
+//!                     on:ready=run!(for colorbox |c: &mut BackgroundColor| c.0 = Color::WHITE)
+//!                 />
 //!             </img>
 //!             <span c:colors>
 //!             <for color in = COLORS>
-//!                 <button on:press=connect!(
-//!                     colorbox, |c: BackgroundColor| c.0 = Color::from_hex(color)
+//!                 <button on:press=run!(for colorbox
+//!                     |c: &mut BackgroundColor| c.0 = Color::from_hex(color)
 //!                 )>
 //!                     <span s:background-color=*color s:width="100%" s:height="100%"/>
 //!                 </button>
@@ -99,6 +99,7 @@ pub mod prelude {
 
     pub use belly_core::prelude::*;
     pub use belly_macro::eml;
+    pub use belly_macro::run;
     pub use belly_widgets::prelude::*;
 
     pub struct BellyPlugin;

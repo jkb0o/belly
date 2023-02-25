@@ -19,7 +19,6 @@ pub mod prelude {
 
     // macro
     pub use crate::bind;
-    pub use crate::connect;
     pub use crate::from;
     pub use crate::to;
 
@@ -28,7 +27,7 @@ pub mod prelude {
     pub use crate::eml::content::IntoContent;
     pub use crate::eml::Widget;
     pub use crate::ess::ColorFromHexExtension;
-    pub use crate::relations::Signal;
+    pub use crate::relations::connect::ConnectCommandsExtension;
 
     // structs
     pub use crate::element::Element;
@@ -36,8 +35,10 @@ pub mod prelude {
     pub use crate::eml::asset::EmlAsset;
     pub use crate::eml::asset::EmlScene;
     pub use crate::ess::StyleSheet;
+    pub use crate::relations::connect::Connect;
+    pub use crate::relations::connect::EventSource;
     pub use crate::relations::ConnectionEntityContext;
-    pub use crate::relations::ConnectionGeneralContext;
+    pub use crate::relations::EventContext;
 }
 
 pub mod build {
@@ -55,7 +56,7 @@ pub mod build {
     pub use crate::ess::StylePropertyMethods;
     pub use crate::relations::bind::AsTransformer;
     pub use crate::relations::bind::TransformationResult;
-    pub use crate::relations::connect::ConnectionBuilder;
+    pub use crate::relations::props::impls::OptionProperties;
     pub use crate::relations::props::GetProperties;
 
     // structs
@@ -69,7 +70,7 @@ pub mod build {
     pub use crate::input::PointerInput;
     pub use crate::input::PointerInputData;
     pub use crate::relations::props::Prop;
-    pub use crate::relations::ConnectionTo;
+    pub use crate::relations::Handler;
     pub use crate::Tag;
 }
 

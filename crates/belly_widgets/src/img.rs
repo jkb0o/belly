@@ -1,4 +1,4 @@
-use belly_core::build::*;
+use belly_core::{build::*, relations::connect::EventSource};
 use belly_macro::*;
 
 use bevy::{
@@ -37,8 +37,8 @@ impl Plugin for ImgPlugin {
 }
 
 #[widget]
-#[signal(load:ImgEvent => |e| e.loaded())]
-#[signal(unload:ImgEvent => |e| e.unloaded())]
+#[signal(load:ImgEvent => img_loaded)]
+#[signal(unload:ImgEvent => img_unloaded)]
 /// Specifies the path to the image or custom `Handle<Image>`
 #[param( src: ImageSource => Img:src )]
 /// <!-- @inline ImgMode -->
@@ -94,12 +94,16 @@ impl ImgEvent {
     }
 }
 
-impl Signal for ImgEvent {
-    fn sources(&self) -> &[Entity] {
-        match self {
-            ImgEvent::Loaded(entities) => &entities,
-            ImgEvent::Unloaded(entities) => &entities,
-        }
+fn img_loaded(event: &ImgEvent) -> EventSource {
+    match event {
+        ImgEvent::Loaded(entities) => EventSource::vec(entities),
+        _ => EventSource::none(),
+    }
+}
+fn img_unloaded(event: &ImgEvent) -> EventSource {
+    match event {
+        ImgEvent::Unloaded(entities) => EventSource::vec(entities),
+        _ => EventSource::none(),
     }
 }
 

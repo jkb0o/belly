@@ -298,15 +298,20 @@ impl<'w, 's> Elements<'w, 's> {
         }
     }
 
-    pub fn add_child(&mut self, entity: Entity, eml: Eml) {
+    pub fn add_child(&mut self, entity: Entity, eml: Eml) -> Entity {
         let ch = self.commands.spawn_empty().id();
         self.commands.entity(entity).add_child(ch);
         self.commands.add(eml.with_entity(ch));
+        ch
     }
 
     pub fn replace(&mut self, entity: Entity, eml: Eml) {
         self.commands.entity(entity).despawn_descendants();
         self.commands.add(eml.with_entity(entity));
+    }
+
+    pub fn commands(&mut self) -> &mut Commands<'w, 's> {
+        &mut self.commands
     }
 }
 

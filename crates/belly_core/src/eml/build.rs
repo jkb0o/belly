@@ -16,7 +16,7 @@ use tagstr::{tag, Tag};
 use crate::{
     element::Element,
     ess::{PropertyExtractor, PropertyTransformer, StyleRule, StyleSheetParser},
-    relations::{ConnectionBuilder, Signal},
+    relations::connect::{EventFilter, EventSource},
     tags,
 };
 
@@ -461,37 +461,20 @@ pub struct DefaultSignals;
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct RequestReadyEvent(pub(crate) Entity);
-pub struct ReadyEvent([Entity; 1]);
-
-impl Signal for ReadyEvent {
-    fn sources(&self) -> &[Entity] {
-        &self.0
-    }
-}
+pub struct ReadyEvent(Entity);
 
 fn emit_ready_signal(
     mut requests: EventReader<RequestReadyEvent>,
     mut writer: EventWriter<ReadyEvent>,
 ) {
     for req in requests.iter().unique() {
-        writer.send(ReadyEvent([req.0]))
+        writer.send(ReadyEvent(req.0))
     }
 }
 
 impl DefaultSignals {
-    pub fn ready<C: Component, F: Fn(&mut ConnectionBuilder<C, ReadyEvent>)>(
-        &self,
-        world: &mut World,
-        source: Entity,
-        connect: F,
-    ) {
-        let mut builder = ConnectionBuilder::<C, ReadyEvent>::default();
-        connect(&mut builder);
-        if let Some(target) = builder.build() {
-            target.filter(|_| true).from(source).write(world)
-        } else {
-            error!("Unable to create connection to `ready`");
-        }
+    pub fn ready(&self) -> EventFilter<ReadyEvent> {
+        EventFilter::Entity(|e| EventSource::single(e.0))
     }
 }
 

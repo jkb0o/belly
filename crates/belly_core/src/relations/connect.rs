@@ -1,49 +1,147 @@
-use crate::{element::Elements, eml::Eml, input::PointerInput, relations::RelationsSystems};
+use crate::{element::Elements, eml::Eml, relations::RelationsSystems};
 use bevy::{
     asset::Asset,
     ecs::{
         event::Event,
+        query::{QueryItem, WorldQuery},
         system::{Command, EntityCommands},
     },
     prelude::*,
     utils::HashMap,
 };
-use itertools::Itertools;
-use std::ops::{Deref, DerefMut};
+use std::{
+    any::{type_name, Any, TypeId},
+    marker::PhantomData,
+    mem,
+    ops::{Deref, DerefMut},
+};
 
-pub trait Signal: Event {
-    fn sources(&self) -> &[Entity];
+pub type WorldEvent<E> = fn(&E) -> bool;
+pub type EntityEvent<E> = fn(&E) -> EventSource;
+
+pub enum EventFilter<E: Event> {
+    World(WorldEvent<E>),
+    Entity(EntityEvent<E>),
 }
 
-impl Signal for PointerInput {
-    fn sources(&self) -> &[Entity] {
-        &self.entities
+impl<E: Event> std::hash::Hash for EventFilter<E> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            Self::Entity(f) => (f as *const EntityEvent<E>).hash(state),
+            Self::World(f) => (f as *const WorldEvent<E>).hash(state),
+        }
     }
 }
 
-pub struct ConnectionGeneralContext<'a, 'w, 's, S: Signal + 'static> {
-    pub(crate) source_event: &'a S,
-    pub(crate) source: Entity,
+impl<E: Event> PartialEq for EventFilter<E> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Entity(f0), Self::Entity(f1)) => {
+                (f0 as *const EntityEvent<E>) == (f1 as *const EntityEvent<E>)
+            }
+            (Self::World(f0), Self::World(f1)) => {
+                (f0 as *const WorldEvent<E>) == (f1 as *const WorldEvent<E>)
+            }
+            _ => false,
+        }
+    }
+}
+
+impl<E: Event> Eq for EventFilter<E> {}
+
+impl<E: Event> EventFilter<E> {
+    pub fn entity(filter: EntityEvent<E>) -> Self {
+        Self::Entity(filter)
+    }
+    pub fn world(filter: WorldEvent<E>) -> Self {
+        Self::World(filter)
+    }
+
+    pub fn func<F: 'static + Fn(&mut EventContext<E>)>(self, func: F) -> Connection<(), E> {
+        Connection {
+            target: None,
+            source: None,
+            handler: Handler(Box::new(move |ctx, _| func(ctx))),
+            filter: self,
+        }
+    }
+    pub fn handle<Q: WorldQuery, F: 'static + Fn(&mut EventContext<E>, &mut QueryItem<Q>)>(
+        self,
+        (_, target, handler): (PhantomData<Q>, Option<Entity>, F),
+    ) -> Connection<Q, E> {
+        Connection {
+            target,
+            source: None,
+            handler: Handler(Box::new(handler)),
+            filter: self,
+        }
+    }
+}
+
+pub enum EventSource<'a> {
+    None,
+    Single(Option<Entity>),
+    Vec(usize, &'a Vec<Entity>),
+    Iter(&'a mut dyn Iterator<Item = Entity>),
+}
+
+impl<'a> Iterator for EventSource<'a> {
+    type Item = Entity;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::None => None,
+            Self::Single(single) => mem::take(single),
+            Self::Vec(idx, vec) => {
+                let pos = *idx;
+                *idx += 1;
+                vec.get(pos).map(|e| *e)
+            }
+            Self::Iter(iter) => iter.next(),
+        }
+    }
+}
+
+impl<'a> EventSource<'a> {
+    pub fn none() -> Self {
+        Self::None
+    }
+    pub fn single(entity: Entity) -> Self {
+        Self::Single(Some(entity))
+    }
+
+    pub fn vec(vec: &'a Vec<Entity>) -> Self {
+        Self::Vec(0, vec)
+    }
+}
+
+impl<'a> From<&'a Vec<Entity>> for EventSource<'a> {
+    fn from(value: &'a Vec<Entity>) -> Self {
+        EventSource::Vec(0, value)
+    }
+}
+
+pub trait EntityIteratorExtension {
+    fn entities<'a>(&'a mut self) -> EventSource<'a>;
+}
+
+impl<T: Iterator<Item = Entity>> EntityIteratorExtension for T {
+    fn entities<'a>(&'a mut self) -> EventSource<'a> {
+        EventSource::Iter(self)
+    }
+}
+pub struct EventContext<'a, 'w, 's, E: Event + 'static> {
+    pub(crate) source_event: &'a E,
     pub(crate) time_resource: &'a Time,
     pub(crate) asset_server: AssetServer,
     pub(crate) elements: &'a mut Elements<'w, 's>,
 }
 
-// pub struct EventRef<'a, S>(&'a S);
-// impl<'a, S> std::ops::Deref for EventRef<'a, S> {
-//     type Target = S;
-//     fn deref(&self) -> &'a S
-//         self.0
-//     }
-// }
-
-impl<'a, 'w, 's, S: Signal> ConnectionGeneralContext<'a, 'w, 's, S> {
-    pub fn event(&self) -> &'a S {
+impl<'a, 'w, 's, E: Event> EventContext<'a, 'w, 's, E> {
+    pub fn event(&self) -> &'a E {
         self.source_event
     }
-    pub fn source<'x>(&'x mut self) -> EntityCommands<'w, 's, 'x> {
-        let source = self.source;
-        self.elements.commands.entity(source)
+    pub fn entity<'x>(&'x mut self, entity: Entity) -> EntityCommands<'w, 's, 'x> {
+        self.elements.commands.entity(entity)
     }
     pub fn load<T: Asset>(&self, path: &str) -> Handle<T> {
         self.asset_server.load(path)
@@ -53,6 +151,12 @@ impl<'a, 'w, 's, S: Signal> ConnectionGeneralContext<'a, 'w, 's, S> {
     }
     pub fn commands(&mut self) -> &mut Commands<'w, 's> {
         &mut self.elements.commands
+    }
+    pub fn connect<'x>(&'x mut self) -> ConnectCommands<'w, 's, 'x, ()> {
+        ConnectCommands {
+            commands: &mut self.elements.commands,
+            data: (),
+        }
     }
     pub fn time(&self) -> &Time {
         self.time_resource
@@ -64,25 +168,25 @@ impl<'a, 'w, 's, S: Signal> ConnectionGeneralContext<'a, 'w, 's, S> {
     }
 }
 
-impl<'a, 'w, 's, S: Signal> Deref for ConnectionGeneralContext<'a, 'w, 's, S> {
+impl<'a, 'w, 's, E: Event> Deref for EventContext<'a, 'w, 's, E> {
     type Target = Elements<'w, 's>;
     fn deref(&self) -> &Self::Target {
         self.elements
     }
 }
 
-impl<'a, 'w, 's, S: Signal> DerefMut for ConnectionGeneralContext<'a, 'w, 's, S> {
+impl<'a, 'w, 's, E: Event> DerefMut for EventContext<'a, 'w, 's, E> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.elements
     }
 }
 
-pub struct ConnectionEntityContext<'a, 'w, 's, 'c, S: Signal> {
+pub struct ConnectionEntityContext<'a, 'w, 's, 'c, E: Event> {
     pub(crate) target: Entity,
-    pub(crate) ctx: &'c mut ConnectionGeneralContext<'a, 'w, 's, S>,
+    pub(crate) ctx: &'c mut EventContext<'a, 'w, 's, E>,
 }
 
-impl<'a, 'w, 's, 'c, S: Signal> ConnectionEntityContext<'a, 'w, 's, 'c, S> {
+impl<'a, 'w, 's, 'c, E: Event> ConnectionEntityContext<'a, 'w, 's, 'c, E> {
     pub fn target<'x>(&'x mut self) -> EntityCommands<'w, 's, 'x> {
         let target = self.target;
         self.elements.commands.entity(target)
@@ -99,278 +203,359 @@ impl<'a, 'w, 's, 'c, S: Signal> ConnectionEntityContext<'a, 'w, 's, 'c, S> {
     }
 }
 
-impl<'a, 'w, 's, 'c, S: Signal> Deref for ConnectionEntityContext<'a, 'w, 's, 'c, S> {
-    type Target = ConnectionGeneralContext<'a, 'w, 's, S>;
+impl<'a, 'w, 's, 'c, E: Event> Deref for ConnectionEntityContext<'a, 'w, 's, 'c, E> {
+    type Target = EventContext<'a, 'w, 's, E>;
     fn deref(&self) -> &Self::Target {
         self.ctx
     }
 }
 
-impl<'a, 'w, 's, 'c, S: Signal> DerefMut for ConnectionEntityContext<'a, 'w, 's, 'c, S> {
+impl<'a, 'w, 's, 'c, E: Event> DerefMut for ConnectionEntityContext<'a, 'w, 's, 'c, E> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.ctx
     }
 }
 
-pub enum ConnectionTo<C: Component, S: Signal> {
-    General {
-        handler: Box<dyn Fn(&mut ConnectionGeneralContext<S>)>,
-    },
-    Entity {
-        target: Entity,
-        handler: Box<dyn Fn(&mut ConnectionEntityContext<S>)>,
-    },
-    Component {
-        target: Entity,
-        handler: Box<dyn Fn(&mut ConnectionEntityContext<S>, &mut Mut<C>)>,
-    },
-}
-
-unsafe impl<C: Component, S: Signal> Send for ConnectionTo<C, S> {}
-unsafe impl<C: Component, S: Signal> Sync for ConnectionTo<C, S> {}
-
-#[derive(Component)]
-pub struct WithoutComponent;
-
-impl<C: Component, S: Signal> ConnectionTo<C, S> {
-    pub fn component<F: 'static + Fn(&mut ConnectionEntityContext<S>, &mut Mut<C>)>(
-        target: Entity,
-        handler: F,
-    ) -> ConnectionTo<C, S> {
-        ConnectionTo::Component {
-            target,
-            handler: Box::new(handler),
-        }
+pub struct Handler<Q: WorldQuery, E: Event>(Box<dyn Fn(&mut EventContext<E>, &mut QueryItem<Q>)>);
+impl<Q: 'static + WorldQuery, E: Event> Handler<Q, E> {
+    pub fn run(&self, ctx: &mut EventContext<E>, args: &mut QueryItem<Q>) {
+        self.0(ctx, args)
     }
 
-    pub fn all(self) -> Connection<C, S> {
-        Connection {
-            target: self,
-            filter: |_| true,
-        }
-    }
-
-    pub fn filter(self, filter: fn(&S) -> bool) -> Connection<C, S> {
-        Connection {
-            target: self,
-            filter,
-        }
-    }
-
-    pub fn id(&self) -> Option<Entity> {
-        match self {
-            ConnectionTo::Component { target, handler: _ } => Some(*target),
-            ConnectionTo::Entity { target, handler: _ } => Some(*target),
-            _ => None,
+    pub fn run_without_target(&self, ctx: &mut EventContext<E>) {
+        let empty = &mut () as &mut dyn Any;
+        if let Some(empty) = empty.downcast_mut::<QueryItem<Q>>() {
+            self.0(ctx, empty)
+        } else {
+            warn!(
+                "Can't invoke eventhandler without target for Handler<{}, {}>",
+                type_name::<Q>(),
+                type_name::<E>(),
+            )
         }
     }
 }
 
-impl<S: Signal> ConnectionTo<WithoutComponent, S> {
-    pub fn entity<F: 'static + Fn(&mut ConnectionEntityContext<S>)>(
-        target: Entity,
-        handler: F,
-    ) -> ConnectionTo<WithoutComponent, S> {
-        ConnectionTo::Entity {
-            target,
-            handler: Box::new(handler),
-        }
-    }
+unsafe impl<Q: WorldQuery, E: Event> Send for Handler<Q, E> {}
+unsafe impl<Q: WorldQuery, E: Event> Sync for Handler<Q, E> {}
 
-    pub fn general<F: 'static + Fn(&mut ConnectionGeneralContext<S>)>(
-        handler: F,
-    ) -> ConnectionTo<WithoutComponent, S> {
-        ConnectionTo::General {
-            handler: Box::new(handler),
-        }
-    }
+pub struct Connection<Q: WorldQuery, E: Event> {
+    pub(crate) source: Option<Entity>,
+    pub(crate) target: Option<Entity>,
+    pub(crate) handler: Handler<Q, E>,
+    pub(crate) filter: EventFilter<E>,
 }
 
-pub struct ConnectionBuilder<C: Component, S: Signal> {
-    connection: Option<ConnectionTo<C, S>>,
-}
+impl<Q: 'static + WorldQuery, E: Event> Connection<Q, E> {
+    // pub fn handles(&self, event: &E) -> bool {
+    //     (self.filter)(event)
+    // }
 
-impl<C: Component, S: Signal> Default for ConnectionBuilder<C, S> {
-    fn default() -> Self {
-        ConnectionBuilder { connection: None }
-    }
-}
-
-impl<C: Component, S: Signal> ConnectionBuilder<C, S> {
-    pub fn build(self) -> Option<ConnectionTo<C, S>> {
-        self.connection
-    }
-    pub fn component<F: Fn(&mut ConnectionEntityContext<S>, &mut Mut<C>) + 'static>(
-        &mut self,
-        entity: Entity,
-        handler: F,
-    ) {
-        self.connection = Some(ConnectionTo::component(entity, handler));
-    }
-}
-impl<S: Signal> ConnectionBuilder<WithoutComponent, S> {
-    pub fn general<F: Fn(&mut ConnectionGeneralContext<S>) + 'static>(&mut self, handler: F) {
-        self.connection = Some(ConnectionTo::general(handler));
-    }
-    pub fn entity<F: Fn(&mut ConnectionEntityContext<S>) + 'static>(
-        &mut self,
-        entity: Entity,
-        handler: F,
-    ) {
-        self.connection = Some(ConnectionTo::entity(entity, handler));
-    }
-}
-
-pub struct Connection<C: Component, S: Signal> {
-    pub target: ConnectionTo<C, S>,
-    filter: fn(&S) -> bool,
-}
-
-impl<C: Component, S: Signal> Connection<C, S> {
-    pub fn handles(&self, signal: &S) -> bool {
-        (self.filter)(signal)
+    pub fn from(mut self, source: Entity) -> Self {
+        self.source = Some(source);
+        self
     }
 
-    pub fn from(self, source: Entity) -> Connect<C, S> {
-        Connect {
-            source,
-            target: self,
-        }
-    }
-}
-
-pub struct Connect<C: Component, S: Signal> {
-    source: Entity,
-    target: Connection<C, S>,
-}
-
-impl<C: Component, S: Signal> Connect<C, S> {
     pub fn write(self, world: &mut World) {
-        {
-            let systems = world.get_resource_or_insert_with(RelationsSystems::default);
-            systems.0.write().unwrap().add_signals_processor::<C, S>();
-        }
-        {
-            let mut connections = world.get_resource_or_insert_with(Connections::<C, S>::default);
-            connections.add(self);
-        }
+        world
+            .resource::<RelationsSystems>()
+            .add_signals_processor::<Q, E>();
+        let mut connections = world.get_resource_or_insert_with(Connections::<Q, E>::default);
+        connections.add(self);
     }
 }
 
-// impl<C: Component, S: Signal> Command for Connect<C, S> { }
-
-#[derive(Resource)]
-pub struct Connections<C: Component, S: Signal> {
-    map: HashMap<Entity, Vec<Connection<C, S>>>,
-    index: HashMap<Entity, Vec<Entity>>,
-}
-
-impl<C: Component, S: Signal> Connections<C, S> {
-    pub fn entities(&self) -> impl Iterator<Item = Entity> + '_ {
-        self.map
-            .keys()
-            .chain(self.index.keys())
-            .map(|e| *e)
-            .unique()
+impl<Q: 'static + WorldQuery, E: Event> Command for Connection<Q, E> {
+    fn write(self, world: &mut World) {
+        self.write(world);
     }
 }
 
-impl<C: Component, S: Signal> Deref for Connections<C, S> {
-    type Target = HashMap<Entity, Vec<Connection<C, S>>>;
-    fn deref(&self) -> &Self::Target {
-        &self.map
-    }
-}
+#[derive(Resource, Deref, DerefMut)]
+pub struct Connections<Q: WorldQuery, E: Event>(HashMap<EventFilter<E>, EntityConnections<Q, E>>);
 
-impl<C: Component, S: Signal> Default for Connections<C, S> {
+impl<Q: WorldQuery, E: Event> Default for Connections<Q, E> {
     fn default() -> Self {
-        Connections {
-            map: Default::default(),
-            index: Default::default(),
-        }
+        Connections(HashMap::new())
     }
 }
 
-impl<C: Component, S: Signal> Connections<C, S> {
-    pub fn add(&mut self, connection: Connect<C, S>) {
-        if let Some(target) = connection.target.target.id() {
-            self.index
-                .entry(target)
-                .or_default()
-                .push(connection.source)
-        }
-        self.map
-            .entry(connection.source)
-            .or_default()
-            .push(connection.target);
-    }
-    pub fn remove(&mut self, source: &Entity) {
-        if let Some(connections_to) = self.index.remove(source) {
-            for connection_to in connections_to.iter() {
-                self.map
-                    .entry(*connection_to)
-                    .and_modify(|e| e.retain(|c| c.target.id() != Some(*source)));
+impl<Q: 'static + WorldQuery, E: Event> Connections<Q, E> {
+    pub fn process<F: FnMut(&Vec<(Option<Entity>, Handler<Q, E>)>)>(
+        &self,
+        event: &E,
+        mut processor: F,
+    ) {
+        for (filter, connections) in self.iter() {
+            match filter {
+                EventFilter::Entity(filter) => {
+                    for entity in filter(event) {
+                        if let Some(handlers) = connections.get(&Some(entity)) {
+                            processor(handlers)
+                        }
+                    }
+                }
+                EventFilter::World(filter) if filter(event) => {
+                    if let Some(handlers) = connections.get(&None) {
+                        processor(handlers)
+                    }
+                }
+                _ => {}
             }
         }
-        self.map.remove(&source);
+    }
+    pub fn add(&mut self, connection: Connection<Q, E>) {
+        let source = connection.source;
+        let filter = connection.filter;
+        let handler = connection.handler;
+        let target = if connection.target.is_some() {
+            connection.target
+        } else {
+            source
+        };
+        if target.is_none() && TypeId::of::<Q>() != TypeId::of::<()>() {
+            warn!(
+                "Unable to register targetless connection for Handler<{}, {}>",
+                type_name::<Q>(),
+                type_name::<E>(),
+            );
+            return;
+        }
+        let entry = self.0.entry(filter).or_default();
+        entry.targets.entry(target).or_default().push(source);
+        let handlers = entry.sources.entry(source).or_default();
+        handlers.push((target, handler));
+        handlers.sort_by_key(|(target, _)| *target);
+    }
+    pub fn remove(&mut self, entity: &Entity) {
+        for connections in self.0.values_mut() {
+            if let Some(connections_to) = connections.targets.remove(&Some(*entity)) {
+                for connection_to in connections_to.iter() {
+                    connections
+                        .sources
+                        .entry(*connection_to)
+                        .and_modify(|e| e.retain(|c| c.0 != Some(*entity)));
+                }
+            }
+            connections.sources.remove(&Some(*entity));
+        }
+    }
+
+    pub fn drain<F: Fn(Entity) -> bool>(&mut self, func: F) {
+        for (_, connections) in self.iter_mut() {
+            connections.sources.drain_filter(|entity, _| {
+                if let Some(entity) = entity {
+                    func(*entity)
+                } else {
+                    false
+                }
+            });
+            connections.targets.drain_filter(|entity, targets| {
+                let Some(entity) = entity else {
+                    return false
+                };
+                if !func(*entity) {
+                    return false;
+                }
+                for source in targets.iter() {
+                    connections
+                        .sources
+                        .entry(*source)
+                        .and_modify(|e| e.retain(|c| c.0 != Some(*entity)));
+                }
+                true
+            });
+        }
     }
 }
 
-#[macro_export]
-macro_rules! connect {
-    ($entity:expr, |$ctx:ident, $arg:ident: $typ:ty| $cb:expr) => {
-        |builder| {
-            builder.component(
-                $entity,
-                move |$ctx, $arg: &mut ::bevy::prelude::Mut<$typ>| {
-                    $cb;
-                },
-            )
+pub struct EntityConnections<Q: WorldQuery, E: Event> {
+    pub(crate) sources: HashMap<Option<Entity>, Vec<(Option<Entity>, Handler<Q, E>)>>,
+    pub(crate) targets: HashMap<Option<Entity>, Vec<Option<Entity>>>,
+}
+
+impl<Q: WorldQuery, E: Event> Deref for EntityConnections<Q, E> {
+    type Target = HashMap<Option<Entity>, Vec<(Option<Entity>, Handler<Q, E>)>>;
+    fn deref(&self) -> &Self::Target {
+        &self.sources
+    }
+}
+
+impl<Q: WorldQuery, E: Event> Default for EntityConnections<Q, E> {
+    fn default() -> Self {
+        EntityConnections {
+            sources: Default::default(),
+            targets: Default::default(),
         }
-    };
-    ($entity:expr, |$ctx:ident, $arg:ident: $typ:ty| $cb:block) => {
-        |builder| {
-            builder.component(
-                $entity,
-                move |$ctx, $arg: &mut ::bevy::prelude::Mut<$typ>| {
-                    $cb;
-                },
-            )
+    }
+}
+
+// commands.add( /* one of */
+//  Connect::entity(e).on(btn_pressed).func(|_| { })
+//  Connect::entity(e).on(btn_pressed).handle(run!(for e |_| { })
+//  Connect::event(mouse_down).to_func(|_| { }) --- ?
+//  Connect::event(mosue_down).to_handler(run!(for e |_| {}))
+// )
+pub struct Connect;
+impl Connect {
+    pub fn entity(entity: Entity) -> ConnectEntity {
+        ConnectEntity(entity)
+    }
+    pub fn event<E: Event>(filter: WorldEvent<E>) -> ConnectEvent<E> {
+        ConnectEvent(EventFilter::World(filter))
+    }
+}
+
+pub struct ConnectEntity(Entity);
+impl ConnectEntity {
+    pub fn on<E: Event>(self, filter: EntityEvent<E>) -> ConnectEntityTo<E> {
+        ConnectEntityTo(self.0, EventFilter::Entity(filter))
+    }
+}
+pub struct ConnectEvent<E: Event>(EventFilter<E>);
+impl<E: Event> ConnectEvent<E> {
+    pub fn to_func<F: 'static + Fn(&mut EventContext<E>)>(self, func: F) -> Connection<(), E> {
+        Connection {
+            target: None,
+            source: None,
+            filter: self.0,
+            handler: Handler(Box::new(move |ctx, _| func(ctx))),
         }
-    };
-    ($entity:expr, |$arg:ident: $typ:ty| $cb:expr) => {
-        |builder| {
-            builder.component($entity, move |_, $arg: &mut ::bevy::prelude::Mut<$typ>| {
-                $cb;
-            })
+    }
+    pub fn to_handler<Q: WorldQuery, F: 'static + Fn(&mut EventContext<E>, &mut QueryItem<Q>)>(
+        self,
+        (_, target, handler): (PhantomData<Q>, Option<Entity>, F),
+    ) -> Connection<Q, E> {
+        Connection {
+            target,
+            source: None,
+            filter: self.0,
+            handler: Handler(Box::new(handler)),
         }
-    };
-    ($entity:expr, |$arg:ident: $typ:ty| $cb:block) => {
-        |builder| {
-            builder.component($entity, move |_, $arg| {
-                $cb;
-            })
+    }
+}
+
+pub struct ConnectEntityTo<E: Event>(Entity, EventFilter<E>);
+impl<E: Event> ConnectEntityTo<E> {
+    pub fn func<F: 'static + Fn(&mut EventContext<E>)>(self, func: F) -> Connection<(), E> {
+        Connection {
+            target: None,
+            source: Some(self.0),
+            filter: self.1,
+            handler: Handler(Box::new(move |ctx, _| func(ctx))),
         }
-    };
-    ($entity:expr, |$ctx:ident| $cb:expr) => {
-        |builder| {
-            builder.entity($entity, move |$ctx| {
-                $cb;
-            })
+    }
+    pub fn handle<Q: WorldQuery, F: 'static + Fn(&mut EventContext<E>, &mut QueryItem<Q>)>(
+        self,
+        (_, target, handler): (PhantomData<Q>, Option<Entity>, F),
+    ) -> Connection<Q, E> {
+        Connection {
+            target,
+            source: Some(self.0),
+            filter: self.1,
+            handler: Handler(Box::new(handler)),
         }
-    };
-    (|$ctx:ident| $cb:expr) => {
-        |builder| {
-            builder.general(move |$ctx| {
-                $cb;
-            })
+    }
+}
+
+pub trait ConnectCommandsExtension<'w, 's> {
+    fn connect<'a>(&'a mut self) -> ConnectCommands<'w, 's, 'a, ()>;
+}
+
+impl<'w, 's> ConnectCommandsExtension<'w, 's> for Commands<'w, 's> {
+    fn connect<'a>(&'a mut self) -> ConnectCommands<'w, 's, 'a, ()> {
+        ConnectCommands {
+            commands: self,
+            data: (),
         }
-    };
-    ($func:expr) => {
-        |builder| {
-            builder.general(move |ctx| {
-                $func(ctx);
-            })
+    }
+}
+
+pub struct ConnectCommands<'w, 's, 'a, T> {
+    commands: &'a mut Commands<'w, 's>,
+    data: T,
+}
+
+impl<'w, 's, 'a> ConnectCommands<'w, 's, 'a, ()> {
+    pub fn event<E: Event>(
+        self,
+        filter: WorldEvent<E>,
+    ) -> ConnectCommands<'w, 's, 'a, WorldEvent<E>> {
+        ConnectCommands {
+            commands: self.commands,
+            data: filter,
         }
-    };
+    }
+    pub fn entity(self, entity: Entity) -> ConnectCommands<'w, 's, 'a, Entity> {
+        ConnectCommands {
+            commands: self.commands,
+            data: entity,
+        }
+    }
+}
+
+impl<'w, 's, 'a, E: Event> ConnectCommands<'w, 's, 'a, WorldEvent<E>> {
+    pub fn to_func<F: 'static + Fn(&mut EventContext<E>)>(self, func: F) {
+        self.commands.add(Connection {
+            target: None,
+            source: None,
+            filter: EventFilter::World(self.data),
+            handler: Handler::<(), E>(Box::new(move |ctx, _| func(ctx))),
+        })
+    }
+    pub fn to_handler<
+        Q: 'static + WorldQuery,
+        F: 'static + Fn(&mut EventContext<E>, &mut QueryItem<Q>),
+    >(
+        self,
+        (_, target, handler): (PhantomData<Q>, Option<Entity>, F),
+    ) {
+        self.commands.add(Connection {
+            target,
+            source: None,
+            filter: EventFilter::World(self.data),
+            handler: Handler(Box::new(handler)),
+        });
+    }
+}
+
+impl<'w, 's, 'a> ConnectCommands<'w, 's, 'a, Entity> {
+    pub fn on<E: Event>(
+        self,
+        filter: EntityEvent<E>,
+    ) -> ConnectCommands<'w, 's, 'a, (Entity, EventFilter<E>)> {
+        let entity = self.data;
+        ConnectCommands {
+            commands: self.commands,
+            data: (entity, EventFilter::Entity(filter)),
+        }
+    }
+}
+
+impl<'w, 's, 'a, E: Event> ConnectCommands<'w, 's, 'a, (Entity, EventFilter<E>)> {
+    pub fn func<F: 'static + Fn(&mut EventContext<E>)>(self, func: F) {
+        let (entity, filter) = self.data;
+        self.commands.add(Connection {
+            filter,
+            target: None,
+            source: Some(entity),
+            handler: Handler::<(), E>(Box::new(move |ctx, _| func(ctx))),
+        })
+    }
+
+    pub fn handle<
+        Q: 'static + WorldQuery,
+        F: 'static + Fn(&mut EventContext<E>, &mut QueryItem<Q>),
+    >(
+        self,
+        (_, target, handler): (PhantomData<Q>, Option<Entity>, F),
+    ) {
+        let (entity, filter) = self.data;
+        self.commands.add(Connection {
+            target,
+            filter,
+            source: Some(entity),
+            handler: Handler(Box::new(handler)),
+        })
+    }
 }

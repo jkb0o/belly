@@ -24,11 +24,11 @@ fn setup(mut commands: Commands) {
     ));
     commands.add(eml! {
       <body s:padding="20px">
-        <buttongroup on:value_change=connect!(|ctx| {
+        <buttongroup on:value_change=|ctx| {
             let ev = ctx.event();
             ctx.select(ev.old_value()).add_class("hidden");
             ctx.select(ev.new_value()).remove_class("hidden");
-        })>
+        }>
           <button value=".tab1" pressed>"Tab 1"</button>
           <button value=".tab2">"Tab 2"</button>
           <button value=".tab3">"Tab 3"</button>

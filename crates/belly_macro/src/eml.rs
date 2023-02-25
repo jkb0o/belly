@@ -226,14 +226,24 @@ fn parse<'a>(ctx: &Context, element: &'a Node, create_entity: bool) -> syn::Resu
             let attr_name = attr.key.to_string();
             let attr_span = attr.span();
             if let Some(signal) = attr_name.strip_prefix("on:") {
-                let Some(connection) = attr.value.as_ref() else {
+                let Some(handler) = attr.value.as_ref() else {
                     throw!(attr_span, "on:{signal} param should provide connection")
                 };
-                let connection = connection.as_ref();
-                let signal_ident = syn::Ident::new(signal, connection.span());
+                let handler = handler.as_ref();
+                let method = if handler
+                    .to_token_stream()
+                    .to_string()
+                    .trim()
+                    .starts_with("run!")
+                {
+                    quote! { handle }
+                } else {
+                    quote! { func }
+                };
+                let signal_ident = syn::Ident::new(signal, handler.span());
                 connections = quote_spanned! {attr_span=>
                     #connections
-                    __builder.on().#signal_ident(__world, __parent, #connection);
+                    __builder.on().#signal_ident().#method(#handler).from(__parent).write(__world);
                 }
             } else if let Some(prop) = attr_name.strip_prefix("bind:") {
                 let Some(bind) = attr.value.as_ref() else {

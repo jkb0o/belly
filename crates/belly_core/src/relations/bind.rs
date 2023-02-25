@@ -423,11 +423,9 @@ impl<R: Component, W: Component, S: BindableSource, T: BindableTarget>
     ComponentToComponent<R, W, S, T>
 {
     pub fn write(self, world: &mut World) {
-        {
-            let systems_ref = world.get_resource_or_insert_with(RelationsSystems::default);
-            let mut systems = systems_ref.0.write().unwrap();
-            systems.add_component_to_component::<R, W, S, T>();
-        }
+        world
+            .resource::<RelationsSystems>()
+            .add_component_to_component::<R, W, S, T>();
         let id = BindId::new(
             Some(self.from.source),
             self.from.id,
@@ -467,11 +465,9 @@ impl<R: Resource, W: Component, S: BindableSource, T: BindableTarget>
     ResourceToComponent<R, W, S, T>
 {
     pub fn write(self, world: &mut World) {
-        {
-            let systems_ref = world.get_resource_or_insert_with(RelationsSystems::default);
-            let mut systems = systems_ref.0.write().unwrap();
-            systems.add_resource_to_component::<R, W, S, T>();
-        }
+        world
+            .resource::<RelationsSystems>()
+            .add_resource_to_component::<R, W, S, T>();
         let id = BindId::new(None, self.from.id, self.to.target, self.to.id);
         let read_descriptor = ReadDescriptor {
             id,
@@ -661,6 +657,16 @@ macro_rules! bind {
         |s, t| {
             $crate::relations::bind::deprecated_transformer();
             $converter::get_properties().$method().set(t, s);
+            Ok(())
+        }
+    };
+    (@transform $arg:pat_param | $filter:expr ) => {
+        |s, t| {
+            let tr = |$arg| $filter;
+            let val = tr(s);
+            if val != *t {
+                *t = val;
+            }
             Ok(())
         }
     };

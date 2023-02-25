@@ -42,50 +42,44 @@ fn setup(mut commands: Commands) {
     commands.add(eml! {
         <body>
             <div>
-                <button on:press=connect!(|ctx| {
-                    info!(
-                        "I was pressed at {}",
-                        ctx.time().elapsed_seconds()
-                    )
-                })>
+                <button on:press=|ctx| info!("I was pressed at {}", ctx.time().elapsed_seconds())>
                     "Press me and look at the logs!"
                 </button>
             </div>
             <div>
-                <button on:press=connect!(|ctx| {
-                    ctx.send_event(MyEvent { emited_at: ctx.time().elapsed_seconds() })
-                })>
+                <button on:press=|ctx| ctx.send_event(MyEvent { emited_at: ctx.time().elapsed_seconds() })>
+
                     "I will send custom event, check the logs"
                 </button>
             </div>
             <div>
-                <button on:press=connect!(|ctx| ctx.source().despawn_recursive()) >
+                <button on:press=run!(|ctx, source: Entity| ctx.entity(*source).despawn_recursive()) >
                     "I will disappear"
                 </button>
             </div>
             <div>
-                <button c:bluex on:press=connect!(that, |ctx| ctx.target().despawn_recursive() )>
+                <button c:bluex on:press=run!(for that |ctx, e: Entity| ctx.commands().entity(*e).despawn_recursive() )>
                     "That will disappear:"
                 </button>
                 <strong {that}>"THAT"</strong>
             </div>
             <div c:counter>
-                <button mode="repeat(normal)" on:press=connect!(label, |g: Greet| g.counter += 1)>
+                <button mode="repeat(normal)" on:press=run!(for label |g: &mut Greet| g.counter += 1)>
                     <strong>"+"</strong>
                 </button>
                 <label {label} bind:value=from!(label, Greet:message)/>
-                <button mode="repeat(fast)" on:press=connect!(label, |g: Greet| g.counter -= 1)>
+                <button mode="repeat(fast)" on:press=run!(for label |g: &mut Greet| g.counter -= 1)>
                     <strong>"-"</strong>
                 </button>
             </div>
             <div>
-                <button on:press=connect!(colorbox, |ctx, b:ColorBox| {
+                <button on:press=run!(for colorbox |ctx, b: &mut ColorBox| {
                     if **b == ColorBox::Red {
                         **b = ColorBox::Blue;
-                        ctx.replace(eml! { <div c:blue>"I'm blue"</div> });
+                        ctx.replace(colorbox, eml! { <div c:blue>"I'm blue"</div> });
                     } else {
                         **b = ColorBox::Red;
-                        ctx.replace(eml! { <div c:red>"I'm red"</div> });
+                        ctx.replace(colorbox, eml! { <div c:red>"I'm red"</div> });
                     }
                 })>
                     <div c:colorbox>
@@ -95,7 +89,7 @@ fn setup(mut commands: Commands) {
                 <br/>
             </div>
             <div>
-                <button {grow} s:width=managed() on:press=connect!(grow, |s: Style| {
+                <button {grow} s:width=managed() on:press=run!(for grow |s: &mut Style| {
                     s.size.width = Val::Px(if let Val::Px(width) = s.size.width {
                         width + 5.
                     } else {

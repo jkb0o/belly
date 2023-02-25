@@ -2,7 +2,7 @@
 
 ---
 
-The `belly` is a plugin for a `bevy` game engine that helps to declaratively define a user interface with `eml` markup (macros & asset), style it with a very CSS-like `ess` syntax, and define data flow using `from!` & `to!` bind macros and/or connect to signals (events) with `connect!` macro.
+The `belly` is a plugin for a `bevy` game engine that helps to declaratively define a user interface with `eml` markup (macros & asset), style it with a very CSS-like `ess` syntax, and define data flow using `from!` & `to!` bind macros and/or connect events to handlers (funcs).
 
 #### API Reference
 
@@ -45,7 +45,7 @@ fn setup(mut commands: Commands) {
     let colorbox = commands.spawn_empty().id();
     commands.add(eml! {
         <body>
-            <span c:controls on:ready=connect!(colorbox, |c: BackgroundColor| c.0 = Color::WHITE)>
+            <span c:controls>
                 <slider c:red
                     bind:value=to!(colorbox, BackgroundColor:0|r)
                     bind:value=from!(colorbox, BackgroundColor:0.r())
@@ -64,11 +64,12 @@ fn setup(mut commands: Commands) {
                 />
             </span>
             <img c:colorbox-holder src="trbg.png">
-                <span {colorbox} c:colorbox s:background-color=managed()/>
+                <span {colorbox} c:colorbox s:background-color=managed()
+                    on:ready=run!(|c: &mut BackgroundColor| c.0 = Color::WHITE)/>
             </img>
             <span c:colors>
             <for color in = COLORS>
-                <button on:press=connect!(colorbox, |c: BackgroundColor| { c.0 = Color::from_hex(color) })>
+                <button on:press=run!(for colorbox |c: &mut BackgroundColor| { c.0 = Color::from_hex(color) })>
                     <span s:background-color=*color s:width="100%" s:height="100%"/>
                 </button>
             </for>
@@ -136,14 +137,15 @@ The main tasks the plugin is about to solve are:
   - [Managed properties](#managed-properties)
   - [Default styles](#default-styles)
 - [Data flow & relations](#data-flow)
-  - [Signals & Connections](#signals)
+  - [Connections](#connections)
+  - [Connecting Widgets](#connecting-widgets)
   - [Data Bindnings Introduction](#bindings-intro)
   - [Data transformers](#data-transformers)
     - [Format transformer](#format-transformer)
     - [Global transformers](#global-transformers)
     - [Associated transformers](#associated-transformers)
   - [Binding from Resources](#binding-from-resources)
-  - [Forms of `from!`, `to!`, and `connect!` macros](#forms-of-relations)
+  - [Forms of `from!` & `to!` macros](#forms-of-relations)
 - [Templating](#templating)
   - [Loops](#loops)
   - [Slots](#slots)
@@ -218,7 +220,7 @@ For configuring widget style & behavior you can pass attributes within the tag. 
 - **style** params passed using `s:` prefix: `<span s:padding="50px>`
 - **class** params passed using `c:` prefix (`<span c:some-class>`) or by `class` param    (`<span class="some-class-1 some-class-2">`)
 - **binds** passed using `bind:` prefix: `<buttongroup bind:value=to!(img, Img:src)>`
-- **signals** passed using `on:` prefix: `<button on:press=connect!(|| info!("I'm pressed!"))/>`
+- **connections** passed using `on:` prefix: `<button on:press=|_| info!("I'm pressed!")/>`
 - **entity** passed using curly braces: `<span {span_id}>` or using `entity` param: `<span entity=span_id>`
 - **components** passed using `with` param: `<button with=(MyComponent, another_component_instance)/>`
 
@@ -562,11 +564,254 @@ Now, when you know something about styling & layout in the `belly` it is time to
 
 ---
 
-### <a name="signals"></a> Signals & Connections
+### <a name="connections"></a> Connections
 
 ---
 
-Widgets in the `belly` among other things create entry points for connecting signals (events associated with entities) to handlers (closures):
+`belly` comes with fuctionality that provides a way to connect `Event`s to functions (or handlers). To do it, you need
+- define `WorldEvent` or `EntityEvent` filter function
+- connect `WordEvent`/`EntityEvent` to function/handler.
+
+For example, you can create `space_key_released` `WorldEvent` and log some message every time it occures:
+```rust
+fn space_key_released(event: &KeyboardInput) -> bool {
+    if event.key_code == Some(KeyCode::Space) {
+        match event.state {
+            bevy::input::ButtonState::Released => true,
+            _ => false
+        }
+    } else {
+        false
+    }
+}
+
+fn setup(mut commands: Commands) {
+    commands
+        .connect()
+        .event(space_key_released)
+        .to_func(|c| info!("Space released at {}!", c.time().elapsed_seconds()));
+}
+```
+`space_key_released` is the func that takes an `Event` and returns `bool` indicated that this `Event` matches requirements. `space_key_released` is the `WorldEvent`, it doesn't relate to any entity. Under the hood the `commands.connect().event().to_func()` call registers the `Connection` to the `World`, and adds the system that reads `KeyboardInput` events, select matched events and invokes the provided function for them. The custom system registered once for each combination of `Event`/`QueryItem` types (I'll explain how `QueryItem`s work later). This systems runs in separate stage in parallel.
+
+The first argument passed to handler func is `EventContext` wich gives you access to the event itself, `Commands`, `AssetServer`, `Time`, `Elements` and `EventWriter` so you can implement common tasks inside the handler function.
+
+The `WorldEvent` provide a way to connect entity-unaware events to functions. To connect entity-aware events you need to provide `EntityEvent` function.
+`belly` already comes with common `EntityEvent`s, but to demonstrate the entity connections functionality, I will add the `ButtonEvent` enum and implement `emit_buton_events` system. 
+```rust
+pub enum ButtonEvent {
+    Press(Entity),
+    Hover(Entity),
+}
+fn emit_button_events(
+    interactions: Query<(Entity, &Interaction), Changed<Interaction>>,
+    mut events: EventWriter<ButtonEvent>,
+) {
+    for (entity, interaction) in interactions.iter() {
+        match interaction {
+            Interaction::Clicked => events.send(ButtonEvent::Press(entity)),
+            Interaction::Hovered => events.send(ButtonEvent::Hover(entity)),
+            _ => {}
+        }
+    }
+}
+
+// Now it is possible to provide EntityEvent function:
+// it takes an event as input and returns EventSource:
+// opaque collection of zero or more entities that 
+// matches the criteria
+fn button_pressed(event: &ButtonEvent) -> EventSource {
+    match event {
+        ButtonEvent::Press(e) => EventSource::single(*e),
+        _ => EventSource::None,
+    }
+}
+
+fn setup(mut commands: Commands) {
+    // btn1 and btn2 are entities with ButtonBundle
+    let btn1 = add_button(&mut commands);
+    let btn2 = add_button(&mut commands);
+
+    // connect button_pressed EntityEvent to functions:
+    commands.connect().entity(btn1).on(button_pressed).func(|_| {
+        info!("btn1 pressed");
+    });
+    commands.connect().entity(btn2).on(button_pressed).func(|_| {
+        info!("btn2 pressed");
+    });
+}
+```
+
+In this example I spawn two buttons and connect custom functions to each of them. When `ButtonEvent::Pressed(btn1)` event occurs, "btn1 pressed" will be printed.
+
+To have more control over logic inside the functions, it is possible to request connections system to query the target entity for the components and bypass matched `QueryItem`s to the handler function. To do this you need to pass to connection a closure wrapped by `run!` macro. When wrappen with `run!`, the closure can provide additional arguments: the same you pass to `Query`. There is an example how it can be used (the `ButtonEvent` and `button_pressed` are the same as in previous example):
+
+```rust
+#[derive(Component, Default)]
+struct Counter(usize);
+
+fn setup(mut commands: Commmands) {
+    let btn = add_button(&mut commands);
+    commands.entity(btn).insert(Counter::default());
+    commands
+        .connect()
+        .entity(btn)
+        .on(button_pressed)
+        .handle(run!(|counter: &mut Counter| {
+            counter.0 += 1;
+            info!("Button pressed {} times", counter.0)
+        }));
+}
+```
+
+In this example I create the button and add the `Counter` component to it. Each time button pressed, the `&mut Counter` component attached to the `btn` entity passed to the handler function. There is some notes you should take into account according to this example:
+- I use `handle()` function to connect wrapped closure instead of `func()`
+- I use `&mut Counter` to specify the `WorldQuery`, but the actual type of the argument will be `&mut QueryItem`, in the example above it will be `&mut Mut<Counter>`
+- The first `EventContext` argument is optional and may be omited.
+
+In previous `EntityEvent` examples the connected function was executed in the context of the source entity: the entity the event was emited. It is possible to tell connection system to execute the handler in context of another entity. To do it you need to wrap the closure with `run!` macro in bit different form: `run!(for entity |ctx| { })`:
+
+```rust
+#[derive(Component, Default)]
+struct Counter(usize);
+// this system will update the text when counter changes.
+fn update_counter(
+    mut counters: Query<(&Counter, &mut Text)>
+) {
+    for (counter, mut text) in counters.iter_mut() {
+        text.sections[0].value = format!("Button pressed {} times", counter.0);
+    }
+}
+fn setup(mut commands: Commmands) {
+    let btn = add_button(&mut commands);
+    // counter is the entity with TextBundle 
+    let counter = add_text_node(&mut commands);
+    commands.entity(counter).insert(Counter::default());
+
+    commands
+        .connect()
+        .entity(btn)
+        .on(button_pressed)
+        // wrapped closure will be executed for counter node
+        .handle(run!(for counter |c: &mut Counter| {
+            c.0 += 1
+        }));
+}
+```
+
+In this example I create text node and button. Each time button pressed, the text changes.
+
+There is a complex example that demonstrate functionality described above.
+
+```rust
+#[derive(Component, Default)]
+pub struct Counter(usize);
+
+enum ButtonEvent {
+    Press(Entity),
+    Hover(Entity),
+}
+
+// This function acts like Event filter wor world events:
+// events that doesn't relate to any entity.
+// It is possible to connect to this events with
+// commands.connect().event(space_key_released) 
+fn space_key_released(event: &KeyboardInput) -> bool {
+    if event.key_code == Some(KeyCode::Space) {
+        match event.state {
+            bevy::input::ButtonState::Released => true,
+            _ => false
+        }
+    } else {
+        false
+    }
+}
+
+// This functions acts like Event filter wor entity events:
+// events that may relate to entities. It takes an &Event as 
+// input and returns EventsSource: zero or more associated entities.
+// For each entity in EventSource the func/handler will be executed.
+// It is possible to connect to this events with
+// commands.connect().entity(entity).on(button_pressed) 
+fn button_pressed(event: &ButtonEvent) -> EventSource {
+    match event {
+        ButtonEvent::Press(e) => EventSource::single(*e),
+        _ => EventSource::None,
+    }
+}
+
+fn button_hovered(event: &ButtonEvent) -> EventSource {
+    match event {
+        ButtonEvent::Hover(e) => EventSource::single(*e),
+        _ => EventSource::None,
+    }
+}
+
+// WorldEventFilterFunc
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn(Camera2dBundle::default());
+    // add_root() function adds some basic nodes and returns 
+    // root and counter entities: root is the container where
+    // the buttons will be spawned and the counter is the 
+    // entity with the text indicating how many buttons have been
+    // removed.
+    let (root, counter) = commands.add_root(&asset_server);
+
+    // add button when space released
+    commands
+        .connect()
+        .event(space_key_released)
+        .to_func(move |ctx| {
+            let btn = ctx.add_button_to(root);
+            // remove button when it pressed
+            ctx.connect()
+                .entity(btn)
+                .on(button_pressed)
+                // arguments after context in run! macro are passed
+                // to the Query prepared on the target entity. By default 
+                // the target is the same entity the connection was 
+                // created for (btn in this case).   ----------------------,
+                .handle(run!(|ctx, e: Entity| {                         // |
+                    ctx.commands().entity(*e).despawn_recursive();      // |
+                }));                                                    // |
+            // log button name when it hovered                          // |
+            ctx.connect()                                               // |
+                .entity(btn)                                            // |
+                .on(button_hovered)                                     // |
+                // So you can query (and modify) any components   <--------`
+                // on the target entity.
+                .handle(run!(|_, name: &Name| {
+                    info!("{} hovered", name);
+                }));
+                // You can also provide custom target for connection ------,
+                                                                        // |
+            // track number of removed buttons                          // |
+            ctx.connect()                                               // |
+                .entity(btn)                                            // |
+                .on(button_pressed)                                     // |
+                // Like this:               <------------------------------`
+                // run! macro in form run!(for entity |...| { })
+                // specifies the custom target entity the handler
+                // will be executed on.
+                //
+                // The context (first argument) is optional and may
+                // be omited within the run! macro.
+                .handle(run!(for counter |counter: &mut Counter| {
+                    counter.0 += 1;
+                }));
+        });
+}
+```
+![Connections](docs/img/examples/connections.gif)
+
+
+---
+
+### <a name="connecting-widgets"></a> Connecting Widgets
+
+---
+
+Widgets in the `belly` among other things provide entry points (`EntityEvent`s) for connecting events to handlers.
 
 ```rust
 // examples/counter-signals.rs
@@ -595,12 +840,12 @@ fn setup(mut commands: Commands) {
     commands.add(eml! {
         <body s:justify-content="center" s:align-items="center">
             // connect the press signal to closure executed on the Counter context
-            <button on:press=connect!(counter, |c: Counter| c.count += 1)>"+"</button>
+            <button on:press=run!(for counter |c: Counter| c.count += 1)>"+"</button>
             <span s:width="150px" s:justify-content="center">
                 // insert label widget with Counter component to the predefined entity
                 <label {counter} with=Counter/>
             </span>
-            <button on:press=connect!(counter, |c: Counter| c.count -= 1)>"-"</button>
+            <button on:press=run!(for counter |c: Counter| c.count -= 1)>"-"</button>
         </body>
     })
 }
@@ -613,16 +858,9 @@ fn update_label(mut query: Query<(&Counter, &mut Label), Changed<Counter>>) {
 ```
 ![Counter Example](docs/img/examples/counter.gif)
 
-When you want to connect the signal to the handler you use `connect!` macro:
-```rust
-<button on:press=connect!(counter, |c: Counter| c.count += 1)>
-```
-What it means: when the button is pressed (`on:press`), execute some code on the `Counter` component (`|c: Counter| c.count +=1`) attached to the exact entity (`counter`). `|c: counter| c.count += 1` looks like closure, but it is just a sytax sugar, `conect!` macro among other things expands this part into something like this:
-```rust
-|c: &mut Mut<Counter>| c.count += 1
-```
+When you want to connect the event to the handler you specify `on:event` attribute with handler as value. The `eml!` macro will expand this attributes to something similar to code from previous section: `commands.connect().entity(e).on(press).handle(...)`.
 
-To be able to connect signals to handlers and execute code on exact entities, you need to spawn this entity in advance. You can pass this entity to the widget later (`<label {counter}>`).
+To be able to connect events to handlers and execute code on exact entities, you need to spawn this entity in advance. You can pass this entity to the widget later (`<label {counter}>`).
 
 Sometimes you need to add additional components to widgets. In this example, I use `<label>` widget. It has a `Label` component already. I also want the `counter` entity to have a `Counter` component attached. I tell `belly` to do this using `with` param:
 ```rust
@@ -664,13 +902,13 @@ fn setup(mut commands: Commands) {
     let counter = commands.spawn(Counter::default()).id();
     commands.add(eml! {
         <body s:justify-content="center" s:align-items="center">
-            // connect the press signal to closure executed on the Counter context
-            <button on:press=connect!(counter, |c: Counter| c.count += 1)>"+"</button>
+            // connect the press event to closure executed on the Counter context
+            <button on:press=run!(for counter |c: Counter| c.count += 1)>"+"</button>
             <span s:width="150px" s:justify-content="center">
                 // bind Counter.count property at counter entity to Label.value proeprty
                 <label bind:value=from!(counter, Counter:count|fmt.c("Value: {c}"))/>
             </span>
-            <button on:press=connect!(counter, |c: Counter| c.count -= 1)>"-"</button>
+            <button on:press=run!(for counter |c: Counter| c.count -= 1)>"-"</button>
         </body>
     })
 }
@@ -855,7 +1093,7 @@ Pay attention to how the bind is written in this example. I do not use `<label>`
 
 ---
 
-### <a name="forms-of-relations"></a> Forms of `from!`, `to!`, and `connect!` macros
+### <a name="forms-of-relations"></a> Forms of `from!` & `to!
 
 ---
 
@@ -883,19 +1121,6 @@ from!(...) >> to!(...)
 to!(...) << from!(...)
 ```
 
-Connections:
-```rust
-// connect to component attached to exact entity:
-connect!(entity, |c: Component| c.property = value)
-// connect to component attached to exaxct entity with access to context & component
-connect!(entity, |ctx| info!("Happened on {:?}", ctx.target().id()))
-// connect to component attached to exaxct entity with access to context only
-connect!(|ctx| info!("Happened at {}", ctx.time().elapsed_seconds())
-// connect to general handler
-connect!(|| info!("Just happened"))
-// connect to general handler with access to context
-connect!(|ctx| info!("Happened at {}", ctx.time().elapsed_seconds())
-```
 
 ---
 

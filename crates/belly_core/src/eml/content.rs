@@ -51,9 +51,10 @@ impl<R: Component, S: BindableTarget + Clone + Default + IntoContent + std::fmt:
             .insert(BindContent {
                 value: S::default(),
             });
-        let systems_ref = world.get_resource_or_insert_with(RelationsSystems::default);
-        let mut systems = systems_ref.0.write().unwrap();
-        systems.add_custom_system(TypeId::of::<BindContent<S>>(), bind_content_system::<S>);
+        let systems = world.get_resource_or_insert_with(RelationsSystems::default);
+        systems
+            .0
+            .add_custom_system(TypeId::of::<BindContent<S>>(), bind_content_system::<S>);
         vec![parent]
     }
 }
@@ -73,9 +74,10 @@ impl<
             .insert(BindContent {
                 value: T::default(),
             });
-        let systems_ref = world.get_resource_or_insert_with(RelationsSystems::default);
-        let mut systems = systems_ref.0.write().unwrap();
-        systems.add_custom_system(TypeId::of::<BindContent<T>>(), bind_content_system::<T>);
+        let systems = world.get_resource_or_insert_with(RelationsSystems::default);
+        systems
+            .0
+            .add_custom_system(TypeId::of::<BindContent<T>>(), bind_content_system::<T>);
         vec![parent]
     }
 }

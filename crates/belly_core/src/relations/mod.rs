@@ -6,17 +6,17 @@ pub mod props;
 use crate::element::Elements;
 
 use self::bind::{BindableSource, BindableTarget, ChangesState};
-pub use self::connect::{
-    Connect, ConnectionBuilder, ConnectionEntityContext, ConnectionGeneralContext, ConnectionTo,
-    Connections, Signal,
-};
+pub use self::connect::{ConnectionEntityContext, Connections, EventContext, Handler};
 use bevy::{
+    ecs::{entity::Entities, event::Event, query::WorldQuery},
     log::Level,
     prelude::*,
     utils::{tracing::span, HashSet},
 };
+use itertools::Itertools;
 use std::{
     any::TypeId,
+    mem,
     sync::{Arc, RwLock},
 };
 
@@ -31,6 +31,7 @@ pub enum RelationsStage {
 
 impl Plugin for RelationsPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<RelationsSystems>();
         app.init_resource::<ChangesState>();
         app.add_stage_after(
             CoreStage::PreUpdate,
@@ -67,115 +68,118 @@ pub enum BindingStage {
 }
 
 pub fn process_relations_system(world: &mut World) {
-    let systems_ref = world
-        .get_resource_or_insert_with(RelationsSystems::default)
-        .clone();
-    let mut systems = systems_ref.0.write().unwrap();
-    systems.run(world);
+    let relations = world.resource::<RelationsSystems>().clone();
+    relations.run(world);
 }
 
-pub fn process_signals_system<C: Component, S: Signal>(
+pub fn process_signals_system<P: 'static + WorldQuery, E: Event>(
     asset_server: Res<AssetServer>,
-    connections: Res<Connections<C, S>>,
+    connections: Res<Connections<P, E>>,
     time: Res<Time>,
     mut elements: Elements,
-    mut events: EventReader<S>,
-    mut components: Query<&mut C>,
+    mut events: EventReader<E>,
+    mut components: Query<P>,
 ) {
     for signal in events.iter() {
-        for source in signal.sources().iter() {
-            if let Some(connections) = connections.get(&source) {
-                let mut context = ConnectionGeneralContext {
-                    source_event: signal,
-                    source: *source,
-                    time_resource: &time,
-                    asset_server: asset_server.clone(),
-                    elements: &mut elements,
-                };
-                for connection in connections.iter().filter(|c| c.handles(signal)) {
-                    match &connection.target {
-                        ConnectionTo::General { handler } => {
-                            handler(&mut context);
-                        }
-                        ConnectionTo::Entity { target, handler } => {
-                            let mut entity_context = ConnectionEntityContext {
-                                target: *target,
-                                ctx: &mut context,
-                            };
-                            handler(&mut entity_context);
-                        }
-                        ConnectionTo::Component { target, handler } => {
-                            if let Ok(mut component) = components.get_mut(*target) {
-                                let mut entity_context = ConnectionEntityContext {
-                                    target: *target,
-                                    ctx: &mut context,
-                                };
-                                handler(&mut entity_context, &mut component);
-                            }
-                        }
+        let mut context = EventContext {
+            source_event: signal,
+            time_resource: &time,
+            asset_server: asset_server.clone(),
+            elements: &mut elements,
+        };
+        connections.process(signal, |handlers| {
+            for (target, group) in &handlers.iter().group_by(|(target, _)| target) {
+                if let Some(target) = target {
+                    let Ok(mut args) = components.get_mut(*target) else {
+                        continue
+                    };
+                    for (_, handler) in group {
+                        handler.run(&mut context, &mut args);
+                    }
+                } else {
+                    for (_, handler) in group {
+                        handler.run_without_target(&mut context);
                     }
                 }
             }
-        }
+        });
     }
 }
 
-pub fn cleanup_signals_system<C: Component, S: Signal>(
-    mut connections: ResMut<Connections<C, S>>,
-    mut commands: Commands,
+pub fn cleanup_signals_system<P: 'static + WorldQuery, E: Event>(
+    mut connections: ResMut<Connections<P, E>>,
+    entities: &Entities,
 ) {
-    let entities_to_remove = connections
-        .entities()
-        .filter(|e| commands.get_entity(*e).is_none())
-        .collect::<Vec<_>>();
-    entities_to_remove
-        .iter()
-        .for_each(|e| connections.remove(e));
+    connections.drain(|e| !entities.contains(e));
 }
+#[derive(Default, Clone, Resource, Deref)]
+pub struct RelationsSystems(pub(crate) Arc<BindingSystemsInternal>);
+unsafe impl Send for RelationsSystems {}
+unsafe impl Sync for RelationsSystems {}
 
-pub(crate) struct BindingSystemsInternal {
-    schedule: Schedule,
-    processors: HashSet<(TypeId, TypeId)>,
-    custom: HashSet<TypeId>,
+pub struct BindingSystemsInternal {
+    schedule: RwLock<Schedule>,
+    system_queue: RwLock<Vec<Box<dyn FnOnce(&mut Schedule)>>>,
+    processors: RwLock<HashSet<(TypeId, TypeId)>>,
+    custom: RwLock<HashSet<TypeId>>,
 
     // new `bound` added system hashes
-    systems: HashSet<(TypeId, TypeId, TypeId, TypeId)>,
-    watchers: HashSet<TypeId>,
+    systems: RwLock<HashSet<(TypeId, TypeId, TypeId, TypeId)>>,
+    watchers: RwLock<HashSet<TypeId>>,
 }
 
-#[derive(Default, Clone, Resource)]
-pub struct RelationsSystems(pub(crate) Arc<RwLock<BindingSystemsInternal>>);
-
 impl BindingSystemsInternal {
-    pub fn add_signals_processor<C: Component, S: Signal>(&mut self) {
-        let entry = (TypeId::of::<C>(), TypeId::of::<S>());
-        if self.processors.contains(&entry) {
+    pub fn add_signals_processor<P: 'static + WorldQuery, E: Event>(&self) {
+        let entry = (TypeId::of::<P>(), TypeId::of::<E>());
+        if self.processors.read().unwrap().contains(&entry) {
             return;
         }
-        self.processors.insert(entry);
-        self.schedule
-            .add_system_to_stage(BindingStage::Process, process_signals_system::<C, S>);
-        self.schedule
-            .add_system_to_stage(BindingStage::Process, cleanup_signals_system::<C, S>);
+        let mut processors = self.processors.write().unwrap();
+        if processors.contains(&entry) {
+            return;
+        }
+        processors.insert(entry);
+        self.system_queue
+            .write()
+            .unwrap()
+            .push(Box::new(|schedule| {
+                schedule.add_system_to_stage(BindingStage::Process, process_signals_system::<P, E>);
+                schedule.add_system_to_stage(BindingStage::Process, cleanup_signals_system::<P, E>);
+            }));
     }
-    pub fn add_custom_system<Params, S: IntoSystemDescriptor<Params>>(
-        &mut self,
+    pub fn add_custom_system<Params, S: 'static + IntoSystemDescriptor<Params>>(
+        &self,
         system_id: TypeId,
         system: S,
     ) {
-        if self.custom.contains(&system_id) {
+        if self.custom.read().unwrap().contains(&system_id) {
             return;
         }
-        self.custom.insert(system_id);
-        self.schedule
-            .add_system_to_stage(BindingStage::Custom, system);
+        let mut custom = self.custom.write().unwrap();
+        if custom.contains(&system_id) {
+            return;
+        }
+        custom.insert(system_id);
+        self.system_queue
+            .write()
+            .unwrap()
+            .push(Box::new(move |schedule| {
+                schedule.add_system_to_stage(BindingStage::Custom, system);
+            }));
     }
-    pub fn run(&mut self, world: &mut World) {
+    pub fn run(&self, world: &mut World) {
         let span = span!(Level::INFO, "belly");
         let _enter = span.enter();
         let mut last_state = world.resource::<ChangesState>().get();
         loop {
-            self.schedule.run(world);
+            self.schedule.write().unwrap().run(world);
+            {
+                let mut queue = self.system_queue.write().unwrap();
+                let mut schedule = self.schedule.write().unwrap();
+                for add_system in mem::take(&mut *queue) {
+                    add_system(&mut schedule)
+                }
+            }
             let current_state = world.resource::<ChangesState>().get();
             if last_state == current_state {
                 break;
@@ -191,7 +195,7 @@ impl BindingSystemsInternal {
         S: BindableSource,
         T: BindableTarget,
     >(
-        &mut self,
+        &self,
     ) {
         let watcher = TypeId::of::<R>();
         let entry = (
@@ -200,19 +204,37 @@ impl BindingSystemsInternal {
             TypeId::of::<S>(),
             TypeId::of::<T>(),
         );
-        if !self.watchers.contains(&watcher) {
-            self.watchers.insert(watcher);
+        if self.watchers.read().unwrap().contains(&watcher) {
+            return;
+        }
+        {
+            let watchers = self.watchers.write().unwrap();
+            if watchers.contains(&watcher) {
+                return;
+            }
             self.schedule
+                .write()
+                .unwrap()
                 .add_system_to_stage(BindingStage::Watch, bind::watch_changes::<R>);
         }
 
-        if !self.systems.contains(&entry) {
-            self.systems.insert(entry);
-            self.schedule.add_system_to_stage(
-                BindingStage::Bind,
-                bind::component_to_component_system::<R, W, S, T>,
-            );
+        if self.systems.read().unwrap().contains(&entry) {
+            return;
         }
+        let mut systems = self.systems.write().unwrap();
+        if systems.contains(&entry) {
+            return;
+        }
+        systems.insert(entry);
+        self.system_queue
+            .write()
+            .unwrap()
+            .push(Box::new(|schedule| {
+                schedule.add_system_to_stage(
+                    BindingStage::Bind,
+                    bind::component_to_component_system::<R, W, S, T>,
+                );
+            }));
     }
     fn add_resource_to_component<
         R: Resource,
@@ -220,7 +242,7 @@ impl BindingSystemsInternal {
         S: BindableSource,
         T: BindableTarget,
     >(
-        &mut self,
+        &self,
     ) {
         let entry = (
             TypeId::of::<W>(),
@@ -228,14 +250,23 @@ impl BindingSystemsInternal {
             TypeId::of::<S>(),
             TypeId::of::<T>(),
         );
-
-        if !self.systems.contains(&entry) {
-            self.systems.insert(entry);
-            self.schedule.add_system_to_stage(
-                BindingStage::Bind,
-                bind::resource_to_component_system::<R, W, S, T>,
-            );
+        if self.systems.read().unwrap().contains(&entry) {
+            return;
         }
+        let mut systems = self.systems.write().unwrap();
+        if systems.contains(&entry) {
+            return;
+        }
+        systems.insert(entry);
+        self.system_queue
+            .write()
+            .unwrap()
+            .push(Box::new(|schedule| {
+                schedule.add_system_to_stage(
+                    BindingStage::Bind,
+                    bind::resource_to_component_system::<R, W, S, T>,
+                );
+            }));
     }
 }
 
@@ -259,13 +290,14 @@ impl Default for BindingSystemsInternal {
             .add_stage(BindingStage::Bind, SystemStage::parallel())
             .add_stage(BindingStage::Watch, SystemStage::parallel());
         Self {
-            schedule,
-            processors,
-            custom,
+            schedule: RwLock::new(schedule),
+            processors: RwLock::new(processors),
+            custom: RwLock::new(custom),
 
             // new `bound` hashes
-            systems,
-            watchers,
+            systems: RwLock::new(systems),
+            watchers: RwLock::new(watchers),
+            system_queue: RwLock::new(vec![]),
         }
     }
 }

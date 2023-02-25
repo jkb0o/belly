@@ -1,7 +1,7 @@
 // examples/elements-modification.rs
 // cargo run --example elements-modification
 use belly::prelude::*;
-use bevy::prelude::*;
+use bevy::{ecs::event::Event, prelude::*};
 
 fn main() {
     App::new()
@@ -15,18 +15,16 @@ fn main() {
 
 pub struct ToggleClass(&'static str);
 
-fn show_boxes<T: Signal>(ctx: &mut ConnectionGeneralContext<T>) {
-    ctx.select(".box").add_class("hidden");
-}
-fn hide_boxes<T: Signal>(ctx: &mut ConnectionGeneralContext<T>) {
-    ctx.select(".box").remove_class("hidden");
-}
 fn process_events(mut elements: Elements, mut events: EventReader<ToggleClass>) {
     for event in events.iter() {
         for entity in elements.select(".target").entities() {
             elements.toggle_class(entity, event.0.into())
         }
     }
+}
+
+fn toggle_container(ctx: &mut EventContext<impl Event>) {
+    ctx.select("#container").toggle_class("hidden");
 }
 
 fn setup(mut commands: Commands) {
@@ -52,19 +50,19 @@ fn setup(mut commands: Commands) {
     ));
     commands.add(eml! {
         <body s:padding="50px">
-            <button on:press=connect!(|ctx| ctx.send_event(ToggleClass("red")))>
+            <button on:press=|ctx| { ctx.send_event(ToggleClass("red")); }>
                 "Toggle .red class"
             </button>
-            <button on:press=connect!(show_boxes)>
+            <button on:press=|ctx| { ctx.select(".box").add_class("hidden"); } >
                 "Hide boxes"
             </button>
-            <button on:press=connect!(hide_boxes)>
+            <button on:press=|ctx| { ctx.select(".box").remove_class("hidden"); }>
                 "Show boxes"
             </button>
-            <button on:press=connect!(|ctx| ctx.select("#container").toggle_class("hidden"))>
+            <button on:press=toggle_container>
                 "Toggle container visibility"
             </button>
-            <button on:press=connect!(|ctx| ctx.select("#container > *").toggle_class("hidden"))>
+            <button on:press=|ctx| { ctx.select("#container > *").toggle_class("hidden"); }>
                 "Toggle container children visibility"
             </button>
             <br/>
