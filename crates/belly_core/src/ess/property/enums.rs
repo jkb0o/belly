@@ -43,11 +43,11 @@ prop_to_enum! { Display,
 
 prop_to_enum! { PositionType,
     "absolute" => Absolute,
-    "relativ" => Relative,
+    "relative" => Relative,
 }
 
 prop_to_enum! { Direction,
-    "inhrerit" => Inherit,
+    "inherit" => Inherit,
     "ltr" => LeftToRight,
     "rtl" => RightToLeft,
 }
