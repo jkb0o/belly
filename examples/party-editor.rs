@@ -184,11 +184,11 @@ fn AnimalEditor(ctx: &mut WidgetContext) {
                     <img src=imgsrc bind:src=from!(animal, Animal:avatar.image())/>
                 </span>
                 <span c:row c:editor-buttons>
-                    <button c:grow on:press=run!(for animal |data: &mut Animal| {
+                    <button on:press=run!(for animal |data: &mut Animal| {
                         data.avatar.prev_animal();
                     })>"Prev"</button>
                     <span c:grow>"Animal"</span>
-                    <button c:grow on:press=run!(for animal |data: &mut Animal| {
+                    <button on:press=run!(for animal |data: &mut Animal| {
                         data.avatar.next_animal();
                     })>"Next"</button>
                 </span>
