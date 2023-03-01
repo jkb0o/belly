@@ -1,11 +1,25 @@
-# Examples
+# Interfaces
+
+## [color-picker](color-picker.rs)
+Create color-picker by using the bidirectional bindigs
+![color-picker](../docs/img/examples/color-picker.gif)
+
+## [image](image.rs)
+Display an image in different modes
+![image](../docs/img/examples/image.png)
+
+## [party-editor](party-editor.rs)
+Build complex UI by implementing custom widgets for custom logic, organize user input with `<element on:event=run!(..)> ` blocks and bind data with `<element bind:value=to!(..)>`.
+![party-editor](../docs/img/examples/party-editor.gif)
+
+
+# Usecases
 
 ## [button](button.rs)
 Style, handle events and update state with buttons.
 ![button](../docs/img/examples/button.png)
 
-## [color-picker](color-picker.rs)
-![color-picker](../docs/img/examples/color-picker.gif)
+
 
 ## [connections](connections.rs)
 This example demonstrates how you can connect funcs/handlers
@@ -22,7 +36,7 @@ any `eml!` used.
 
 ## [elements-modification](elements-modification.rs)
 Add or remove classes from elements at runtime. 
-![elements-modification](../docs/img/examples/elements-modification.png)
+![elements-modification](../docs/img/examples/elements-modification.gif)
 
 ## [for-loop](for-loop.rs)
 Create a list of components from a vec.
@@ -31,10 +45,6 @@ Create a list of components from a vec.
 ## [hello-world](hello-world.rs)
 Simplest of examples.
 ![hello-world](../docs/img/examples/hello-world.png)
-
-## [image](image.rs)
-Display an image in different modes
-![image](../docs/img/examples/image.png)
 
 ## [image-sources](image-sources.rs)
 Display an image with asset handles

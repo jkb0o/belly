@@ -146,6 +146,7 @@ The main tasks the plugin is about to solve are:
     - [Associated transformers](#associated-transformers)
   - [Binding from Resources](#binding-from-resources)
   - [Forms of `from!` & `to!` macros](#forms-of-relations)
+- [Modifying UI](#modifying)
 - [Templating](#templating)
   - [Loops](#loops)
   - [Slots](#slots)
@@ -1120,6 +1121,90 @@ from!(...) >> to!(...)
 // connect binds using left shift:
 to!(...) << from!(...)
 ```
+
+---
+
+## <a name="modifying"> Modifying UI
+
+---
+
+Most of examples here just crate some UI in the startup system and keep it almost unchangable. In the real world you need to change UI: add/remove classes or states, remove elements or spawn new ones. In `bevy` you change the components by querying them and change the scene tree by adding commands with `Commands` system param. You can use components/commands with `belly` as well, but to make your life a little brighter, `belly` provides you with the ability to perform common ui operations with `Elements` SystemParam.
+
+`Elements` is a cheap `Commands`-like SystemParam. Tha most common task it is about to solve: select some elemenents with `ess` selector and apply some commands to them:
+
+```rust
+fn handle_death_system(
+    health: Resource<Health>
+    mut elements: Elements
+) {
+    if health.value <= 0 & !health.death_reported {
+        health.death_reported = true;
+        Elements.select("#avatar").add_class("looks-dead");
+        Elements.select("#buffs > .buff-icon").remove();
+        Elements.select("#popups").add_child(eml! {
+            <span c:popup id="dead-popup">
+                <span c:message>"You are dead!"</span>
+                <button>"Ok"</button>
+            </span>
+        })
+    }
+}
+```
+
+In this example wher player health reduces to zero I change UI somehow:
+- add class `looks-dead` to element with id `avatar`
+- remove (despawn) all elements with class `buff-icon` that are direct children of `#buffs` element
+- add new child element to `#popups` element.
+
+`Elements` is the part of `EventContext`, so you can modify UI directly from event handlers:
+
+```rust
+// examples/elements-modification.rs
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2dBundle::default());
+    commands.add(eml! {
+        <body s:padding="50px">
+            <button on:press=|ctx| { ctx.send_event(ToggleClass("red")); }>
+                "Toggle .red class"
+            </button>
+            <button on:press=|ctx| { ctx.select(".box").add_class("hidden"); } >
+                "Hide boxes"
+            </button>
+            <button on:press=|ctx| { ctx.select(".box").remove_class("hidden"); }>
+                "Show boxes"
+            </button>
+            <button on:press=toggle_container>
+                "Toggle container visibility"
+            </button>
+            <button on:press=|ctx| { ctx.select("#container > *").toggle_class("hidden"); }>
+                "Toggle container children visibility"
+            </button>
+            <br/>
+            <span class="box target">"Target span"</span>
+            <span id="container">
+                <span class="box target">"Target span"</span>
+                <span class="box non-target">"Non-target span"</span>
+            </span>
+        </body>
+    });
+}
+pub struct ToggleClass(&'static str);
+
+fn process_events(mut elements: Elements, mut events: EventReader<ToggleClass>) {
+    for event in events.iter() {
+        for entity in elements.select(".target").entities() {
+            elements.toggle_class(entity, event.0.into())
+        }
+    }
+}
+fn toggle_container(ctx: &mut EventContext<impl Event>) {
+    ctx.select("#container").toggle_class("hidden");
+}
+```
+![Elements Modification](docs/img/examples/elements-modification.gif)
+
+You can look at even more complex example with complete interface of character editing [here](examples#party-editor):
+![Party Editor](docs/img/examples/party-editor.gif)
 
 
 ---

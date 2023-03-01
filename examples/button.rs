@@ -76,14 +76,18 @@ fn setup(mut commands: Commands) {
                 <button on:press=run!(for colorbox |ctx, b: &mut ColorBox| {
                     if **b == ColorBox::Red {
                         **b = ColorBox::Blue;
-                        ctx.replace(colorbox, eml! { <div c:blue>"I'm blue"</div> });
+                        ctx.select("#colorbox").add_child(eml! {
+                            <div c:blue id="color">"I'm blue"</div>
+                        });
                     } else {
                         **b = ColorBox::Red;
-                        ctx.replace(colorbox, eml! { <div c:red>"I'm red"</div> });
+                        ctx.select("#colorbox").add_child(eml! {
+                            <div c:red id="color">"I'm red"</div>
+                        });
                     }
                 })>
-                    <div c:colorbox>
-                        <div c:red {colorbox}>"I'm red"</div>
+                    <div c:colorbox {colorbox} id="colorbox">
+                        <div id="color" c:red>"I'm red"</div>
                     </div>
                 </button>
                 <br/>
