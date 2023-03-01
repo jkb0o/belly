@@ -192,9 +192,8 @@ pub struct NodeQuery {
     computed_visibility: Option<&'static ComputedVisibility>,
 }
 
-/// The system that sets Interaction for all UI elements based on the mouse cursor activity
-///
-/// Entities with a hidden [`ComputedVisibility`] are always treated as released.
+// pointer_input_system is the rewriten bevy's ui_focus_system
+// it emit PointerEvent with associated entities and data.
 pub fn pointer_input_system(
     mut state: Local<State>,
     camera: Query<(&Camera, Option<&UiCameraConfig>)>,
@@ -243,9 +242,6 @@ pub fn pointer_input_system(
         _ => Vec2::ZERO,
     };
     state.last_cursor_position = cursor_position;
-
-    // prepare an iterator that contains all the nodes that have the cursor in their rect,
-    // from the top node to the bottom one.
     let mut moused_over_nodes = ui_stack
         .uinodes
         .iter()
@@ -256,14 +252,6 @@ pub fn pointer_input_system(
                 // Nodes that are not rendered should not be interactable
                 if let Some(computed_visibility) = node.computed_visibility {
                     if !computed_visibility.is_visible() {
-                        // // Reset their interaction to None to avoid strange stuck state
-                        // if let Some(mut interaction) = node.interaction {
-                        //     // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
-                        //     if *interaction != Interaction::None {
-                        //         *interaction = Interaction::None;
-                        //     }
-                        // }
-
                         return None;
                     }
                 }
@@ -278,7 +266,7 @@ pub fn pointer_input_system(
                     max = Vec2::min(max, clip.clip.max);
                 }
                 // if the current cursor position is within the bounds of the node, consider it for
-                // clicking
+                // emiting the event
                 let contains_cursor = if let Some(cursor_position) = cursor_position {
                     (min.x..max.x).contains(&cursor_position.x)
                         && (min.y..max.y).contains(&cursor_position.y)
@@ -314,8 +302,6 @@ pub fn pointer_input_system(
         drag_stop_entities = state.dragging_from.clone();
     }
 
-    // set Clicked or Hovered on top nodes. as soon as a node with a `Block` focus policy is detected,
-    // the iteration will stop on it because it "captures" the interaction.
     let mut iter = node_query.iter_many_mut(moused_over_nodes.by_ref());
     while let Some(node) = iter.fetch_next() {
         if node.interaction.is_none() {
@@ -338,9 +324,6 @@ pub fn pointer_input_system(
                 pressed_entities.push(entity);
             }
         }
-        // if send_drag_start {
-        //     drag_start_entities.push(entity);
-        // }
         if delta != Vec2::ZERO {
             if state.dragging {
                 drag_entities.push(entity);
@@ -356,7 +339,7 @@ pub fn pointer_input_system(
             FocusPolicy::Block => {
                 break;
             }
-            FocusPolicy::Pass => { /* allow the next node to be hovered/clicked */ }
+            FocusPolicy::Pass => { /* allow the next node to be processed */ }
         }
     }
 
