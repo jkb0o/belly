@@ -48,19 +48,19 @@ fn textinput(ctx: &mut WidgetContext, ti: &mut TextInput) {
     let selection = ti.selection;
     ctx.add(from!(this, TextInput: value) >> to!(text, Label: value));
     ctx.render(eml! {
-        <div interactable="block" c:text-input c:text-input-border>
-            <div c:text-input-background>
-                <div {container} c:text-input-container>
-                    <div {selection} c:text-input-selection s:display=managed()/>
+        <span interactable="block" c:text-input c:text-input-border>
+            <span c:text-input-background>
+                <span {container} c:text-input-container>
+                    <span {selection} c:text-input-selection s:display=managed()/>
                     <label {text} c:text-input-value/>
-                    <div {cursor} c:text-input-cursor
+                    <span {cursor} c:text-input-cursor
                         s:position-type="absolute"
                         s:width=format!("{:.0}px", CURSOR_WIDTH)
                         s:display=managed()
                     />
-                </div>
-            </div>
-        </div>
+                </span>
+            </span>
+        </span>
     });
 }
 

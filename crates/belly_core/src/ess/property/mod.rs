@@ -18,6 +18,7 @@ use crate::{
     ess::{ElementsBranch, StyleSheet, Styles},
     ElementsError,
 };
+use bevy::ui::UiSystem;
 use bevy::{
     ecs::query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
     prelude::*,
@@ -95,6 +96,9 @@ impl Plugin for PropertyPlugin {
         app.register_property::<impls::stylebox::StyleboxWidthProperty>();
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
+pub struct ApplyStyleProperties;
 
 pub struct ManagedPropertyValue(StyleProperty);
 
@@ -431,7 +435,13 @@ impl RegisterProperty for bevy::prelude::App {
             .entry(T::name())
             .and_modify(|_| panic!("Property `{}` already registered.", T::name()))
             .or_insert(T::transform);
-        self.add_system(T::apply_defaults /* .label(EcssSystem::Apply) */);
+        self.add_system_to_stage(
+            CoreStage::PostUpdate,
+            T::apply_defaults
+                .after(InvalidateElements)
+                .before(UiSystem::Flex)
+                .label(ApplyStyleProperties),
+        );
         self
     }
 

@@ -55,6 +55,24 @@ impl From<f32> for Variant {
     }
 }
 
+impl TryFrom<Variant> for u8 {
+    type Error = String;
+    fn try_from(variant: Variant) -> Result<Self, Self::Error> {
+        match variant {
+            Variant::String(s) => s.parse().map_err(|e| format!("Can't parse {e} as u8")),
+            variant => variant
+                .take::<u8>()
+                .ok_or_else(|| format!("Can't cast Variant to u8")),
+        }
+    }
+}
+
+impl From<u8> for Variant {
+    fn from(v: u8) -> Self {
+        Variant::boxed(v)
+    }
+}
+
 impl TryFrom<Variant> for bool {
     type Error = String;
     fn try_from(variant: Variant) -> Result<Self, Self::Error> {

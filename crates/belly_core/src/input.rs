@@ -454,9 +454,7 @@ pub fn focus_system(
     interactable: Query<Entity, (With<Interaction>, With<Element>)>,
     mut signals: EventReader<PointerInput>,
     mut requests: EventReader<RequestFocus>,
-    mut dirty: Local<Vec<Entity>>,
 ) {
-    dirty.clear();
     let mut target_focus = None;
     let mut update_required = false;
     for signal in signals.iter().filter(|s| s.down()) {
@@ -474,29 +472,20 @@ pub fn focus_system(
 
     if update_required && target_focus != focused.0 {
         if let Some(was_focused) = focused.0 {
-            if let Ok(mut element) = elements.get_mut(was_focused) {
-                element.state.remove(&tags::focus());
-                dirty.push(was_focused);
-            }
+            elements.set_state(was_focused, tags::focus(), false);
         }
         if let Some(target_focus) = target_focus {
-            if let Ok(mut element) = elements.get_mut(target_focus) {
-                element.state.insert(tags::focus());
-                dirty.push(target_focus);
-            }
+            elements.set_state(target_focus, tags::focus(), true);
         }
         focused.0 = target_focus;
     }
-    dirty.iter().for_each(|e| elements.invalidate(*e));
 }
 
 pub fn hover_system(
     mut events: EventReader<PointerInput>,
     mut elements: Elements,
     mut hovered_entities: Local<HashSet<Entity>>,
-    mut dirty: Local<Vec<Entity>>,
 ) {
-    dirty.clear();
     let mut any_motion = false;
     let new_hovered_entities: HashSet<_> = events
         .iter()
@@ -514,22 +503,13 @@ pub fn hover_system(
 
     // remove hovered state
     for entity in hovered_entities.difference(&new_hovered_entities) {
-        if let Ok(mut element) = elements.get_mut(*entity) {
-            element.state.remove(&tags::hover());
-            dirty.push(*entity);
-        }
+        elements.set_state(*entity, tags::hover(), false);
     }
     // add hovered state to newely hovered entityes
     for entity in new_hovered_entities.difference(&hovered_entities) {
-        if let Ok(mut element) = elements.get_mut(*entity) {
-            element.state.insert(tags::hover());
-            dirty.push(*entity);
-        }
+        elements.set_state(*entity, tags::hover(), true);
     }
     *hovered_entities = new_hovered_entities;
-    for entity in dirty.iter() {
-        elements.invalidate(*entity);
-    }
 }
 
 pub fn active_system(
@@ -565,20 +545,14 @@ pub fn active_system(
             continue;
         }
         active_elements.insert(*entity);
-        elements.invalidate(*entity);
-        if let Ok(mut element) = elements.get_mut(*entity) {
-            element.state.insert(tags::active());
-        }
+        elements.set_state(*entity, tags::active(), true);
     }
     for entity in remove_active.iter() {
         if !active_elements.contains(entity) {
             continue;
         }
         active_elements.remove(entity);
-        elements.invalidate(*entity);
-        if let Ok(mut element) = elements.get_mut(*entity) {
-            element.state.remove(&tags::active());
-        }
+        elements.set_state(*entity, tags::active(), false);
     }
 }
 

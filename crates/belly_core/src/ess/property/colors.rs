@@ -11,8 +11,25 @@ pub trait ColorFromHexExtension {
         let color = color.as_ref().trim().trim_start_matches('#');
         parse_hex_color(color).map_err(|e| format!("{e}"))
     }
+    fn get_hex(&self) -> String;
+    fn set_hex(&mut self, hex: impl AsRef<str>);
 }
-impl ColorFromHexExtension for Color {}
+impl ColorFromHexExtension for Color {
+    fn get_hex(&self) -> String {
+        let r = (self.r() * 256.0) as u8;
+        let g = (self.g() * 256.0) as u8;
+        let b = (self.b() * 256.0) as u8;
+        let a = (self.a() * 256.0) as u8;
+        if a == 255 {
+            format!("#{r:02x}{g:02x}{b:02x}")
+        } else {
+            format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
+        }
+    }
+    fn set_hex(&mut self, hex: impl AsRef<str>) {
+        *self = Self::from_hex(hex);
+    }
+}
 
 pub(super) fn parse_hex_color(hex: &str) -> Result<Color, ElementsError> {
     let color = cssparser::Color::parse_hash(hex.as_bytes()).map_err(|_| {

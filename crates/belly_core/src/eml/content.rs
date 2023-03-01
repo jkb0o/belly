@@ -105,31 +105,23 @@ impl IntoContent for Vec<Entity> {
 
 impl<T: Iterator, F: Fn(T::Item) -> Eml> IntoContent for ExpandElements<T, F> {
     fn into_content(self, _parent: Entity, world: &mut World) -> Vec<Entity> {
-        let mut result = vec![];
-        for builder in self {
-            let entity = world.spawn_empty().id();
-            result.push(entity.clone());
-            builder.with_entity(entity)(world);
-        }
-        result
+        self.into_iter()
+            .map(|builder| builder.build(world))
+            .collect()
     }
 }
 
 impl IntoContent for Vec<Eml> {
     fn into_content(self, _parent: Entity, world: &mut World) -> Vec<Entity> {
-        let mut result = vec![];
-        for builder in self {
-            let entity = world.spawn_empty().id();
-            result.push(entity.clone());
-            builder.with_entity(entity)(world);
-        }
-        result
+        self.into_iter()
+            .map(|builder| builder.build(world))
+            .collect()
     }
 }
 
 impl IntoContent for Eml {
     fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity> {
-        self.with_entity(parent)(world);
+        self.render_to(parent)(world);
         vec![parent]
     }
 }

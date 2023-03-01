@@ -1,5 +1,9 @@
 use bevy::ecs::query::WorldQuery;
-use bevy::ecs::system::{Command, SystemParam};
+use bevy::ecs::system::{
+    Command, CommandQueue, ReadOnlySystemParamFetch, SystemMeta, SystemParam, SystemParamFetch,
+    SystemParamState,
+};
+use bevy::ui::UiSystem;
 use bevy::utils::{HashMap, HashSet};
 use smallvec::SmallVec;
 use std::ops::Deref;
@@ -10,6 +14,22 @@ use crate::ess::{ElementsBranch, PropertyValue, Selector};
 use crate::tags;
 use crate::tags::*;
 use bevy::prelude::*;
+
+pub struct ElementsPlugin;
+impl Plugin for ElementsPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<ElementIdIndex>();
+        app.add_system_to_stage(
+            CoreStage::PostUpdate,
+            invalidate_elements
+                .before(UiSystem::Flex)
+                .label(InvalidateElements),
+        );
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
+pub struct InvalidateElements;
 
 #[derive(Bundle)]
 pub struct ElementBundle {
@@ -83,14 +103,10 @@ pub enum DisplayElement {
 pub struct Element {
     pub names: SmallVec<[Tag; 2]>,
     pub aliases: SmallVec<[Tag; 2]>,
-    pub id: Option<Tag>,
+    pub(crate) id: Option<Tag>,
     pub classes: HashSet<Tag>,
     pub state: HashSet<Tag>,
-    pub display: DisplayElement,
-    pub content: Option<Entity>,
     pub styles: HashMap<Tag, PropertyValue>,
-    // content_entity: Entity
-    // content_func: ContentFunc
 }
 
 impl Element {
@@ -98,10 +114,7 @@ impl Element {
         self.names.len() == 0
     }
     pub fn inline() -> Element {
-        Element {
-            display: DisplayElement::Inline,
-            ..default()
-        }
+        Element { ..default() }
     }
     pub fn invalidate(&mut self) {}
     pub fn focused(&self) -> bool {
@@ -120,11 +133,13 @@ impl Element {
     }
 }
 
+#[derive(Resource, Deref, DerefMut, Default)]
+pub struct ElementIdIndex(HashMap<Tag, Entity>);
+
 #[derive(WorldQuery)]
-#[world_query(mutable)]
 pub struct ElementsQuery {
     pub entity: Entity,
-    element: &'static mut Element,
+    element: &'static Element,
 }
 
 impl<'w, 's> Deref for Elements<'w, 's> {
@@ -134,27 +149,10 @@ impl<'w, 's> Deref for Elements<'w, 's> {
     }
 }
 
-impl<'w, 's> DerefMut for Elements<'w, 's> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.elements
-    }
-}
-
-impl Deref for ElementsQueryReadOnlyItem<'_> {
-    type Target = Element;
-    fn deref(&self) -> &Self::Target {
-        &self.element
-    }
-}
 impl Deref for ElementsQueryItem<'_> {
     type Target = Element;
     fn deref(&self) -> &Self::Target {
         &self.element
-    }
-}
-impl DerefMut for ElementsQueryItem<'_> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.element
     }
 }
 
@@ -163,24 +161,32 @@ pub struct ChildrenQuery {
     children: &'static Children,
 }
 
+// #[derive(Deref, DerefMut)]
+// struct EntitiesHashSet(HashSet<Entity>);
+// impl Default for EntitiesHashSet {
+//     fn default() -> Self {
+//         EntitiesHashSet(HashSet::new())
+//     }
+// }
+
 #[derive(SystemParam)]
 pub struct Elements<'w, 's> {
     pub(crate) roots: Query<'w, 's, Entity, (With<Element>, Without<Parent>)>,
-    pub(crate) commands: Commands<'w, 's>,
+    pub(crate) commands: ElementCommands<'w, 's>,
     pub(crate) elements: Query<'w, 's, ElementsQuery, ()>,
     pub(crate) children: Query<'w, 's, ChildrenQuery, ()>,
+    pub(crate) id_index: Res<'w, ElementIdIndex>,
+    #[system_param(ignore)]
+    states: HashMap<Entity, HashMap<Tag, bool>>,
+    #[system_param(ignore)]
+    classes: HashMap<Entity, HashSet<Tag>>,
 }
 
 impl<'w, 's> Elements<'w, 's> {
     pub fn invalidate(&mut self, tree: Entity) {
-        if let Ok(mut element) = self.elements.get_mut(tree) {
-            element.invalidate();
-        }
-        self.children
-            .get(tree)
-            .map(|c| c.children.iter().copied().collect::<Vec<_>>())
-            .ok()
-            .map(|c| c.iter().for_each(|e| self.invalidate(*e)));
+        self.commands()
+            .entity(tree)
+            .insert(InvalidateElement::default());
     }
 
     pub fn invalidate_all(&mut self) {
@@ -189,6 +195,13 @@ impl<'w, 's> Elements<'w, 's> {
             .collect::<Vec<_>>()
             .iter()
             .for_each(|e| self.invalidate(*e));
+    }
+
+    pub fn entity<'e>(&'e mut self, entity: Entity) -> SelectedElements<'w, 's, 'e> {
+        SelectedElements {
+            elements: self,
+            entities: vec![entity],
+        }
     }
 
     /// Selects entities based on provided `ess` query allowing
@@ -211,10 +224,19 @@ impl<'w, 's> Elements<'w, 's> {
                 entities: result,
             };
         }
-        for root in self.roots.iter() {
-            let mut branch = vec![];
-            // branch.append(&*entuty);
-            self.select_branch(root, &mut branch, &selector, &mut result);
+        let mut branch = vec![];
+        if let Some(id) = selector.get_root_id() {
+            // indexed-by-id branch lookup
+            if let Some(entity) = self.id_index.get(&id) {
+                self.select_branch(*entity, &mut branch, &selector, &mut result);
+            } else {
+                warn!("Element #{id} not indexed, Elements.select() will return empty result");
+            }
+        } else {
+            for root in self.roots.iter() {
+                // branch.append(&*entuty);
+                self.select_branch(root, &mut branch, &selector, &mut result);
+            }
         }
         SelectedElements {
             elements: self,
@@ -250,64 +272,87 @@ impl<'w, 's> Elements<'w, 's> {
     }
 
     pub fn set_state(&mut self, entity: Entity, state: Tag, value: bool) {
-        if let Ok(mut element) = self.elements.get_mut(entity) {
-            if !value && element.state.contains(&state) {
-                element.state.remove(&state);
-                self.invalidate(entity);
-            } else if value && !element.state.contains(&state) {
-                element.state.insert(state);
-                self.invalidate(entity);
-            }
+        let Some(old_value) = self.states
+                .get(&entity)
+                .and_then(|s| s.get(&state).copied())
+                .or_else(|| if let Ok(element) = self.elements.get(entity) {
+                    Some(element.state.contains(&state))
+                } else {
+                    None
+                }) else { return };
+        if value == old_value {
+            return;
         }
+        self.states.entry(entity).or_default().insert(state, value);
+        if value {
+            self.commands.add(AddStateCommand(entity, state));
+        } else {
+            self.commands.add(RemoveStateCommand(entity, state));
+        }
+        self.invalidate(entity);
     }
 
     pub fn add_class(&mut self, entity: Entity, class: Tag) {
-        if let Ok(mut element) = self.elements.get_mut(entity) {
-            if !element.classes.contains(&class) {
-                element.classes.insert(class);
-                self.invalidate(entity);
+        let mut element_found = true;
+        let classes = self.classes.entry(entity).or_insert_with(|| {
+            if let Ok(element) = self.elements.get(entity) {
+                element.classes.clone()
+            } else {
+                element_found = false;
+                HashSet::new()
             }
+        });
+        if !element_found || classes.contains(&class) {
+            return;
         }
+        classes.insert(class);
+        self.commands.add(AddClassCommand(entity, class));
+        self.invalidate(entity);
     }
 
     pub fn remove_class(&mut self, entity: Entity, class: Tag) {
-        if let Ok(mut element) = self.elements.get_mut(entity) {
-            if element.classes.remove(&class) {
-                self.invalidate(entity);
+        let mut element_found = true;
+        let classes = self.classes.entry(entity).or_insert_with(|| {
+            if let Ok(element) = self.elements.get(entity) {
+                element.classes.clone()
+            } else {
+                element_found = false;
+                HashSet::new()
             }
+        });
+        if !element_found || !classes.contains(&class) {
+            return;
         }
+        classes.remove(&class);
+        self.commands.add(RemoveClassCommand(entity, class));
+        self.invalidate(entity);
     }
 
     pub fn toggle_class(&mut self, entity: Entity, class: Tag) {
-        if let Ok(mut element) = self.elements.get_mut(entity) {
-            if element.classes.contains(&class) {
-                element.classes.remove(&class);
+        let mut element_found = true;
+        let classes = self.classes.entry(entity).or_insert_with(|| {
+            if let Ok(element) = self.elements.get(entity) {
+                element.classes.clone()
             } else {
-                element.classes.insert(class);
+                element_found = false;
+                HashSet::new()
             }
-            self.invalidate(entity);
+        });
+        if !element_found {
+            return;
         }
-    }
-
-    pub fn set_id(&mut self, entity: Entity, id: Option<Tag>) {
-        if let Ok(mut element) = self.elements.get_mut(entity) {
-            if element.id != id {
-                element.id = id;
-                self.invalidate(entity);
-            }
+        if classes.contains(&class) {
+            classes.remove(&class);
+            self.commands.add(RemoveClassCommand(entity, class));
+        } else {
+            classes.insert(class);
+            self.commands.add(AddClassCommand(entity, class));
         }
+        self.invalidate(entity);
     }
 
-    pub fn add_child(&mut self, entity: Entity, eml: Eml) -> Entity {
-        let ch = self.commands.spawn_empty().id();
-        self.commands.entity(entity).add_child(ch);
-        self.commands.add(eml.with_entity(ch));
-        ch
-    }
-
-    pub fn replace(&mut self, entity: Entity, eml: Eml) {
-        self.commands.entity(entity).despawn_descendants();
-        self.commands.add(eml.with_entity(entity));
+    pub fn add_child(&mut self, entity: Entity, eml: Eml) {
+        self.commands.add(eml.add_to(entity));
     }
 
     pub fn commands(&mut self) -> &mut Commands<'w, 's> {
@@ -359,6 +404,157 @@ impl<'w, 's, 'e> SelectedElements<'w, 's, 'e> {
     pub fn remove(self) {
         for entity in self.entities {
             self.elements.commands.entity(entity).despawn_recursive();
+        }
+    }
+
+    /// Adds eml content to the first matched element
+    pub fn add_child(&mut self, eml: Eml) -> &mut Self {
+        if let Some(entity) = self.entities.first() {
+            self.elements.add_child(*entity, eml);
+        }
+        self
+    }
+
+    /// Adds eml content from `children` func to each matchet element
+    pub fn add_children<F: Fn(Entity) -> Eml>(&mut self, children: F) -> &mut Self {
+        for entity in self.entities.iter().copied() {
+            self.elements.add_child(entity, children(entity));
+        }
+        self
+    }
+}
+
+#[derive(Deref, DerefMut)]
+pub struct ElementCommands<'w, 's>(Commands<'w, 's>);
+
+impl<'w, 's> ElementCommands<'w, 's> {
+    pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
+        Self(Commands::new(queue, world))
+    }
+}
+
+#[derive(Default, Deref, DerefMut)]
+pub struct ElementCommandsQueue(CommandQueue);
+
+impl<'w, 's> SystemParam for ElementCommands<'w, 's> {
+    type Fetch = ElementCommandsQueue;
+}
+
+// SAFETY: Commands only accesses internal state
+unsafe impl ReadOnlySystemParamFetch for ElementCommandsQueue {}
+
+// SAFETY: only local state is accessed
+unsafe impl SystemParamState for ElementCommandsQueue {
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
+        Default::default()
+    }
+
+    fn apply(&mut self, world: &mut World) {
+        self.0.apply(world);
+    }
+}
+
+impl<'w, 's> SystemParamFetch<'w, 's> for ElementCommandsQueue {
+    type Item = ElementCommands<'w, 's>;
+    #[inline]
+    unsafe fn get_param(
+        state: &'s mut Self,
+        _system_meta: &SystemMeta,
+        world: &'w World,
+        _change_tick: u32,
+    ) -> Self::Item {
+        ElementCommands::new(&mut state.0, world)
+    }
+}
+
+pub struct RemoveStateCommand(Entity, Tag);
+impl Command for RemoveStateCommand {
+    fn write(self, world: &mut World) {
+        if let Some(mut element) = world.entity_mut(self.0).get_mut::<Element>() {
+            let state = self.1;
+            if element.state.contains(&state) {
+                element.state.remove(&state);
+            }
+        }
+    }
+}
+pub struct AddStateCommand(Entity, Tag);
+impl Command for AddStateCommand {
+    fn write(self, world: &mut World) {
+        if let Some(mut element) = world.entity_mut(self.0).get_mut::<Element>() {
+            let state = self.1;
+            if !element.state.contains(&state) {
+                element.state.insert(state);
+            }
+        }
+    }
+}
+
+pub struct AddClassCommand(Entity, Tag);
+impl Command for AddClassCommand {
+    fn write(self, world: &mut World) {
+        if let Some(mut element) = world.entity_mut(self.0).get_mut::<Element>() {
+            let class = self.1;
+            if !element.classes.contains(&class) {
+                element.classes.insert(class);
+            }
+        }
+    }
+}
+
+pub struct RemoveClassCommand(Entity, Tag);
+impl Command for RemoveClassCommand {
+    fn write(self, world: &mut World) {
+        if let Some(mut element) = world.entity_mut(self.0).get_mut::<Element>() {
+            let class = self.1;
+            if element.classes.contains(&class) {
+                element.classes.remove(&class);
+            }
+        }
+    }
+}
+
+pub struct CleanupElementCommand(Entity);
+impl Command for CleanupElementCommand {
+    fn write(self, world: &mut World) {
+        world
+            .entity_mut(self.0)
+            .remove_intersection::<(ElementBundle, TextElementBundle, ImageElementBundle)>();
+    }
+}
+
+#[derive(Component, Default)]
+pub struct InvalidateElement;
+pub fn invalidate_elements(
+    invalid: Query<Entity, With<InvalidateElement>>,
+    children: Query<&Children>,
+    mut elements: Query<&mut Element>,
+    mut invalidated: Local<HashSet<Entity>>,
+    mut commands: Commands,
+) {
+    invalidated.clear();
+    for entity in invalid.iter() {
+        invalidate_children(entity, &children, &mut elements, invalidated.deref_mut());
+        commands.entity(entity).remove::<InvalidateElement>();
+    }
+}
+
+pub fn invalidate_children(
+    entity: Entity,
+    children: &Query<&Children>,
+    elements: &mut Query<&mut Element>,
+    invalidated: &mut HashSet<Entity>,
+) {
+    if invalidated.contains(&entity) {
+        return;
+    }
+    invalidated.insert(entity);
+    if let Ok(mut element) = elements.get_mut(entity) {
+        element.invalidate();
+    }
+    if let Ok(chs) = children.get(entity) {
+        for ch in chs.iter() {
+            invalidate_children(*ch, children, elements, invalidated)
         }
     }
 }

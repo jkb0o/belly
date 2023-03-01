@@ -135,7 +135,6 @@ pub struct Label {
 /// the children and renders the content of bindable `value` param.
 fn label(ctx: &mut WidgetContext) {
     let this = ctx.this().id();
-    ctx.commands()
-        .add(from!(this, Label: value) >> to!(this, Text:sections[0].value));
+    ctx.add(from!(this, Label: value) >> to!(this, Text:sections[0].value));
     ctx.insert(TextElementBundle::default());
 }

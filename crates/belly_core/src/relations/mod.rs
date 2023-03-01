@@ -6,7 +6,7 @@ pub mod props;
 use crate::element::Elements;
 
 use self::bind::{BindableSource, BindableTarget, ChangesState};
-pub use self::connect::{ConnectionEntityContext, Connections, EventContext, Handler};
+pub use self::connect::{Connections, EventContext, Handler};
 use bevy::{
     ecs::{entity::Entities, event::Event, query::WorldQuery},
     log::Level,
@@ -199,7 +199,7 @@ impl BindingSystemsInternal {
     ) {
         let watcher = TypeId::of::<R>();
         let entry = (
-            TypeId::of::<W>(),
+            TypeId::of::<R>(),
             TypeId::of::<W>(),
             TypeId::of::<S>(),
             TypeId::of::<T>(),
@@ -212,10 +212,12 @@ impl BindingSystemsInternal {
             if watchers.contains(&watcher) {
                 return;
             }
-            self.schedule
+            self.system_queue
                 .write()
                 .unwrap()
-                .add_system_to_stage(BindingStage::Watch, bind::watch_changes::<R>);
+                .push(Box::new(|schedule| {
+                    schedule.add_system_to_stage(BindingStage::Watch, bind::watch_changes::<R>);
+                }));
         }
 
         if self.systems.read().unwrap().contains(&entry) {

@@ -9,6 +9,7 @@ use crate::ess::EssPlugin;
 use crate::input::ElementsInputPlugin;
 use crate::relations::RelationsPlugin;
 use bevy::prelude::*;
+use element::ElementsPlugin;
 use eml::BuildPlugin;
 pub use tagstr;
 pub use tagstr::*;
@@ -37,7 +38,6 @@ pub mod prelude {
     pub use crate::ess::StyleSheet;
     pub use crate::relations::connect::Connect;
     pub use crate::relations::connect::EventSource;
-    pub use crate::relations::ConnectionEntityContext;
     pub use crate::relations::EventContext;
 }
 
@@ -77,7 +77,8 @@ pub mod build {
 pub struct ElementsCorePlugin;
 impl Plugin for ElementsCorePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ElementsInputPlugin)
+        app.add_plugin(ElementsPlugin)
+            .add_plugin(ElementsInputPlugin)
             .add_plugin(RelationsPlugin)
             .add_plugin(BuildPlugin)
             .add_plugin(EssPlugin)

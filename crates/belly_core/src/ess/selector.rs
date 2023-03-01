@@ -182,12 +182,25 @@ impl<'a> SelectorEntry<'a> {
     pub fn has_id(&self, id: Tag) -> bool {
         for element in self.elements.iter().skip(self.offset) {
             match element {
+                SelectorElement::DirectChild => return false,
                 SelectorElement::AnyChild => return false,
                 SelectorElement::Id(element_id) if id == *element_id => return true,
                 _ => continue,
             }
         }
         false
+    }
+
+    pub fn get_id(&self) -> Option<Tag> {
+        for element in self.elements.iter().skip(self.offset) {
+            match element {
+                SelectorElement::DirectChild => return None,
+                SelectorElement::AnyChild => return None,
+                SelectorElement::Id(id) => return Some(*id),
+                _ => continue,
+            }
+        }
+        None
     }
 
     pub fn has_class(&self, class: Tag) -> bool {
@@ -285,6 +298,14 @@ impl Selector {
             result.push_str(&token.to_string());
         }
         result
+    }
+
+    pub fn get_root_id(&self) -> Option<Tag> {
+        let mut entry = self.tail();
+        while let Some(next) = entry.next() {
+            entry = next;
+        }
+        entry.get_id()
     }
 
     pub fn overridable_by_props(&self) -> bool {

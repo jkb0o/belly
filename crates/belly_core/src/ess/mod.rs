@@ -11,6 +11,7 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     text::TextLayoutInfo,
+    ui::UiSystem,
     utils::{hashbrown::hash_map::Keys, HashMap},
 };
 pub use property::*;
@@ -31,7 +32,12 @@ impl Plugin for EssPlugin {
         app.add_startup_system(crate::ess::defaults::setup_defaults);
 
         app.add_asset::<StyleSheet>();
-        app.add_system(fix_text_height);
+        app.add_system_to_stage(
+            CoreStage::PostUpdate,
+            fix_text_height
+                .after(ApplyStyleProperties)
+                .before(UiSystem::Flex),
+        );
         let extractor = app
             .world
             .get_resource_or_insert_with(PropertyExtractor::default)

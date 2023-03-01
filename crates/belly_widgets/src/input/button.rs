@@ -70,7 +70,7 @@ impl Plugin for ButtonPlugin {
 fn buttongroup(ctx: &mut WidgetContext) {
     let content = ctx.content();
     ctx.render(eml! {
-        <div>{content}</div>
+        <span>{content}</span>
     })
 }
 

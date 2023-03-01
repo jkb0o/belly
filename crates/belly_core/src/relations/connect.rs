@@ -1,4 +1,4 @@
-use crate::{element::Elements, eml::Eml, relations::RelationsSystems};
+use crate::{element::Elements, relations::RelationsSystems};
 use bevy::{
     asset::Asset,
     ecs::{
@@ -178,41 +178,6 @@ impl<'a, 'w, 's, E: Event> Deref for EventContext<'a, 'w, 's, E> {
 impl<'a, 'w, 's, E: Event> DerefMut for EventContext<'a, 'w, 's, E> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.elements
-    }
-}
-
-pub struct ConnectionEntityContext<'a, 'w, 's, 'c, E: Event> {
-    pub(crate) target: Entity,
-    pub(crate) ctx: &'c mut EventContext<'a, 'w, 's, E>,
-}
-
-impl<'a, 'w, 's, 'c, E: Event> ConnectionEntityContext<'a, 'w, 's, 'c, E> {
-    pub fn target<'x>(&'x mut self) -> EntityCommands<'w, 's, 'x> {
-        let target = self.target;
-        self.elements.commands.entity(target)
-    }
-
-    pub fn render(&mut self, eml: Eml) {
-        let entity = self.target;
-        self.commands().add(eml.with_entity(entity));
-    }
-
-    pub fn replace(&mut self, eml: Eml) {
-        self.target().despawn_descendants();
-        self.render(eml);
-    }
-}
-
-impl<'a, 'w, 's, 'c, E: Event> Deref for ConnectionEntityContext<'a, 'w, 's, 'c, E> {
-    type Target = EventContext<'a, 'w, 's, E>;
-    fn deref(&self) -> &Self::Target {
-        self.ctx
-    }
-}
-
-impl<'a, 'w, 's, 'c, E: Event> DerefMut for ConnectionEntityContext<'a, 'w, 's, 'c, E> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.ctx
     }
 }
 

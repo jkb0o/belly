@@ -481,6 +481,7 @@ struct Widget<'a> {
     crt: &'a Crate,
     links: HashMap<String, Id>,
     name: String,
+    #[allow(dead_code)]
     module: &'a Module,
     extends: Option<Box<Widget<'a>>>,
     docs: Doc,
@@ -581,6 +582,7 @@ impl Doc {
     fn alter(&self) -> Doc {
         Doc(docalter(self.0.as_str()))
     }
+    #[allow(dead_code)]
     fn block_replace<F: Fn(&str) -> String>(&self, name: &str, repl: F) -> String {
         docblock_replace(name, self.0.as_str(), repl)
     }

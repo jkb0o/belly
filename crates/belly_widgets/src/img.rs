@@ -155,7 +155,7 @@ impl From<ImgMode> for Variant {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum AssetSource<T: Asset> {
     Path(String),
     Handle(Handle<T>),
@@ -265,6 +265,11 @@ fn load_img(
                 .insert(entity);
             img.handle = handle.clone();
         }
+        if let Some(asset) = assets.get(&img.handle) {
+            if img.size != asset.size() {
+                img.size = asset.size();
+            }
+        }
         let (mut image, mut style) = images.get_mut(img.entity).unwrap();
         image.0 = handle.clone();
 
@@ -304,7 +309,9 @@ fn update_img_size(
                 for entity in entities.iter() {
                     let Ok(mut element) = elements.get_mut(*entity) else { continue };
                     let Some(asset) = assets.get(handle) else { continue };
-                    element.size = asset.size();
+                    if element.size != asset.size() {
+                        element.size = asset.size();
+                    }
                 }
             }
         }
@@ -316,7 +323,9 @@ fn update_img_layout(
     mut styles: Query<&mut Style>,
 ) {
     for (element, node) in elements.iter() {
-        let Ok(mut style) = styles.get_mut(element.entity) else { continue };
+        let Ok(mut style) = styles.get_mut(element.entity) else {
+            continue
+        };
         if element.size.x.abs() < f32::EPSILON
             || element.size.y.abs() < f32::EPSILON
             || node.size().x.abs() < f32::EPSILON

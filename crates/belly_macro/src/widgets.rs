@@ -158,6 +158,7 @@ pub fn widget(ast: syn::ItemFn) -> Result<TokenStream, syn::Error> {
         }
         pub trait #widget_extenstion {
             #docs
+            #[allow(non_snake_case)]
             fn #widget_ident() -> &'static #widget_struct {
                 &#widget_struct
             }

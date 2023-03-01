@@ -133,7 +133,7 @@ fn process_for_loop(ctx: &Context, node: &NodeElement) -> syn::Result<TokenStrea
             }
         }
 
-        let expr = parse(ctx, ch, true)?;
+        let expr = parse(ctx, ch)?;
         loop_content = quote! {
             #loop_content
             __ctx.children.push( #expr );
@@ -160,7 +160,7 @@ fn process_slots(ctx: &Context, node: &NodeElement) -> syn::Result<TokenStream> 
     };
     let mut slot_content = quote! {};
     for ch in node.children.iter() {
-        let expr = parse(ctx, ch, true)?;
+        let expr = parse(ctx, ch)?;
         slot_content = quote! {
             #slot_content
             __slot_value.push( #expr );
@@ -198,14 +198,17 @@ fn process_slots(ctx: &Context, node: &NodeElement) -> syn::Result<TokenStream> 
     }
 }
 
-fn parse<'a>(ctx: &Context, element: &'a Node, create_entity: bool) -> syn::Result<TokenStream> {
+fn parse<'a>(ctx: &Context, element: &'a Node) -> syn::Result<TokenStream> {
     let core = ctx.core_path();
     let mut children = quote! {};
     let mut connections = quote! {};
-    let mut parent = if create_entity {
-        quote! { let __parent = __world.spawn_empty().id(); }
-    } else {
-        quote! {}
+    let mut parent = quote! {
+        let __parent = if __root_builder {
+            __root_builder = false;
+            __parent
+        } else {
+            __world.spawn_empty().id()
+        };
     };
     let Node::Element(element) = element else {
         throw!(element.span(), "Expected eml element")
@@ -293,7 +296,7 @@ fn parse<'a>(ctx: &Context, element: &'a Node, create_entity: bool) -> syn::Resu
                     "for" => process_for_loop(ctx, element)?,
                     "slot" => process_slots(ctx, element)?,
                     _ => {
-                        let expr = parse(ctx, child, true)?;
+                        let expr = parse(ctx, child)?;
                         quote! {
                             __ctx.children.push( #expr );
                         }
@@ -352,17 +355,23 @@ fn parse<'a>(ctx: &Context, element: &'a Node, create_entity: bool) -> syn::Resu
 }
 
 pub fn construct(ctx: &Context, root: &Node) -> syn::Result<TokenStream> {
-    let body = parse(ctx, root, false)?;
+    let body = parse(ctx, root)?;
     let core = ctx.core_path();
     Ok(quote! {
         #core::eml::Eml::new(
             move |
                 __world: &mut ::bevy::prelude::World,
-                __parent: ::bevy::prelude::Entity
+                __parent: Option<::bevy::prelude::Entity>,
             | {
                 let mut __slots_resource = __world.resource::<#core::eml::Slots>().clone();
                 let __defined_slots = __slots_resource.keys();
-                #body;
+                let __parent = if let Some(parent) = __parent {
+                    parent
+                } else {
+                    __world.spawn_empty().id()
+                };
+                let mut __root_builder = true;
+                let result = #body;
                 for __slot in __slots_resource.keys() {
                     if !__defined_slots.contains(&__slot) {
                         warn!("Detected unused slot '{}', despawning it contnent.", __slot);
@@ -375,6 +384,7 @@ pub fn construct(ctx: &Context, root: &Node) -> syn::Result<TokenStream> {
                         }
                     }
                 }
+                result
             }
         )
     })

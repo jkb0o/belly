@@ -1,8 +1,10 @@
-use std::{
-    mem,
-    sync::{Arc, RwLock},
+use super::{Params, StyleParams, Variant};
+use crate::{
+    element::{Element, ElementIdIndex},
+    ess::{PropertyExtractor, PropertyTransformer, StyleRule, StyleSheetParser},
+    relations::connect::{EventFilter, EventSource},
+    tags,
 };
-
 use bevy::{
     asset::Asset,
     ecs::system::{Command, CommandQueue, EntityCommands},
@@ -11,16 +13,11 @@ use bevy::{
     utils::{HashMap, HashSet},
 };
 use itertools::Itertools;
-use tagstr::{tag, Tag};
-
-use crate::{
-    element::Element,
-    ess::{PropertyExtractor, PropertyTransformer, StyleRule, StyleSheetParser},
-    relations::connect::{EventFilter, EventSource},
-    tags,
+use std::{
+    mem,
+    sync::{Arc, RwLock},
 };
-
-use super::{Params, StyleParams, Variant};
+use tagstr::{tag, Tag};
 
 pub struct BuildPlugin;
 impl Plugin for BuildPlugin {
@@ -116,6 +113,10 @@ impl<'w, 's> WidgetContext<'w, 's> {
         &mut self.commands
     }
 
+    pub fn spawn(&mut self) -> Entity {
+        self.commands().spawn_empty().id()
+    }
+
     pub fn empty(&mut self) -> Entity {
         self.commands.spawn_empty().id()
     }
@@ -131,7 +132,7 @@ impl<'w, 's> WidgetContext<'w, 's> {
     }
 
     pub fn render(&mut self, elements: Eml) {
-        self.commands.add(elements.with_entity(self.data.entity));
+        self.commands.add(elements.render_to(self.data.entity));
     }
 
     pub fn entity(&self) -> Entity {
@@ -144,6 +145,23 @@ impl<'w, 's> WidgetContext<'w, 's> {
 
     pub fn param(&mut self, key: Tag) -> Option<Variant> {
         self.data.params.drop_variant(key)
+    }
+
+    pub fn required_param<T: 'static>(&mut self, key: impl Into<Tag>) -> Option<T> {
+        let tag: Tag = key.into();
+        if let Some(param) = self.param(tag).and_then(|v| v.take::<T>()) {
+            return Some(param);
+        } else {
+            warn!(
+                "Missed required param `{}`, dropping widget and content.",
+                tag
+            );
+            self.this().despawn_recursive();
+            for e in self.data.children.clone() {
+                self.commands().entity(e).despawn_recursive();
+            }
+            None
+        }
     }
 
     pub fn params(&mut self) -> Params {
@@ -171,12 +189,41 @@ impl<'w, 's> WidgetContext<'w, 's> {
     pub fn update_element<F: FnOnce(&mut Element) + Send + Sync + 'static>(&mut self, update: F) {
         let entity = self.entity();
         self.commands.add(move |world: &mut World| {
+            let mut new_id;
+            let mut old_id = None;
             if let Some(mut element) = world.entity_mut(entity).get_mut::<Element>() {
+                old_id = element.id;
                 update(&mut element);
+                new_id = element.id;
+                if new_id.is_none() {
+                    element.id = old_id;
+                    new_id = old_id;
+                }
             } else {
                 let mut element = Element::default();
                 update(&mut element);
+                new_id = element.id;
                 world.entity_mut(entity).insert(element);
+            }
+            let mut replaced_entity = None;
+            if old_id.is_some() || new_id.is_some() {
+                let mut index = world.resource_mut::<ElementIdIndex>();
+                if old_id != new_id {
+                    if let Some(id) = old_id {
+                        index.remove(&id);
+                    }
+                }
+                if let Some(id) = new_id {
+                    if let Some(existed_entity) = index.get(&id) {
+                        if *existed_entity != entity {
+                            replaced_entity = Some(*existed_entity);
+                        }
+                    }
+                    index.insert(id, entity);
+                }
+            }
+            if let Some(entity) = replaced_entity {
+                world.get_entity_mut(entity).map(|e| e.despawn_recursive());
             }
         });
     }
@@ -479,30 +526,39 @@ impl DefaultSignals {
 }
 
 pub struct Eml {
-    pub builder: Box<dyn FnOnce(&mut World, Entity) + Sync + Send>,
+    pub builder: Box<dyn FnOnce(&mut World, Option<Entity>) -> Entity + Sync + Send>,
 }
 
 impl Eml {
     pub fn new<T>(builder: T) -> Self
     where
-        T: FnOnce(&mut World, Entity) + Sync + Send + 'static,
+        T: FnOnce(&mut World, Option<Entity>) -> Entity + Sync + Send + 'static,
     {
         Eml {
             builder: Box::new(builder),
         }
     }
 
-    pub fn with_entity(self, entity: Entity) -> impl FnOnce(&mut World) {
+    pub fn render_to(self, entity: Entity) -> impl FnOnce(&mut World) {
         move |world: &mut World| {
-            (self.builder)(world, entity);
+            (self.builder)(world, Some(entity));
         }
+    }
+
+    pub fn add_to(self, parent: Entity) -> impl Command {
+        move |world: &mut World| {
+            let child = (self.builder)(world, None);
+            world.entity_mut(parent).push_children(&[child]);
+        }
+    }
+    pub fn build(self, world: &mut World) -> Entity {
+        (self.builder)(world, None)
     }
 }
 
 impl Command for Eml {
     fn write(self, world: &mut World) {
-        let entity = world.spawn_empty().id();
-        self.with_entity(entity)(world);
+        (self.builder)(world, None);
     }
 }
 
