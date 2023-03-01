@@ -3,22 +3,22 @@
 
 //! This example demonstrates how to build complex UI by creating
 //! custom widgets for custom logic, organize user input with
-//! <element on:event=run!(..)> blocks and bind data with
+//! <element on:event=run!(..)> blocks and bind data with 
 //! <element bind:value=to!(..).
-//!
-//! There is onlu single startup `setup` system that populates
+//! 
+//! There is only single startup `setup` system that populates
 //! the window with multimple `RandomAnimal` buttons and connects
 //! their `press` event to the show-me-the-editor clouser. This
 //! closure adds another popup widget, binds it inspector-like inner
-//! widgets to the `Animal` properties and provide the close button that
+//! widgets to the `Animal` properties and provide the close button that 
 //! removes the popup.
-//!
+//! 
 //! Each time `RandomAnimal` is pressed the new `AnimalEditor` widget is
 //! created. It replaces the previous one becouse the `AnimalEditor` itself
 //! defined with id="editor" attribute. Widgets with custom ids are unique,
 //! so the  previous widget with the same id is removed when the new one
 //! is added.
-//!
+//! 
 //! > NOTE: In this example a lot if ui entities spawned. With debug (default)
 //! target the FPS is really low (see https://github.com/jkb0o/belly/issues/48).
 //! Running example with --release flag results in better performance, but it
@@ -53,36 +53,26 @@ const NUM_STYLES: u8 = 8;
 /// The `ANIMALS` specifies all possible animals images
 /// inside the `assets/party-editor/style-*/ folder
 const ANIMASLS: &[&'static str] = &[
-    "elephant", "giraffe", "hippo", "monkey", "panda", "parrot", "penguin", "pig", "rabbit",
-    "snake",
+    "elephant", "giraffe", "hippo", "monkey", "panda",
+    "parrot", "penguin", "pig", "rabbit", "snake",
 ];
 
 /// The `NAMES` used to picking names for default animals
 const NAMES: &[&'static str] = &[
-    "Brian",
-    "Jimi",
-    "Janis",
-    "Jim",
-    "Jean-Michel",
-    "Kurt",
-    "Amy",
-    "Walkie",
-    "Alexander",
-    "Dave",
-    "Gary",
-    "Kim",
-    "Amar",
-    "Rupert",
-    "Pamela",
-    "Cecilia",
+    "Brian", "Jimi", "Janis", "Jim",
+    "Jean-Michel", "Kurt", "Amy", "Walkie",
+    "Alexander", "Dave", "Gary", "Kim",
+    "Amar", "Rupert", "Pamela", "Cecilia"
 ];
 
 /// Predefined `COLORS` used to proper randomize default `Animal`
 /// with `RandomAnimal` widget and build the animal editor interface
 const COLORS: &[&'static str] = &[
     // from https://colorswall.com/palette/105557
-    "#f44336", "#e81e63", "#9c27b0", "#673ab7", "#3f51b5", "#2196f3", "#03a9f4", "#00bcd4",
-    "#009688", "#4caf50", "#8bc34a", "#cddc39", "#ffeb3b", "#ffc107", "#ff9800", "#ff5722",
+    "#f44336", "#e81e63", "#9c27b0", "#673ab7",
+    "#3f51b5", "#2196f3", "#03a9f4", "#00bcd4",
+    "#009688", "#4caf50", "#8bc34a", "#cddc39",
+    "#ffeb3b", "#ffc107", "#ff9800", "#ff5722",
 ];
 
 fn setup(mut commands: Commands) {
@@ -132,8 +122,9 @@ fn RandomAnimal(ctx: &mut WidgetContext, ch: &mut Animal) {
     ch.randomize(seed);
     let this = ctx.entity();
     let color = ctx.spawn();
-    ctx.commands()
-        .add(from!(this, Animal: color) >> to!(color, BackgroundColor:0));
+    ctx.commands().add(
+        from!(this, Animal:color) >> to!(color, BackgroundColor:0)
+    );
     ctx.render(eml! {
         <button>
             <span {color} c:animal s:background-color=managed()>
@@ -147,16 +138,16 @@ fn RandomAnimal(ctx: &mut WidgetContext, ch: &mut Animal) {
 }
 
 /// The `AnimalEdior` widget takes `animal: Entity` and `data: Animal` as
-/// params and builds the inspecotr-like popup with inner widgets binded
+/// params and builds the inspecotr-like popup with inner widgets binded 
 /// to the `Animal` properties.
-///
+/// 
 /// The `data` struct is required to fulfill the widget with default values
 /// (name/avatar/color).
-///
+/// 
 /// The `animal` entity is required to bind inner widgets to cortresponding
 /// properies, so when you edit the name inside widget, the `Text` component
 /// on the corresponding entity is changed automaticly.
-///
+/// 
 #[widget]
 fn AnimalEditor(ctx: &mut WidgetContext) {
     let Some(animal) = ctx.required_param::<Entity>("animal") else { return };
@@ -169,7 +160,9 @@ fn AnimalEditor(ctx: &mut WidgetContext) {
     let background = data.color;
     let avatar = ctx.spawn();
     let this = ctx.this().id();
-    ctx.add(from!(animal, Animal: color) >> to!(avatar, BackgroundColor:0));
+    ctx.add(
+        from!(animal, Animal:color) >> to!(avatar, BackgroundColor:0)
+    );
     ctx.render(eml! {
         <span id="editor" c:column>
             <span c:shadow/>
@@ -191,11 +184,11 @@ fn AnimalEditor(ctx: &mut WidgetContext) {
                     <img src=imgsrc bind:src=from!(animal, Animal:avatar.image())/>
                 </span>
                 <span c:row c:editor-buttons>
-                    <button on:press=run!(for animal |data: &mut Animal| {
+                    <button c:grow on:press=run!(for animal |data: &mut Animal| {
                         data.avatar.prev_animal();
                     })>"Prev"</button>
                     <span c:grow>"Animal"</span>
-                    <button on:press=run!(for animal |data: &mut Animal| {
+                    <button c:grow on:press=run!(for animal |data: &mut Animal| {
                         data.avatar.next_animal();
                     })>"Next"</button>
                 </span>
@@ -232,7 +225,8 @@ impl Avatar {
     pub fn image(&self) -> String {
         format!(
             "party-editor/style-{}/{}.png",
-            self.style, ANIMASLS[self.person as usize]
+            self.style,
+            ANIMASLS[self.person as usize]
         )
     }
     pub fn next_style(&mut self) {
@@ -266,7 +260,7 @@ impl Avatar {
 #[derive(Component, Default, Clone)]
 /// The Animal acts like a model. Changing this model properties
 /// affects widgets binded to this model (the background of `RandomAnimal`
-/// widget is changed as well as background of editor when you edit the
+/// widget is changed as well as background of editor when you edit the 
 /// animal).
 pub struct Animal {
     name: String,
@@ -276,10 +270,11 @@ pub struct Animal {
 
 impl Animal {
     pub fn randomize(&mut self, seed: u8) {
-        self.name = NAMES[(seed as usize) % NAMES.len()].to_string();
+        self.name = NAMES[(seed as usize)  % NAMES.len()].to_string();
         self.avatar.style = seed % NUM_STYLES;
         self.avatar.person = seed % (ANIMASLS.len() as u8);
-        self.color = Color::from_hex(COLORS[(seed as usize) % COLORS.len()]);
+        self.color = Color::from_hex(COLORS[(seed as usize)  % COLORS.len()]);
+
     }
 }
 
