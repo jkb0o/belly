@@ -252,12 +252,12 @@ fn parse<'a>(ctx: &Context, element: &'a Node) -> syn::Result<TokenStream> {
                 let bind = bind.as_ref();
                 let prop = syn::Ident::new(prop, attr.key.span());
                 let stream = bind.to_token_stream().to_string();
-                if stream.trim().starts_with("to!") {
+                if stream.trim().starts_with("to!") || stream.trim().starts_with("to !") {
                     connections = quote_spanned! {attr_span=>
                         #connections
                         (__builder.bind_from().#prop(__parent) >> #bind).write(__world);
                     };
-                } else if stream.trim().starts_with("from!") {
+                } else if stream.trim().starts_with("from!") || stream.trim().starts_with("from !") {
                     connections = quote_spanned! {attr_span=>
                         #connections
                         (__builder.bind_to().#prop(__parent) << #bind).write(__world);
