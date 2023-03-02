@@ -232,19 +232,16 @@ fn parse<'a>(ctx: &Context, element: &'a Node) -> syn::Result<TokenStream> {
                 let Some(handler) = attr.value.as_ref() else {
                     throw!(attr_span, "on:{signal} param should provide connection")
                 };
-                let handler = handler.as_ref();
-                let method = if handler
-                    .to_token_stream()
-                    .to_string()
-                    .trim()
-                    .starts_with("run!")
-                {
-                    quote! { handle }
-                } else {
-                    quote! { func }
-                };
                 let signal_ident = syn::Ident::new(signal, handler.span());
-                connections = quote_spanned! {attr_span=>
+                let handler = handler.as_ref();
+                let handler_stream = handler.to_token_stream().to_string().trim().to_string();
+                let method =
+                    if handler_stream.starts_with("run!") || handler_stream.starts_with("run !") {
+                        quote! { handle }
+                    } else {
+                        quote! { func }
+                    };
+                connections = quote! {
                     #connections
                     __builder.on().#signal_ident().#method(#handler).from(__parent).write(__world);
                 }
