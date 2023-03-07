@@ -16,23 +16,23 @@ impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut App) {
         app.register_widget::<TextinputWidget>();
         app.add_system(blink_cursor)
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
+            .add_system(
                 process_cursor_focus
-                    .label(TextInputLabel::Focus)
+                    .in_base_set(CoreSet::PreUpdate)
+                    .in_set(TextInputSet::Focus)
                     .after(belly_core::input::Label::Focus),
             )
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
+            .add_system(
                 process_mouse
-                    .label(TextInputLabel::Mouse)
-                    .after(TextInputLabel::Focus), // .after(TextInputLabel::Focus)
+                    .in_base_set(CoreSet::PreUpdate)
+                    .in_set(TextInputSet::Mouse)
+                    .after(TextInputSet::Focus), // .after(TextInputLabel::Focus)
             )
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
+            .add_system(
                 process_keyboard_input
-                    .label(TextInputLabel::Keyboard)
-                    .after(TextInputLabel::Mouse),
+                    .in_base_set(CoreSet::PreUpdate)
+                    .in_set(TextInputSet::Keyboard)
+                    .after(TextInputSet::Mouse),
             );
     }
 }
@@ -100,8 +100,8 @@ ess_define! {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
-pub enum TextInputLabel {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
+pub enum TextInputSet {
     Focus,
     Mouse,
     Keyboard,

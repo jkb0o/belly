@@ -97,7 +97,7 @@ impl Plugin for PropertyPlugin {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
 pub struct ApplyStyleProperties;
 
 pub struct ManagedPropertyValue(StyleProperty);
@@ -435,12 +435,12 @@ impl RegisterProperty for bevy::prelude::App {
             .entry(T::name())
             .and_modify(|_| panic!("Property `{}` already registered.", T::name()))
             .or_insert(T::transform);
-        self.add_system_to_stage(
-            CoreStage::PostUpdate,
+        self.add_system(
             T::apply_defaults
+                .in_base_set(CoreSet::PostUpdate)
+                .in_set(ApplyStyleProperties)
                 .after(InvalidateElements)
-                .before(UiSystem::Flex)
-                .label(ApplyStyleProperties),
+                .before(UiSystem::Flex),
         );
         self
     }

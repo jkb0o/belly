@@ -16,7 +16,7 @@ members = [
 ]
 
 [dependencies]
-bevy = "0.9"
+bevy = "0.10"
 embed-doc-image = "0.1"
 tagstr = { path = "crates/tagstr" }
 belly_macro = { path = "crates/belly_macro" }
