@@ -6,9 +6,9 @@
 use bevy::{
     math::Rect,
     prelude::*,
-    render::{Extract, RenderApp, RenderStage},
+    render::{Extract, RenderApp},
     ui::{ExtractedUiNode, ExtractedUiNodes, FocusPolicy, RenderUiSystem, UiStack},
-    window::WindowId,
+    window::PrimaryWindow,
 };
 
 /// `Stylebox` plugin for `bevy` engine. Dont forget to register it:
@@ -32,11 +32,12 @@ const ONE_MINUS_TWO_EPSILONS: f32 = ONE_MINUS_EPSILON - EPSILON;
 impl Plugin for StyleboxPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(compute_stylebox_configuration)
-            .add_system_to_stage(CoreStage::PostUpdate, compute_stylebox_slices)
+            .add_system(compute_stylebox_slices.in_base_set(CoreSet::PostUpdate))
             .sub_app_mut(RenderApp)
-            .add_system_to_stage(
-                RenderStage::Extract,
-                extract_stylebox.after(RenderUiSystem::ExtractNode),
+            .add_system(
+                extract_stylebox
+                    .in_schedule(ExtractSchedule)
+                    .after(RenderUiSystem::ExtractNode),
             );
     }
 }
@@ -394,7 +395,7 @@ fn normalize_axis(left: f32, right: f32) -> (f32, f32) {
 pub fn extract_stylebox(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     ui_stack: Extract<Res<UiStack>>,
-    windows: Extract<Res<Windows>>,
+    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     images: Extract<Res<Assets<Image>>>,
     uinode_query: Extract<
         Query<(
@@ -407,7 +408,10 @@ pub fn extract_stylebox(
         )>,
     >,
 ) {
-    let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
+    let Ok(primary) = windows.get_single() else {
+        return;
+    };
+    let scale_factor = primary.scale_factor() as f32;
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         let Ok((uinode, transform, stylebox, slices, visibility, clip)) = uinode_query.get(*entity) else {
             continue
@@ -430,14 +434,18 @@ pub fn extract_stylebox(
 
         for patch in slices.items.iter() {
             extracted_uinodes.uinodes.push(ExtractedUiNode {
-                transform: tr * patch.transform,
-                background_color: stylebox.modulate,
+                transform: tr
+                    * GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()))
+                        .compute_matrix()
+                    * patch.transform,
+                color: stylebox.modulate,
                 rect: patch.region,
                 image: image.clone_weak(),
                 atlas_size: Some(img.size()),
                 clip: clip.map(|clip| clip.clip),
-                scale_factor,
                 stack_index,
+                flip_x: false,
+                flip_y: false,
             });
         }
     }
