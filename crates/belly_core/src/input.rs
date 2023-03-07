@@ -6,6 +6,7 @@ use bevy::{
     render::camera::RenderTarget,
     ui::{FocusPolicy, UiStack},
     utils::HashSet,
+    window::{PrimaryWindow, WindowRef},
 };
 
 pub(crate) struct ElementsInputPlugin;
@@ -14,34 +15,40 @@ impl Plugin for ElementsInputPlugin {
         app.add_event::<PointerInput>()
             .add_event::<RequestFocus>()
             .init_resource::<Focused>()
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
+            .add_system(
                 pointer_input_system
-                    .label(Label::Signals)
+                    .in_base_set(CoreSet::PreUpdate)
+                    .in_set(Label::Signals)
                     .after(InputSystem),
             )
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
+            .add_system(
                 tab_focus_system
-                    .label(Label::TabFocus)
+                    .in_base_set(CoreSet::PreUpdate)
+                    .in_set(Label::TabFocus)
                     .after(Label::Signals),
             )
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                focus_system.label(Label::Focus).after(Label::TabFocus),
+            .add_system(
+                focus_system
+                    .in_base_set(CoreSet::PreUpdate)
+                    .in_set(Label::Focus)
+                    .after(Label::TabFocus),
             )
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                hover_system.label(Label::Hover).after(Label::Signals),
+            .add_system(
+                hover_system
+                    .in_base_set(CoreSet::PreUpdate)
+                    .in_set(Label::Hover)
+                    .after(Label::Signals),
             )
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                active_system.label(Label::Active).after(Label::Signals),
+            .add_system(
+                active_system
+                    .in_base_set(CoreSet::PreUpdate)
+                    .in_set(Label::Active)
+                    .after(Label::Signals),
             );
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
 pub enum Label {
     Signals,
     TabFocus,
@@ -197,7 +204,8 @@ pub struct NodeQuery {
 pub fn pointer_input_system(
     mut state: Local<State>,
     camera: Query<(&Camera, Option<&UiCameraConfig>)>,
-    windows: Res<Windows>,
+    primary_window: Query<&Window, With<PrimaryWindow>>,
+    windows: Query<&Window, Without<PrimaryWindow>>,
     mouse_button_input: Res<Input<MouseButton>>,
     touches_input: Res<Touches>,
     ui_stack: Res<UiStack>,
@@ -217,14 +225,20 @@ pub fn pointer_input_system(
         .iter()
         .filter(|(_, camera_ui)| !is_ui_disabled(*camera_ui))
         .filter_map(|(camera, _)| {
-            if let RenderTarget::Window(window_id) = camera.target {
-                Some(window_id)
+            if let RenderTarget::Window(window_ref) = camera.target {
+                Some(window_ref)
             } else {
                 None
             }
         })
-        .filter_map(|window_id| windows.get(window_id))
-        .filter(|window| window.is_focused())
+        .filter_map(|window_ref| {
+            if let WindowRef::Entity(entity) = window_ref {
+                windows.get(entity).ok()
+            } else {
+                primary_window.get_single().ok()
+            }
+        })
+        .filter(|window| window.focused)
         .find_map(|window| {
             window.cursor_position().map(|mut cursor_pos| {
                 cursor_pos.y = window.height() - cursor_pos.y;

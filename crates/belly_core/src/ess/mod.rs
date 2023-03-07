@@ -32,9 +32,9 @@ impl Plugin for EssPlugin {
         app.add_startup_system(crate::ess::defaults::setup_defaults);
 
         app.add_asset::<StyleSheet>();
-        app.add_system_to_stage(
-            CoreStage::PostUpdate,
+        app.add_system(
             fix_text_height
+                .in_base_set(CoreSet::PostUpdate)
                 .after(ApplyStyleProperties)
                 .before(UiSystem::Flex),
         );
