@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = "0.9"
+bevy = "0.10"
 bevy_stylebox = { path = "../bevy_stylebox" }
 cssparser = "0.29.6"
 itertools = "0.10.5"
