@@ -1,8 +1,5 @@
 use bevy::ecs::query::WorldQuery;
-use bevy::ecs::system::{
-    Command, CommandQueue, ReadOnlySystemParamFetch, SystemMeta, SystemParam, SystemParamFetch,
-    SystemParamState,
-};
+use bevy::ecs::system::{Command, CommandQueue, SystemMeta, SystemParam};
 use bevy::ui::UiSystem;
 use bevy::utils::{HashMap, HashSet};
 use smallvec::SmallVec;
@@ -19,16 +16,16 @@ pub struct ElementsPlugin;
 impl Plugin for ElementsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ElementIdIndex>();
-        app.add_system_to_stage(
-            CoreStage::PostUpdate,
+        app.add_system(
             invalidate_elements
-                .before(UiSystem::Flex)
-                .label(InvalidateElements),
+                .in_base_set(CoreSet::PostUpdate)
+                .in_set(InvalidateElements)
+                .before(UiSystem::Flex),
         );
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
 pub struct InvalidateElements;
 
 #[derive(Bundle)]
@@ -436,34 +433,27 @@ impl<'w, 's> ElementCommands<'w, 's> {
 #[derive(Default, Deref, DerefMut)]
 pub struct ElementCommandsQueue(CommandQueue);
 
-impl<'w, 's> SystemParam for ElementCommands<'w, 's> {
-    type Fetch = ElementCommandsQueue;
-}
-
 // SAFETY: Commands only accesses internal state
-unsafe impl ReadOnlySystemParamFetch for ElementCommandsQueue {}
+unsafe impl<'w, 's> SystemParam for ElementCommands<'w, 's> {
+    type State = ElementCommandsQueue;
+    type Item<'world, 'state> = ElementCommands<'world, 'state>;
 
-// SAFETY: only local state is accessed
-unsafe impl SystemParamState for ElementCommandsQueue {
-    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
+    fn init_state(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
         Default::default()
     }
 
-    fn apply(&mut self, world: &mut World) {
-        self.0.apply(world);
-    }
-}
-
-impl<'w, 's> SystemParamFetch<'w, 's> for ElementCommandsQueue {
-    type Item = ElementCommands<'w, 's>;
     #[inline]
-    unsafe fn get_param(
-        state: &'s mut Self,
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
         _system_meta: &SystemMeta,
-        world: &'w World,
+        world: &'world World,
         _change_tick: u32,
-    ) -> Self::Item {
+    ) -> Self::Item<'world, 'state> {
         ElementCommands::new(&mut state.0, world)
+    }
+
+    fn apply(state: &mut Self::State, _system_meta: &SystemMeta, world: &mut World) {
+        state.0.apply(world);
     }
 }
 
@@ -519,7 +509,7 @@ impl Command for CleanupElementCommand {
     fn write(self, world: &mut World) {
         world
             .entity_mut(self.0)
-            .remove_intersection::<(ElementBundle, TextElementBundle, ImageElementBundle)>();
+            .remove::<(ElementBundle, TextElementBundle, ImageElementBundle)>();
     }
 }
 

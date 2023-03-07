@@ -22,8 +22,8 @@ use std::{
 
 pub struct RelationsPlugin;
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-pub enum RelationsStage {
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum RelationsSet {
     PreUpdate,
     Update,
     PostUpdate,
@@ -33,29 +33,17 @@ impl Plugin for RelationsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<RelationsSystems>();
         app.init_resource::<ChangesState>();
-        app.add_stage_after(
-            CoreStage::PreUpdate,
-            RelationsStage::PreUpdate,
-            SystemStage::parallel(),
-        );
-        app.add_stage_after(
-            CoreStage::Update,
-            RelationsStage::Update,
-            SystemStage::parallel(),
-        );
-        app.add_stage_after(
-            CoreStage::PostUpdate,
-            RelationsStage::PostUpdate,
-            SystemStage::parallel(),
-        );
-        // app.add_stage_after(target, label, stage)
-        app.add_system_to_stage(RelationsStage::PreUpdate, process_relations_system);
-        app.add_system_to_stage(RelationsStage::PostUpdate, process_relations_system);
+        app.configure_set(RelationsSet::PreUpdate.after(CoreSet::PreUpdate));
+        app.configure_set(RelationsSet::Update.after(CoreSet::Update));
+        app.configure_set(RelationsSet::PostUpdate.after(CoreSet::PostUpdate));
+
+        app.add_system(process_relations_system.in_set(RelationsSet::PreUpdate));
+        app.add_system(process_relations_system.in_set(RelationsSet::PostUpdate));
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-pub enum BindingStage {
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum BindingSet {
     Process,
     Collect,
     Apply,
@@ -143,11 +131,11 @@ impl BindingSystemsInternal {
             .write()
             .unwrap()
             .push(Box::new(|schedule| {
-                schedule.add_system_to_stage(BindingStage::Process, process_signals_system::<P, E>);
-                schedule.add_system_to_stage(BindingStage::Process, cleanup_signals_system::<P, E>);
+                schedule.add_system(process_signals_system::<P, E>.in_set(BindingSet::Process));
+                schedule.add_system(cleanup_signals_system::<P, E>.in_set(BindingSet::Process));
             }));
     }
-    pub fn add_custom_system<Params, S: 'static + IntoSystemDescriptor<Params>>(
+    pub fn add_custom_system<Params, S: 'static + IntoSystemConfig<Params>>(
         &self,
         system_id: TypeId,
         system: S,
@@ -164,7 +152,7 @@ impl BindingSystemsInternal {
             .write()
             .unwrap()
             .push(Box::new(move |schedule| {
-                schedule.add_system_to_stage(BindingStage::Custom, system);
+                schedule.add_system(system.in_set(BindingSet::Custom));
             }));
     }
     pub fn run(&self, world: &mut World) {
@@ -216,7 +204,7 @@ impl BindingSystemsInternal {
                 .write()
                 .unwrap()
                 .push(Box::new(|schedule| {
-                    schedule.add_system_to_stage(BindingStage::Watch, bind::watch_changes::<R>);
+                    schedule.add_system(bind::watch_changes::<R>.in_set(BindingSet::Watch));
                 }));
         }
 
@@ -232,9 +220,8 @@ impl BindingSystemsInternal {
             .write()
             .unwrap()
             .push(Box::new(|schedule| {
-                schedule.add_system_to_stage(
-                    BindingStage::Bind,
-                    bind::component_to_component_system::<R, W, S, T>,
+                schedule.add_system(
+                    bind::component_to_component_system::<R, W, S, T>.in_set(BindingSet::Bind),
                 );
             }));
     }
@@ -264,9 +251,8 @@ impl BindingSystemsInternal {
             .write()
             .unwrap()
             .push(Box::new(|schedule| {
-                schedule.add_system_to_stage(
-                    BindingStage::Bind,
-                    bind::resource_to_component_system::<R, W, S, T>,
+                schedule.add_system(
+                    bind::resource_to_component_system::<R, W, S, T>.in_set(BindingSet::Bind),
                 );
             }));
     }
@@ -281,16 +267,7 @@ impl Default for BindingSystemsInternal {
         let systems = HashSet::default();
         let watchers = HashSet::default();
 
-        let mut schedule = Schedule::default();
-        schedule
-            .add_stage(BindingStage::Process, SystemStage::parallel())
-            .add_stage(BindingStage::Collect, SystemStage::parallel())
-            .add_stage(BindingStage::Apply, SystemStage::parallel())
-            .add_stage(BindingStage::Custom, SystemStage::parallel())
-            .add_stage(BindingStage::Report, SystemStage::parallel())
-            // new `bound` stages
-            .add_stage(BindingStage::Bind, SystemStage::parallel())
-            .add_stage(BindingStage::Watch, SystemStage::parallel());
+        let schedule = Schedule::default();
         Self {
             schedule: RwLock::new(schedule),
             processors: RwLock::new(processors),

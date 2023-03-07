@@ -32,23 +32,23 @@ impl Plugin for ButtonPlugin {
         app.register_widget::<ButtongroupWidget>();
         app.add_system(process_btngroups_system);
         app.add_system(force_btngroups_reconfiguration_system);
-        app.add_system_to_stage(
-            CoreStage::PreUpdate,
+        app.add_system(
             handle_input_system
-                .after(input::Label::Signals)
-                .label(Label::HandleInput),
+                .in_base_set(CoreSet::PreUpdate)
+                .in_set(Label::HandleInput)
+                .after(input::Label::Signals),
         );
-        app.add_system_to_stage(
-            CoreStage::PreUpdate,
+        app.add_system(
             handle_states_system
-                .after(Label::HandleInput)
-                .label(Label::HadnleStates),
+                .in_base_set(CoreSet::PreUpdate)
+                .in_set(Label::HandleStates)
+                .after(Label::HandleInput),
         );
-        app.add_system_to_stage(
-            CoreStage::PreUpdate,
+        app.add_system(
             report_btngroup_changes
-                .after(Label::HadnleStates)
-                .label(Label::ReportChanges),
+                .in_base_set(CoreSet::PreUpdate)
+                .in_set(Label::ReportChanges)
+                .after(Label::HandleStates),
         );
     }
 }
@@ -163,10 +163,10 @@ ess_define! {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
 enum Label {
     HandleInput,
-    HadnleStates,
+    HandleStates,
     ReportChanges,
 }
 
