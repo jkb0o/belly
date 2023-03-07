@@ -21,16 +21,16 @@ impl Plugin for ImgPlugin {
         app.register_widget::<ImgWidget>();
 
         app.init_resource::<ImageRegistry>();
-        app.add_system(load_img.label(ImgLabel::Load));
+        app.add_system(load_img.in_set(ImgSet::Load));
         app.add_system(
             update_img_size
-                .label(ImgLabel::UpdateSize)
-                .after(ImgLabel::Load),
+                .in_set(ImgSet::UpdateSize)
+                .after(ImgSet::Load),
         );
         app.add_system(
             update_img_layout
-                .label(ImgLabel::UpdatLayout)
-                .after(ImgLabel::UpdateSize),
+                .in_set(ImgSet::UpdateLayout)
+                .after(ImgSet::UpdateSize),
         );
         app.add_event::<ImgEvent>();
     }
@@ -62,11 +62,11 @@ fn img(ctx: &mut WidgetContext, img: &mut Img) {
     ctx.commands().entity(img.entity).push_children(&content);
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemLabel)]
-pub enum ImgLabel {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
+pub enum ImgSet {
     Load,
     UpdateSize,
-    UpdatLayout,
+    UpdateLayout,
 }
 
 #[derive(Resource, Deref, DerefMut, Default)]
@@ -271,7 +271,7 @@ fn load_img(
             }
         }
         let (mut image, mut style) = images.get_mut(img.entity).unwrap();
-        image.0 = handle.clone();
+        image.texture = handle.clone();
 
         // force inner image size recalculation if Image asset already loaded
         if assets.contains(&handle) {
