@@ -50,7 +50,6 @@ impl Default for ElementBundle {
 #[derive(Bundle)]
 pub struct TextElementBundle {
     pub element: Element,
-    pub background_color: BackgroundColor,
     #[bundle]
     pub text: TextBundle,
 }
@@ -59,9 +58,9 @@ impl Default for TextElementBundle {
     fn default() -> Self {
         TextElementBundle {
             element: Element::inline(),
-            background_color: BackgroundColor(Color::NONE),
             text: TextBundle {
                 text: Text::from_section("", Default::default()),
+                background_color: BackgroundColor(Color::NONE),
                 ..default()
             },
         }

@@ -144,6 +144,7 @@ ess_define! {
     }
     .button-background {
         width: 100%;
+        height: 100%;
         margin: -1px 1px 1px -1px;
         padding: 1px;
         background-color: #2f2f2f;

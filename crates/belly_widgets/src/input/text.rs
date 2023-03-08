@@ -4,6 +4,8 @@ use belly_core::build::*;
 use belly_macro::*;
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
+use crate::common::Label;
+
 pub mod prelude {
     pub use super::TextInput;
     pub use super::TextinputWidgetExtension;
@@ -46,6 +48,12 @@ fn textinput(ctx: &mut WidgetContext, ti: &mut TextInput) {
     let text = ti.text;
     let container = ti.container;
     let selection = ti.selection;
+    // let a = belly_core::relations::bind::ToComponentWithoutTransformer {
+    //     id: belly_core::relations::bind::bind_id::<Label>("value"),
+    //     target: text,
+    //     reader: |c: &::bevy::prelude::Mut<Label>| &c.value,
+    //     writer: |c: &mut ::bevy::prelude::Mut<Label>| &mut c.value,
+    // };
     ctx.add(from!(this, TextInput: value) >> to!(text, Label: value));
     ctx.render(eml! {
         <span interactable="block" c:text-input c:text-input-border>

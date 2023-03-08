@@ -1,5 +1,5 @@
 use belly::prelude::*;
-use bevy::{prelude::*, render::camera::ScalingMode, text::TextSettings};
+use bevy::{prelude::*, render::camera::ScalingMode, text::TextSettings, window::PrimaryWindow};
 // TODO: rename to ui-scale, add example comment
 
 fn main() {
@@ -14,7 +14,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle {
         projection: OrthographicProjection {
-            scaling_mode: ScalingMode::Auto {
+            scaling_mode: ScalingMode::AutoMin {
                 min_width: 1024.,
                 min_height: 768.,
             },
@@ -41,9 +41,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     })
 }
 
-pub fn scale(mut cached_size: Local<Vec2>, mut ui_scale: ResMut<UiScale>, windows: Res<Windows>) {
-    let ww = windows.primary().width();
-    let wh = windows.primary().height();
+pub fn scale(
+    mut cached_size: Local<Vec2>,
+    mut ui_scale: ResMut<UiScale>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+) {
+    let Some(primary) = windows.iter().next() else {
+        return
+    };
+    let ww = primary.width();
+    let wh = primary.height();
     if cached_size.x == ww && cached_size.y == wh {
         return;
     }
