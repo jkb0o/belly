@@ -128,7 +128,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                             parent
                                 .spawn(ImageBundle {
-                                    image: UiImage(circle.clone()),
+                                    image: UiImage {
+                                        texture: circle.clone(),
+                                        ..default()
+                                    },
                                     style: Style {
                                         padding: UiRect::all(Val::Px(2.)),
                                         size: Size::new(Val::Px(20.), Val::Px(20.)),
@@ -139,7 +142,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 .with_children(|parent| {
                                     parent.spawn(ImageBundle {
                                         background_color: Color::DARK_GRAY.into(),
-                                        image: UiImage(asset_server.load("cross.png")),
+                                        image: UiImage {
+                                            texture: asset_server.load("cross.png"),
+                                            ..default()
+                                        },
                                         style: Style {
                                             size: Size::new(Val::Px(16.), Val::Px(16.)),
                                             ..default()

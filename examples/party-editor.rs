@@ -28,10 +28,14 @@ use belly::build::*;
 use belly::widgets::input::button::ButtonWidget;
 use bevy::prelude::*;
 
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(BellyPlugin)
+        .add_plugin(LogDiagnosticsPlugin::default())
+        .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_startup_system(setup)
         .run();
 }
@@ -90,7 +94,7 @@ fn setup(mut commands: Commands) {
     commands.add(StyleSheet::load("party-editor/styles.ess"));
     commands.add(eml! {
         <body>
-            <span id="animals" c:column c:grow>
+            <span id="animals" c:column>
                 <span c:row>"Choose & Edit your fighters!"</span>
                 <for row in=0..4>
                 <span c:row>
@@ -194,7 +198,7 @@ fn AnimalEditor(ctx: &mut WidgetContext) {
                     <button on:press=run!(for animal |data: &mut AnimalState| {
                         data.avatar.prev_animal();
                     })>"Prev"</button>
-                    <span c:grow>"AnimalState"</span>
+                    <span c:grow>"Avatar"</span>
                     <button on:press=run!(for animal |data: &mut AnimalState| {
                         data.avatar.next_animal();
                     })>"Next"</button>

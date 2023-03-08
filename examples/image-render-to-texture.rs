@@ -18,23 +18,12 @@ use bevy::{
     },
 };
 
-//we must run "setup_viewport" befor "setup_ui"  so we create to startup stages for our app
-// Bevy event could be used in stead of stages
-#[derive(StageLabel)]
-enum AppSetup {
-    Viewport,
-    Ui,
-}
-
 fn main() {
     App::new()
         .init_resource::<Viewport>()
         .add_plugins(DefaultPlugins)
         .add_plugin(BellyPlugin)
-        .add_startup_stage(AppSetup::Viewport, SystemStage::parallel())
-        .add_startup_stage_after(AppSetup::Viewport, AppSetup::Ui, SystemStage::parallel())
-        .add_startup_system_to_stage(AppSetup::Viewport, setup_viewport)
-        .add_startup_system_to_stage(AppSetup::Ui, setup_ui)
+        .add_startup_systems((setup_viewport, setup_ui))
         .add_system(rotator_system)
         .run();
 }
@@ -81,6 +70,7 @@ fn setup_viewport(
             format: TextureFormat::Bgra8UnormSrgb,
             mip_level_count: 1,
             sample_count: 1,
+            view_formats: &[],
             usage: TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_DST
                 | TextureUsages::RENDER_ATTACHMENT,
@@ -132,7 +122,7 @@ fn setup_viewport(
             },
             camera: Camera {
                 // render before the "main pass" camera
-                priority: -1,
+                order: -1,
                 target: RenderTarget::Image(image_handle.clone()),
                 ..default()
             },

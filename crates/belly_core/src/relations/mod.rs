@@ -38,7 +38,11 @@ impl Plugin for RelationsPlugin {
         app.configure_set(RelationsSet::PostUpdate.after(CoreSet::PostUpdate));
 
         app.add_system(process_relations_system.in_set(RelationsSet::PreUpdate));
-        app.add_system(process_relations_system.in_set(RelationsSet::PostUpdate));
+        // For some reason with bevy 0.10 I can't process this system multiple times,
+        // App panics with:
+        // '`"Update"` and `"PostUpdate"` have a `before`-`after` relationship (which
+        // may be transitive) but share systems.
+        // app.add_system(process_relations_system.in_set(RelationsSet::PostUpdate));
     }
 }
 
@@ -56,6 +60,10 @@ pub enum BindingSet {
 }
 
 pub fn process_relations_system(world: &mut World) {
+    let relations = world.resource::<RelationsSystems>().clone();
+    relations.run(world);
+}
+pub fn process_relations_system_b(world: &mut World) {
     let relations = world.resource::<RelationsSystems>().clone();
     relations.run(world);
 }

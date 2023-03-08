@@ -2,7 +2,10 @@ use std::marker::PhantomData;
 
 // use belly_core::relations::bind::{ToComponent, BindableSource, BindableTarget};
 use bevy::{
-    ecs::query::{ReadOnlyWorldQuery, WorldQuery},
+    ecs::{
+        query::{ReadOnlyWorldQuery, WorldQuery},
+        storage::TableRow,
+    },
     prelude::*,
 };
 
@@ -289,11 +292,15 @@ unsafe impl WorldQuery for &lbl {
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
-        table_row: usize,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
         lbl_relations::LblReadOnly::fetch(fetch, entity, table_row)
     }
-    unsafe fn filter_fetch(fetch: &mut Self::Fetch<'_>, entity: Entity, table_row: usize) -> bool {
+    unsafe fn filter_fetch(
+        fetch: &mut Self::Fetch<'_>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> bool {
         lbl_relations::LblReadOnly::filter_fetch(fetch, entity, table_row)
     }
     fn update_component_access(
@@ -359,11 +366,15 @@ unsafe impl WorldQuery for &mut lbl {
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
-        table_row: usize,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
         lbl_relations::Lbl::fetch(fetch, entity, table_row)
     }
-    unsafe fn filter_fetch(fetch: &mut Self::Fetch<'_>, entity: Entity, table_row: usize) -> bool {
+    unsafe fn filter_fetch(
+        fetch: &mut Self::Fetch<'_>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> bool {
         lbl_relations::Lbl::filter_fetch(fetch, entity, table_row)
     }
     fn update_component_access(
@@ -430,11 +441,15 @@ unsafe impl<T: Widget> WorldQuery for WidgetRef<T> {
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
-        table_row: usize,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
         T::ReadQuery::fetch(fetch, entity, table_row)
     }
-    unsafe fn filter_fetch(fetch: &mut Self::Fetch<'_>, entity: Entity, table_row: usize) -> bool {
+    unsafe fn filter_fetch(
+        fetch: &mut Self::Fetch<'_>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> bool {
         T::ReadQuery::filter_fetch(fetch, entity, table_row)
     }
     fn update_component_access(
@@ -501,11 +516,15 @@ unsafe impl<T: Widget> WorldQuery for WidgetMut<T> {
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
-        table_row: usize,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
         T::WriteQuery::fetch(fetch, entity, table_row)
     }
-    unsafe fn filter_fetch(fetch: &mut Self::Fetch<'_>, entity: Entity, table_row: usize) -> bool {
+    unsafe fn filter_fetch(
+        fetch: &mut Self::Fetch<'_>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> bool {
         T::WriteQuery::filter_fetch(fetch, entity, table_row)
     }
     fn update_component_access(

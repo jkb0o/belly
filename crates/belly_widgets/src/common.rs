@@ -37,7 +37,6 @@ impl Plugin for CommonsPlugin {
 #[styles(
     body {
         width: 100%;
-        width: 100%;
         height: 100%;
         align-content: flex-start;
         align-items: flex-start;
@@ -78,12 +77,6 @@ fn brl(ctx: &mut WidgetContext) {
 }
 
 #[widget]
-#[styles(
-    div {
-        flex-wrap: wrap;
-        flex-basis: 100%;
-    }
-)]
 /// The `<div>` tag is an empty container that is used to define
 /// a division or a section. It does not affect the content or layout
 /// and is used to group `eml` elements to be styled with `ess`.

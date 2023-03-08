@@ -168,6 +168,7 @@ style_property! {
         Parser = parse::IdentifierParser<Display>;
         Apply = |value, style, _assets, _commands, _entity| {
             if &style.display != value {
+                info!("set display = {value:?}");
                 style.display = *value;
             }
         };

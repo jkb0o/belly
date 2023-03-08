@@ -1,6 +1,8 @@
 use belly::prelude::*;
 use bevy::prelude::*;
 
+use belly::widgets::common::Label;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
