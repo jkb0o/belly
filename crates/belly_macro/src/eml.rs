@@ -204,7 +204,6 @@ fn parse<'a>(ctx: &Context, element: &'a Node) -> syn::Result<TokenStream> {
     let mut connections = quote! {};
     let mut parent = quote! {
         let __parent = if __root_builder {
-            __root_builder = false;
             __parent
         } else {
             __world.spawn_empty().id()
@@ -224,6 +223,9 @@ fn parse<'a>(ctx: &Context, element: &'a Node) -> syn::Result<TokenStream> {
             parent_defined = true;
             parent = quote! {
                 let __parent = #entity;
+                if __root_builder {
+                    __root_entity_defined = true;
+                }
             };
         } else if let Node::Attribute(attr) = attr {
             let attr_name = attr.key.to_string();
@@ -274,7 +276,10 @@ fn parse<'a>(ctx: &Context, element: &'a Node) -> syn::Result<TokenStream> {
                 }
                 let entity = attr_value.unwrap().as_ref();
                 parent = quote_spanned! { attr_span=>
-                    let __parent = #entity;
+                    let __parent = #entity;    
+                    if __root_builder {
+                        __root_entity_defined = true;
+                    }
                 };
             } else {
                 let attr_stmt = create_attr_stmt(ctx, attr)?;
@@ -340,6 +345,7 @@ fn parse<'a>(ctx: &Context, element: &'a Node) -> syn::Result<TokenStream> {
     Ok(quote! {
         {
             #parent
+            __root_builder = false;
             let mut __ctx = #core::eml::WidgetData::new(__parent);
 
             #children
@@ -350,6 +356,7 @@ fn parse<'a>(ctx: &Context, element: &'a Node) -> syn::Result<TokenStream> {
         }
     })
 }
+
 
 pub fn construct(ctx: &Context, root: &Node) -> syn::Result<TokenStream> {
     let body = parse(ctx, root)?;
@@ -362,12 +369,14 @@ pub fn construct(ctx: &Context, root: &Node) -> syn::Result<TokenStream> {
             | {
                 let mut __slots_resource = __world.resource::<#core::eml::Slots>().clone();
                 let __defined_slots = __slots_resource.keys();
+                let __provided_parent = __parent;
                 let __parent = if let Some(parent) = __parent {
                     parent
                 } else {
                     __world.spawn_empty().id()
                 };
                 let mut __root_builder = true;
+                let mut __root_entity_defined = false;
                 let result = #body;
                 for __slot in __slots_resource.keys() {
                     if !__defined_slots.contains(&__slot) {
@@ -379,6 +388,11 @@ pub fn construct(ctx: &Context, root: &Node) -> syn::Result<TokenStream> {
                             };
                             __despawn.write(__world);
                         }
+                    }
+                }
+                if __root_entity_defined {
+                    if let Some(parent) = __provided_parent {
+                        __world.entity_mut(parent).despawn_recursive();
                     }
                 }
                 result
