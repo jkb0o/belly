@@ -51,8 +51,7 @@ fn setup(mut commands: Commands) {
                 <span {colorbox} c:colorbox s:background-color=managed()
                     on:ready=run!(|c: &mut BackgroundColor| c.0 = Color::WHITE)/>
             </img>
-            <brl/>
-            <br/>
+            
             <span c:colors>
             <for color in = COLORS>
                 <button on:press=run!(for colorbox |c: &mut BackgroundColor| { c.0 = Color::from_hex(color) })>
