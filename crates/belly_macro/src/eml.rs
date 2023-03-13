@@ -332,8 +332,7 @@ fn parse<'a>(ctx: &Context, element: &'a Node) -> syn::Result<TokenStream> {
                 let block_span = block.span();
                 children = quote_spanned! { block_span=>
                     #children
-                    let __node = __world.spawn_empty().id();
-                    for __child in #block.into_content(__node, __world).iter() {
+                    for __child in #block.into_content(__parent, __world).iter() {
                         __ctx.children.push( __child.clone() );
                     }
                 }
@@ -383,10 +382,7 @@ pub fn construct(ctx: &Context, root: &Node) -> syn::Result<TokenStream> {
                         warn!("Detected unused slot '{}', despawning it contnent.", __slot);
                         use ::bevy::ecs::system::Command;
                         for __entity in __slots_resource.remove(__slot).unwrap() {
-                            let __despawn =  ::bevy::prelude::DespawnRecursive {
-                                entity: __entity
-                            };
-                            __despawn.write(__world);
+                            __world.entity_mut(__entity).despawn_recursive();
                         }
                     }
                 }

@@ -1,5 +1,5 @@
 use crate::{
-    element::Element,
+    element::{Element, TextElementBundle},
     eml::Eml,
     relations::{
         bind::{BindableSource, BindableTarget, FromComponent, FromResourceWithTransformer},
@@ -22,10 +22,12 @@ impl IntoContent for String {
         } else {
             let text = Text::from_section(self, Default::default());
             entity
-                .insert(Element::inline())
-                .insert(TextBundle { text, ..default() });
+                .insert(TextElementBundle {
+                    text: TextBundle { text, ..default() },
+                    ..default()
+                });
         }
-        vec![parent]
+        vec![]
     }
 }
 
@@ -42,11 +44,12 @@ pub struct BindContent<S: BindableSource + IntoContent + std::fmt::Debug> {
 impl<R: Component, S: BindableTarget + Clone + Default + IntoContent + std::fmt::Debug> IntoContent
     for FromComponent<R, S>
 {
-    fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity> {
-        let bind = self >> to!(parent, BindContent<S>:value);
+    fn into_content(self, _parent: Entity, world: &mut World) -> Vec<Entity> {
+        let entity = world.spawn_empty().id();
+        let bind = self >> to!(entity, BindContent<S>:value);
         bind.write(world);
         world
-            .entity_mut(parent)
+            .entity_mut(entity)
             .insert(NodeBundle::default())
             .insert(BindContent {
                 value: S::default(),
@@ -55,7 +58,7 @@ impl<R: Component, S: BindableTarget + Clone + Default + IntoContent + std::fmt:
         systems
             .0
             .add_custom_system(TypeId::of::<BindContent<S>>(), bind_content_system::<S>);
-        vec![parent]
+        vec![entity]
     }
 }
 
@@ -65,11 +68,12 @@ impl<
         T: BindableTarget + Clone + Default + IntoContent + std::fmt::Debug,
     > IntoContent for FromResourceWithTransformer<R, S, T>
 {
-    fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity> {
-        let bind = self >> to!(parent, BindContent<T>:value);
+    fn into_content(self, _parent: Entity, world: &mut World) -> Vec<Entity> {
+        let entity = world.spawn_empty().id();
+        let bind = self >> to!(entity, BindContent<T>:value);
         bind.write(world);
         world
-            .entity_mut(parent)
+            .entity_mut(entity)
             .insert(NodeBundle::default())
             .insert(BindContent {
                 value: T::default(),
@@ -78,7 +82,7 @@ impl<
         systems
             .0
             .add_custom_system(TypeId::of::<BindContent<T>>(), bind_content_system::<T>);
-        vec![parent]
+        vec![entity]
     }
 }
 
@@ -120,9 +124,8 @@ impl IntoContent for Vec<Eml> {
 }
 
 impl IntoContent for Eml {
-    fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity> {
-        self.render_to(parent)(world);
-        vec![parent]
+    fn into_content(self, _parent: Entity, world: &mut World) -> Vec<Entity> {
+        vec![self.build(world)]
     }
 }
 
