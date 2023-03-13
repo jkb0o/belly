@@ -3,22 +3,22 @@
 
 //! This example demonstrates how to build complex UI by creating
 //! custom widgets for custom logic, organize user input with
-//! <element on:event=run!(..)> blocks and bind data with 
+//! <element on:event=run!(..)> blocks and bind data with
 //! <element bind:value=to!(..).
-//! 
+//!
 //! There is only single startup `setup` system that populates
-//! the window with multimple `RandomAnimal` buttons and connects
+//! the window with multimple `Animal` buttons and connects
 //! their `press` event to the show-me-the-editor clouser. This
 //! closure adds another popup widget, binds it inspector-like inner
-//! widgets to the `Animal` properties and provide the close button that 
+//! widgets to the `AnimalState` properties and provide the close button that
 //! removes the popup.
-//! 
-//! Each time `RandomAnimal` is pressed the new `AnimalEditor` widget is
+//!
+//! Each time `Animal` is pressed the new `AnimalEditor` widget is
 //! created. It replaces the previous one becouse the `AnimalEditor` itself
 //! defined with id="editor" attribute. Widgets with custom ids are unique,
 //! so the  previous widget with the same id is removed when the new one
 //! is added.
-//! 
+//!
 //! > NOTE: In this example a lot if ui entities spawned. With debug (default)
 //! target the FPS is really low (see https://github.com/jkb0o/belly/issues/48).
 //! Running example with --release flag results in better performance, but it
@@ -47,32 +47,42 @@ fn main() {
 ///
 /// NUM_STYLES reuquired for proper build final avatar
 /// image source from style + animal and for randomizing
-/// the animal with Animal.randomize()
+/// the animal with AnimalState.randomize()
 const NUM_STYLES: u8 = 8;
 
 /// The `ANIMALS` specifies all possible animals images
 /// inside the `assets/party-editor/style-*/ folder
 const ANIMASLS: &[&'static str] = &[
-    "elephant", "giraffe", "hippo", "monkey", "panda",
-    "parrot", "penguin", "pig", "rabbit", "snake",
+    "elephant", "giraffe", "hippo", "monkey", "panda", "parrot", "penguin", "pig", "rabbit",
+    "snake",
 ];
 
 /// The `NAMES` used to picking names for default animals
 const NAMES: &[&'static str] = &[
-    "Brian", "Jimi", "Janis", "Jim",
-    "Jean-Michel", "Kurt", "Amy", "Walkie",
-    "Alexander", "Dave", "Gary", "Kim",
-    "Amar", "Rupert", "Pamela", "Cecilia"
+    "Brian",
+    "Jimi",
+    "Janis",
+    "Jim",
+    "Jean-Michel",
+    "Kurt",
+    "Amy",
+    "Walkie",
+    "Alexander",
+    "Dave",
+    "Gary",
+    "Kim",
+    "Amar",
+    "Rupert",
+    "Pamela",
+    "Cecilia",
 ];
 
-/// Predefined `COLORS` used to proper randomize default `Animal`
-/// with `RandomAnimal` widget and build the animal editor interface
+/// Predefined `COLORS` used to proper randomize default `AnimalState`
+/// with `Animal` widget and build the animal editor interface
 const COLORS: &[&'static str] = &[
     // from https://colorswall.com/palette/105557
-    "#f44336", "#e81e63", "#9c27b0", "#673ab7",
-    "#3f51b5", "#2196f3", "#03a9f4", "#00bcd4",
-    "#009688", "#4caf50", "#8bc34a", "#cddc39",
-    "#ffeb3b", "#ffc107", "#ff9800", "#ff5722",
+    "#f44336", "#e81e63", "#9c27b0", "#673ab7", "#3f51b5", "#2196f3", "#03a9f4", "#00bcd4",
+    "#009688", "#4caf50", "#8bc34a", "#cddc39", "#ffeb3b", "#ffc107", "#ff9800", "#ff5722",
 ];
 
 fn setup(mut commands: Commands) {
@@ -85,14 +95,14 @@ fn setup(mut commands: Commands) {
                 <for row in=0..4>
                 <span c:row>
                     <for column in=0..4>
-                        // `RandomAnimal` is created 16 times. The `seed` property
+                        // `Animal` is created 16 times. The `seed` property
                         // passed to widget to randomize somehow the default appearance
                         // of the widget. The `on:press` specifies what should happen
-                        // when the `RandomAnimal` got pressed: create new `AnimalEditor`
+                        // when the `Animal` got pressed: create new `AnimalEditor`
                         // widget inside the `#popups` container and pass the `animal` entity
                         // and its current data to the `AnimalEditor`
-                        <RandomAnimal seed = row * 4 + column
-                            on:press=run!(|ctx, animal: Entity, character: &Animal| {
+                        <Animal seed = row * 4 + column
+                            on:press=run!(|ctx, animal: Entity, character: &AnimalState| {
                                 let animal = *animal;
                                 let data = character.clone();
                                 // Each time the `AnimalEditor` created, the previous
@@ -117,41 +127,40 @@ fn setup(mut commands: Commands) {
 
 #[widget]
 #[extends(ButtonWidget)]
-fn RandomAnimal(ctx: &mut WidgetContext, ch: &mut Animal) {
+fn Animal(ctx: &mut WidgetContext, ch: &mut AnimalState) {
     let seed = ctx.param("seed".into()).unwrap().take().unwrap();
     ch.randomize(seed);
     let this = ctx.entity();
     let color = ctx.spawn();
-    ctx.commands().add(
-        from!(this, Animal:color) >> to!(color, BackgroundColor:0)
-    );
+    ctx.commands()
+        .add(from!(this, AnimalState: color) >> to!(color, BackgroundColor:0));
     ctx.render(eml! {
         <button>
             <span {color} c:animal s:background-color=managed()>
-                <img bind:src=from!(this, Animal:avatar.image())/>
+                <img bind:src=from!(this, AnimalState:avatar.image())/>
                 <span c:label>
-                    <label bind:value=from!(this, Animal:name)/>
+                    <label bind:value=from!(this, AnimalState:name)/>
                 </span>
             </span>
         </button>
     })
 }
 
-/// The `AnimalEdior` widget takes `animal: Entity` and `data: Animal` as
-/// params and builds the inspecotr-like popup with inner widgets binded 
-/// to the `Animal` properties.
-/// 
+/// The `AnimalStateEdior` widget takes `animal: Entity` and `data: AnimalState` as
+/// params and builds the inspecotr-like popup with inner widgets binded
+/// to the `AnimalState` properties.
+///
 /// The `data` struct is required to fulfill the widget with default values
 /// (name/avatar/color).
-/// 
+///
 /// The `animal` entity is required to bind inner widgets to cortresponding
 /// properies, so when you edit the name inside widget, the `Text` component
 /// on the corresponding entity is changed automaticly.
-/// 
+///
 #[widget]
 fn AnimalEditor(ctx: &mut WidgetContext) {
     let Some(animal) = ctx.required_param::<Entity>("animal") else { return };
-    let Some(data) = ctx.required_param::<Animal>("data") else { return };
+    let Some(data) = ctx.required_param::<AnimalState>("data") else { return };
     // The eml! macro expands into somethins like `move |world| { ... }`,
     // so you have to create 'static values to pass them to eml! macro.
     let imgsrc = data.avatar.image().clone();
@@ -160,9 +169,7 @@ fn AnimalEditor(ctx: &mut WidgetContext) {
     let background = data.color;
     let avatar = ctx.spawn();
     let this = ctx.this().id();
-    ctx.add(
-        from!(animal, Animal:color) >> to!(avatar, BackgroundColor:0)
-    );
+    ctx.add(from!(animal, AnimalState: color) >> to!(avatar, BackgroundColor:0));
     ctx.render(eml! {
         <span id="editor" c:column>
             <span c:shadow/>
@@ -175,29 +182,29 @@ fn AnimalEditor(ctx: &mut WidgetContext) {
             <span c:column c:content>
                 <span>"Name:"</span>
                 // 
-                <textinput value=name bind:value=to!(animal, Animal:name)/>
+                <textinput value=name bind:value=to!(animal, AnimalState:name)/>
                 <span c:separator/>
                 <span>"Avatar:"</span>
                 <span {avatar} c:avatar s:background-color=managed() on:ready=run!(|b: &mut BackgroundColor| {
                     b.0 = background;
                 })>
-                    <img src=imgsrc bind:src=from!(animal, Animal:avatar.image())/>
+                    <img src=imgsrc bind:src=from!(animal, AnimalState:avatar.image())/>
                 </span>
                 <span c:row c:editor-buttons>
-                    <button on:press=run!(for animal |data: &mut Animal| {
+                    <button on:press=run!(for animal |data: &mut AnimalState| {
                         data.avatar.prev_animal();
                     })>"Prev"</button>
-                    <span c:grow>"Animal"</span>
-                    <button on:press=run!(for animal |data: &mut Animal| {
+                    <span c:grow>"AnimalState"</span>
+                    <button on:press=run!(for animal |data: &mut AnimalState| {
                         data.avatar.next_animal();
                     })>"Next"</button>
                 </span>
                 <span c:row c:editor-buttons>
-                    <button on:press=run!(for animal |data: &mut Animal| {
+                    <button on:press=run!(for animal |data: &mut AnimalState| {
                         data.avatar.prev_style();
                     })>"Prev"</button>
                     <span c:grow>"Style"</span>
-                    <button on:press=run!(for animal |data: &mut Animal| {
+                    <button on:press=run!(for animal |data: &mut AnimalState| {
                         data.avatar.next_style();
                     })>"Next"</button>
                 </span>
@@ -206,7 +213,7 @@ fn AnimalEditor(ctx: &mut WidgetContext) {
                 // buttongroup.source property has type string, so the only way to bind
                 // to it is to pass the binding with String-based transofmer. In this case
                 // it is `|hex` transformer that changes the color based on the string value.
-                <buttongroup id="color-picker" value=color bind:value=to!(animal, Animal:color|hex)>
+                <buttongroup id="color-picker" value=color bind:value=to!(animal, AnimalState:color|hex)>
                     <for idx in=0..16>
                         <button value=COLORS[idx]><span s:background-color=COLORS[idx]/></button>
                     </for>
@@ -225,8 +232,7 @@ impl Avatar {
     pub fn image(&self) -> String {
         format!(
             "party-editor/style-{}/{}.png",
-            self.style,
-            ANIMASLS[self.person as usize]
+            self.style, ANIMASLS[self.person as usize]
         )
     }
     pub fn next_style(&mut self) {
@@ -258,29 +264,28 @@ impl Avatar {
 }
 
 #[derive(Component, Default, Clone)]
-/// The Animal acts like a model. Changing this model properties
-/// affects widgets binded to this model (the background of `RandomAnimal`
-/// widget is changed as well as background of editor when you edit the 
+/// The AnimalState acts like a model. Changing this model properties
+/// affects widgets binded to this model (the background of `Animal`
+/// widget is changed as well as background of editor when you edit the
 /// animal).
-pub struct Animal {
+pub struct AnimalState {
     name: String,
     avatar: Avatar,
     color: Color,
 }
 
-impl Animal {
+impl AnimalState {
     pub fn randomize(&mut self, seed: u8) {
-        self.name = NAMES[(seed as usize)  % NAMES.len()].to_string();
+        self.name = NAMES[(seed as usize) % NAMES.len()].to_string();
         self.avatar.style = seed % NUM_STYLES;
         self.avatar.person = seed % (ANIMASLS.len() as u8);
-        self.color = Color::from_hex(COLORS[(seed as usize)  % COLORS.len()]);
-
+        self.color = Color::from_hex(COLORS[(seed as usize) % COLORS.len()]);
     }
 }
 
-// this is required to pass Animal to widget as param
-impl From<Animal> for Variant {
-    fn from(value: Animal) -> Self {
+// this is required to pass AnimalState to widget as param
+impl From<AnimalState> for Variant {
+    fn from(value: AnimalState) -> Self {
         Variant::boxed(value)
     }
 }
