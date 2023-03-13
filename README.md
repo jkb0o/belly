@@ -1139,9 +1139,9 @@ fn handle_death_system(
 ) {
     if health.value <= 0 & !health.death_reported {
         health.death_reported = true;
-        Elements.select("#avatar").add_class("looks-dead");
-        Elements.select("#buffs > .buff-icon").remove();
-        Elements.select("#popups").add_child(eml! {
+        elements.select("#avatar").add_class("looks-dead");
+        elements.select("#buffs > .buff-icon").remove();
+        elements.select("#popups").add_child(eml! {
             <span c:popup id="dead-popup">
                 <span c:message>"You are dead!"</span>
                 <button>"Ok"</button>
