@@ -259,7 +259,8 @@ fn parse<'a>(ctx: &Context, element: &'a Node) -> syn::Result<TokenStream> {
                         #connections
                         (__builder.bind_from().#prop(__parent) >> #bind).write(__world);
                     };
-                } else if stream.trim().starts_with("from!") || stream.trim().starts_with("from !") {
+                } else if stream.trim().starts_with("from!") || stream.trim().starts_with("from !")
+                {
                     connections = quote_spanned! {attr_span=>
                         #connections
                         (__builder.bind_to().#prop(__parent) << #bind).write(__world);
@@ -276,7 +277,7 @@ fn parse<'a>(ctx: &Context, element: &'a Node) -> syn::Result<TokenStream> {
                 }
                 let entity = attr_value.unwrap().as_ref();
                 parent = quote_spanned! { attr_span=>
-                    let __parent = #entity;    
+                    let __parent = #entity;
                     if __root_builder {
                         __root_entity_defined = true;
                     }
@@ -356,7 +357,6 @@ fn parse<'a>(ctx: &Context, element: &'a Node) -> syn::Result<TokenStream> {
         }
     })
 }
-
 
 pub fn construct(ctx: &Context, root: &Node) -> syn::Result<TokenStream> {
     let body = parse(ctx, root)?;
