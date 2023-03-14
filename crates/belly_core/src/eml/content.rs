@@ -1,5 +1,5 @@
 use crate::{
-    element::{Element, TextElementBundle},
+    element::TextElementBundle,
     eml::Eml,
     relations::{
         bind::{BindableSource, BindableTarget, FromComponent, FromResourceWithTransformer},
