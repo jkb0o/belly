@@ -7,27 +7,38 @@ use crate::{
     },
     to,
 };
-use bevy::prelude::*;
+use bevy::{
+    ecs::query::{QueryItem, WorldQuery},
+    prelude::*,
+};
 use std::any::TypeId;
 
-pub trait IntoContent {
+pub trait IntoContent: Sized {
     fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity>;
 }
 
+pub trait UpdateContent: Sized {
+    type Query: WorldQuery;
+    fn update_content(item: QueryItem<Self::Query>, value: &Self);
+}
+
 impl IntoContent for String {
-    fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity> {
-        let mut entity = world.entity_mut(parent);
-        if let Some(mut text) = entity.get_mut::<Text>() {
-            text.sections[0].value = self;
-        } else {
-            let text = Text::from_section(self, Default::default());
-            entity
-                .insert(TextElementBundle {
-                    text: TextBundle { text, ..default() },
-                    ..default()
-                });
-        }
-        vec![]
+    fn into_content(self, _parent: Entity, world: &mut World) -> Vec<Entity> {
+        let text = Text::from_section(self, Default::default());
+        let entity = world
+            .spawn(TextElementBundle {
+                text: TextBundle { text, ..default() },
+                ..default()
+            })
+            .id();
+        vec![entity]
+    }
+}
+
+impl UpdateContent for String {
+    type Query = &'static mut Text;
+    fn update_content(mut item: QueryItem<Self::Query>, value: &Self) {
+        item.sections[0].value = value.clone();
     }
 }
 
@@ -36,28 +47,33 @@ impl IntoContent for &str {
         self.to_string().into_content(parent, world)
     }
 }
+impl UpdateContent for &str {
+    type Query = &'static mut Text;
+    fn update_content(mut item: QueryItem<Self::Query>, value: &Self) {
+        item.sections[0].value = value.to_string();
+    }
+}
 
 #[derive(Component)]
-pub struct BindContent<S: BindableSource + IntoContent + std::fmt::Debug> {
+pub struct BindContent<S: BindableSource + IntoContent + Clone> {
     value: S,
 }
-impl<R: Component, S: BindableTarget + Clone + Default + IntoContent + std::fmt::Debug> IntoContent
+impl<R: Component, S: BindableTarget + Default + IntoContent + Clone + UpdateContent> IntoContent
     for FromComponent<R, S>
 {
     fn into_content(self, _parent: Entity, world: &mut World) -> Vec<Entity> {
-        let entity = world.spawn_empty().id();
+        let Some(entity) = S::default().into_content(_parent, world).first().copied() else {
+            return vec![];
+        };
         let bind = self >> to!(entity, BindContent<S>:value);
         bind.write(world);
-        world
-            .entity_mut(entity)
-            .insert(NodeBundle::default())
-            .insert(BindContent {
-                value: S::default(),
-            });
+        world.entity_mut(entity).insert(BindContent {
+            value: S::default(),
+        });
         let systems = world.get_resource_or_insert_with(RelationsSystems::default);
         systems
             .0
-            .add_custom_system(TypeId::of::<BindContent<S>>(), bind_content_system::<S>);
+            .add_custom_system(TypeId::of::<BindContent<S>>(), update_content_system::<S>);
         vec![entity]
     }
 }
@@ -65,39 +81,31 @@ impl<R: Component, S: BindableTarget + Clone + Default + IntoContent + std::fmt:
 impl<
         R: Resource,
         S: BindableSource,
-        T: BindableTarget + Clone + Default + IntoContent + std::fmt::Debug,
+        T: BindableTarget + Clone + Default + IntoContent + UpdateContent,
     > IntoContent for FromResourceWithTransformer<R, S, T>
 {
-    fn into_content(self, _parent: Entity, world: &mut World) -> Vec<Entity> {
-        let entity = world.spawn_empty().id();
+    fn into_content(self, parent: Entity, world: &mut World) -> Vec<Entity> {
+        let Some(entity) = T::default().into_content(parent, world).first().copied() else {
+            return vec![];
+        };
         let bind = self >> to!(entity, BindContent<T>:value);
         bind.write(world);
-        world
-            .entity_mut(entity)
-            .insert(NodeBundle::default())
-            .insert(BindContent {
-                value: T::default(),
-            });
+        world.entity_mut(entity).insert(BindContent {
+            value: T::default(),
+        });
         let systems = world.get_resource_or_insert_with(RelationsSystems::default);
         systems
             .0
-            .add_custom_system(TypeId::of::<BindContent<T>>(), bind_content_system::<T>);
+            .add_custom_system(TypeId::of::<BindContent<T>>(), update_content_system::<T>);
         vec![entity]
     }
 }
 
-fn bind_content_system<T: BindableTarget + IntoContent + Clone + std::fmt::Debug>(
-    mut commands: Commands,
-    binds: Query<(Entity, &BindContent<T>), Changed<BindContent<T>>>,
+fn update_content_system<T: UpdateContent + IntoContent + BindableSource>(
+    mut binds: Query<(T::Query, &BindContent<T>), Changed<BindContent<T>>>,
 ) {
-    // info!("bindsystem for {}", type_name::<T>());
-    for (entity, bind) in binds.iter() {
-        let content = bind.value.clone();
-        // info!("bind value changed for {:?}", entity);
-        commands.add(move |world: &mut World| {
-            // info!("setting value: bind value changed to {:?}", content);
-            content.into_content(entity, world);
-        })
+    for (item, bind) in binds.iter_mut() {
+        T::update_content(item, &bind.value)
     }
 }
 

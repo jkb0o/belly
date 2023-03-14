@@ -332,8 +332,8 @@ fn parse<'a>(ctx: &Context, element: &'a Node) -> syn::Result<TokenStream> {
                 let block_span = block.span();
                 children = quote_spanned! { block_span=>
                     #children
-                    for __child in #block.into_content(__parent, __world).iter() {
-                        __ctx.children.push( __child.clone() );
+                    for __child in #block.into_content(__parent, __world) {
+                        __ctx.children.push( __child );
                     }
                 }
             }
