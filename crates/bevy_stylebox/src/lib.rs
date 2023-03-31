@@ -1,3 +1,5 @@
+use std::any::type_name;
+
 /// The `bevy_stylebox` is plugin for [bevy](https://bevyengine.org/) engine which
 /// allows you to fill UI node with sliced by 9 parts region of image. `Stylebox`
 /// doesn't add any additional UI components. It renders just like `UiImage`, but
@@ -32,12 +34,24 @@ const ONE_MINUS_TWO_EPSILONS: f32 = ONE_MINUS_EPSILON - EPSILON;
 impl Plugin for StyleboxPlugin {
     fn build(&self, app: &mut App) {
         app.add_system(compute_stylebox_configuration)
-            .add_system(compute_stylebox_slices.in_base_set(CoreSet::PostUpdate))
+            .add_systems(
+                (
+                    compute_stylebox_slices::<Shadow>,
+                    compute_stylebox_slices::<Cover>,
+                    compute_stylebox_slices::<Stylebox>,
+                )
+                    .in_base_set(CoreSet::PostUpdate),
+            )
             .sub_app_mut(RenderApp)
-            .add_system(
-                extract_stylebox
-                    .in_schedule(ExtractSchedule)
-                    .after(RenderUiSystem::ExtractNode),
+            .add_systems(
+                (
+                    extract_stylebox::<Shadow>,
+                    extract_stylebox::<Cover>,
+                    extract_stylebox::<Stylebox>,
+                )
+                    .chain()
+                    .before(RenderUiSystem::ExtractNode)
+                    .in_schedule(ExtractSchedule),
             );
     }
 }
@@ -115,8 +129,8 @@ impl std::fmt::Display for Stylebox {
     }
 }
 
-#[derive(Default)]
-struct UiRectF32 {
+#[derive(Default, Clone, Copy, PartialEq)]
+pub struct UiRectF32 {
     left: f32,
     right: f32,
     top: f32,
@@ -132,6 +146,10 @@ impl UiRectF32 {
             bottom,
         }
     }
+
+    pub fn size(&self) -> Vec2 {
+        Vec2::new(self.right - self.left, self.bottom - self.top)
+    }
 }
 
 #[derive(Component, Default)]
@@ -146,22 +164,33 @@ pub struct ComputedStylebox {
     width: UiRectF32,
     region: Rect,
 }
+
+#[derive(Component)]
+pub struct StyleboxTexture(Handle<Image>);
+
 /// Calculates exact values for `Stylebox` when image size is available and stores it into `ComputedStylebox`.
 pub fn compute_stylebox_configuration(
     mut commands: Commands,
     images: Res<Assets<Image>>,
     mut styleboxes: Query<
-        (Entity, &Stylebox, Option<&mut ComputedStylebox>),
+        (
+            Entity,
+            &Stylebox,
+            Option<&mut ComputedStylebox>,
+            Option<&mut StyleboxTexture>,
+        ),
         Or<(Changed<Stylebox>, Without<ComputedStylebox>)>,
     >,
 ) {
-    for (entity, stylebox, computed) in styleboxes.iter_mut() {
+    for (entity, stylebox, computed, texture) in styleboxes.iter_mut() {
         if stylebox.texture == Handle::<Image>::default() {
             if computed.is_none() {
                 commands
                     .entity(entity)
                     .insert(StyleboxSlices::default())
+                    .insert(StyleboxTexture(stylebox.texture.clone()))
                     .insert(ComputedStylebox::default());
+                info!("inserting empty texture");
                 continue;
             }
         }
@@ -172,6 +201,10 @@ pub fn compute_stylebox_configuration(
                         .entity(entity)
                         .remove::<StyleboxSlices>()
                         .remove::<ComputedStylebox>();
+                }
+                if texture.is_some() {
+                    info!("removing texture");
+                    commands.entity(entity).remove::<StyleboxTexture>();
                 }
             }
             Some(image) => {
@@ -263,6 +296,140 @@ pub fn compute_stylebox_configuration(
                             width,
                         });
                 }
+
+                if let Some(mut texture) = texture {
+                    texture.0 = stylebox.texture.clone();
+                    info!("updating texture");
+                } else {
+                    info!("inserting texture");
+                    commands
+                        .entity(entity)
+                        .insert(StyleboxTexture(stylebox.texture.clone()));
+                }
+            }
+        }
+    }
+}
+
+pub trait StyleboxOperations: Component {
+    fn extend(&self) -> UiRectF32;
+    fn translate(&self) -> UiRectF32;
+    fn modulate(&self) -> Color;
+}
+
+impl StyleboxOperations for Stylebox {
+    fn extend(&self) -> UiRectF32 {
+        UiRectF32::default()
+    }
+    fn translate(&self) -> UiRectF32 {
+        UiRectF32::default()
+    }
+    fn modulate(&self) -> Color {
+        self.modulate
+    }
+}
+
+#[derive(Component)]
+pub struct Cover {
+    pub width: UiRect,
+    extend: UiRectF32,
+    modulate: Color,
+}
+impl StyleboxOperations for Cover {
+    fn extend(&self) -> UiRectF32 {
+        self.extend
+    }
+    fn translate(&self) -> UiRectF32 {
+        UiRectF32::default()
+    }
+    fn modulate(&self) -> Color {
+        self.modulate
+    }
+}
+
+#[derive(Component)]
+pub struct Shadow {
+    pub offset: UiRect,
+    translate: UiRectF32,
+    modulate: Color,
+}
+impl StyleboxOperations for Shadow {
+    fn extend(&self) -> UiRectF32 {
+        UiRectF32::default()
+    }
+    fn translate(&self) -> UiRectF32 {
+        self.translate
+    }
+    fn modulate(&self) -> Color {
+        self.modulate
+    }
+}
+
+pub fn compute_covers_and_shadows(
+    mut nodes: Query<
+        (&Node, Option<&mut Cover>, Option<&mut Shadow>),
+        Or<(Changed<Node>, Changed<Cover>, Changed<Shadow>)>,
+    >,
+) {
+    for (node, cover, shadow) in nodes.iter_mut() {
+        let mut size = node.size();
+        let mut extend = UiRectF32::default();
+        if let Some(mut cover) = cover {
+            let left = match cover.width.left {
+                Val::Px(v) => v,
+                Val::Percent(p) => size.x * p,
+                _ => 0.,
+            };
+            let right = match cover.width.right {
+                Val::Px(v) => v,
+                Val::Percent(p) => size.x * p,
+                _ => 0.,
+            };
+            let top = match cover.width.top {
+                Val::Px(v) => v,
+                Val::Percent(p) => size.y * p,
+                _ => 0.,
+            };
+            let bottom = match cover.width.bottom {
+                Val::Px(v) => v,
+                Val::Percent(p) => size.y * p,
+                _ => 0.,
+            };
+            size.x += left + right;
+            size.y += top + bottom;
+            extend = UiRectF32::new(left, right, top, bottom);
+            if cover.extend != extend {
+                cover.extend = extend;
+            }
+        }
+        if let Some(mut shadow) = shadow {
+            let left = extend.left
+                + match shadow.offset.left {
+                    Val::Px(v) => v,
+                    Val::Percent(p) => size.x * p,
+                    _ => 0.,
+                };
+            let right = extend.right
+                + match shadow.offset.right {
+                    Val::Px(v) => v,
+                    Val::Percent(p) => size.x * p,
+                    _ => 0.,
+                };
+            let top = extend.top
+                + match shadow.offset.top {
+                    Val::Px(v) => v,
+                    Val::Percent(p) => size.y * p,
+                    _ => 0.,
+                };
+            let bottom = extend.bottom
+                + match shadow.offset.bottom {
+                    Val::Px(v) => v,
+                    Val::Percent(p) => size.y * p,
+                    _ => 0.,
+                };
+            let translate = UiRectF32::new(left, right, top, bottom);
+            if shadow.translate != translate {
+                shadow.translate = translate;
             }
         }
     }
@@ -279,18 +446,20 @@ pub struct StyleboxSlices {
     items: Vec<StyleboxSlice>,
 }
 /// Calculates transforms for each slice based on `Node.size()` and `ComputedStylebox`
-pub fn compute_stylebox_slices(
+pub fn compute_stylebox_slices<Operation: StyleboxOperations>(
     mut query: Query<
-        (&mut StyleboxSlices, &Node, &ComputedStylebox),
-        Or<(Changed<Node>, Changed<ComputedStylebox>)>,
+        (&mut StyleboxSlices, &Node, &ComputedStylebox, &Operation),
+        Or<(Changed<Node>, Changed<ComputedStylebox>, Changed<Operation>)>,
     >,
 ) {
-    for (mut transforms, uinode, stylebox) in query.iter_mut() {
+    for (mut slices, uinode, stylebox, op) in query.iter_mut() {
         if uinode.size() == Vec2::ZERO {
             continue;
         }
-        transforms.items.clear();
-        let size = uinode.size();
+        let extend = op.extend();
+        let translate = op.translate();
+        slices.items.clear();
+        let size = uinode.size() + extend.size();
         let region = stylebox.region;
         let rpos = region.min;
         let rsize = region.size();
@@ -301,11 +470,11 @@ pub fn compute_stylebox_slices(
         let bot = stylebox.slice.bottom;
 
         // compute part sizes in uinode space
-        let w0 = left * rsize.x * stylebox.width.left;
-        let w2 = right * rsize.x * stylebox.width.right;
+        let w0 = left * rsize.x * stylebox.width.left;// + extend.left;
+        let w2 = right * rsize.x * stylebox.width.right;// + extend.right;
         let w1 = size.x - w0 - w2;
-        let h0 = top * rsize.y * stylebox.width.top;
-        let h2 = bot * rsize.y * stylebox.width.bottom;
+        let h0 = top * rsize.y * stylebox.width.top;// + extend.top;
+        let h2 = bot * rsize.y * stylebox.width.bottom;// + extend.bottom;
         let h1 = size.y - h0 - h2;
 
         let ui_x = &[0., w0, w0 + w1];
@@ -356,7 +525,7 @@ pub fn compute_stylebox_slices(
                 let mut tr = Mat4::IDENTITY;
                 tr *= Mat4::from_translation(offset.extend(0.));
                 tr *= Mat4::from_scale(scale.extend(1.));
-                transforms.items.push(StyleboxSlice {
+                slices.items.push(StyleboxSlice {
                     transform: tr,
                     region: imgrect,
                 });
@@ -392,7 +561,7 @@ fn normalize_axis(left: f32, right: f32) -> (f32, f32) {
 
 /// Extracts stylebox vertices into render pipeline based on `Stylebox.texture`,
 /// `Stylebox.modulate` and `StyleboxSlices`
-pub fn extract_stylebox(
+pub fn extract_stylebox<Operation: StyleboxOperations>(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     ui_stack: Extract<Res<UiStack>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
@@ -401,25 +570,27 @@ pub fn extract_stylebox(
         Query<(
             &Node,
             &GlobalTransform,
-            &Stylebox,
+            &StyleboxTexture,
             &StyleboxSlices,
+            &Operation,
             &ComputedVisibility,
             Option<&CalculatedClip>,
         )>,
     >,
 ) {
     let Ok(primary) = windows.get_single() else {
+        info!("no window");
         return;
     };
     let scale_factor = primary.scale_factor() as f32;
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        let Ok((uinode, transform, stylebox, slices, visibility, clip)) = uinode_query.get(*entity) else {
+        let Ok((uinode, transform, texture, slices, operation, visibility, clip)) = uinode_query.get(*entity) else {
             continue
         };
         if !visibility.is_visible() {
             continue;
         }
-        let image = stylebox.texture.clone_weak();
+        let image = texture.0.clone_weak();
         // Skip unloaded images
         if !images.contains(&image) {
             continue;
@@ -431,16 +602,15 @@ pub fn extract_stylebox(
 
         let img = images.get(&image).unwrap();
         let tr = transform.compute_matrix();
-
         for patch in slices.items.iter() {
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 transform: tr
                     * GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()))
                         .compute_matrix()
                     * patch.transform,
-                color: stylebox.modulate,
+                color: operation.modulate(),
                 rect: patch.region,
-                image: image.clone_weak(),
+                image: image.clone(),
                 atlas_size: Some(img.size()),
                 clip: clip.map(|clip| clip.clip),
                 stack_index,
