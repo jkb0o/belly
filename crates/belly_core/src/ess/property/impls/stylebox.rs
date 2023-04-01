@@ -77,7 +77,7 @@ style_property! {
                     commands.entity(entity)
                         .remove::<Stylebox>()
                         .remove::<ComputedStylebox>()
-                        .remove::<StyleboxSlices>();
+                        .remove::<StyleboxSlices::<Stylebox>>();
                 }
                 return;
             }

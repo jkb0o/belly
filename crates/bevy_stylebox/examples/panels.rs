@@ -12,9 +12,9 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     let flat = Stylebox {
-        slice: UiRect::all(Val::Percent(50.)),
-        width: UiRect::all(Val::Px(32.)),
-        texture: asset_server.load("circle.png"),
+        slice: UiRect::all(Val::Percent(25.)),
+        width: UiRect::all(Val::Px(8.)),
+        texture: asset_server.load("rounded.basis"),
         modulate: Color::DARK_GRAY,
         ..default()
     };
@@ -42,7 +42,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..default()
                     },
                     ..default()
-                });
+                })
+                .insert(Cover::new(UiRect::all(Val::Px(1.)), Color::WHITE));
             }
         });
 }
