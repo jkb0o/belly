@@ -1,4 +1,5 @@
 pub mod common;
+pub mod layout;
 pub mod img;
 pub mod input;
 pub mod range;
@@ -10,6 +11,7 @@ pub struct WidgetsPlugin;
 impl Plugin for WidgetsPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_plugin(common::CommonsPlugin);
+        app.add_plugin(layout::LayoutPlugin);
         app.add_plugin(range::RangePlugin);
         app.add_plugin(img::ImgPlugin);
         app.add_plugin(input::InputPlugins);
@@ -18,6 +20,7 @@ impl Plugin for WidgetsPlugin {
 
 pub mod prelude {
     pub use crate::common::prelude::*;
+    pub use crate::layout::prelude::*;
     pub use crate::img::prelude::*;
     pub use crate::input::prelude::*;
 }
