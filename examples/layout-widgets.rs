@@ -13,7 +13,7 @@ fn main() {
 }
 
 struct MyEvent {
-    emited_at: f32,
+    emitted_at: f32,
 }
 
 #[derive(Component, Default)]
@@ -91,6 +91,6 @@ fn greet(mut greets: Query<&mut Greet, Changed<Greet>>) {
 
 fn debug_my_event(mut events: EventReader<MyEvent>) {
     for event in events.iter() {
-        info!("MyEvent emitted at {:0.2}", event.emited_at);
+        info!("MyEvent emitted at {:0.2}", event.emitted_at);
     }
 }
