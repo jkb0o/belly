@@ -50,7 +50,12 @@ fn setup(mut commands: Commands) {
     ));
     commands.add(eml! {
         <body s:padding="50px">
-            <button on:press=|ctx| { ctx.send_event(ToggleClass("red")); }>
+            <button on:press=|ctx| { 
+                ctx.send_event(ToggleClass("red")); 
+                ctx.commands().add(|world: &mut World| {
+                    let t = world.resource::<Time>().elapsed_seconds();
+                })
+            }>
                 "Toggle .red class"
             </button>
             <button on:press=|ctx| { ctx.select(".box").add_class("hidden"); } >

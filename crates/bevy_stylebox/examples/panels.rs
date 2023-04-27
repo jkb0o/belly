@@ -43,7 +43,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                     ..default()
                 })
-                .insert(Cover::new(UiRect::all(Val::Px(1.)), Color::WHITE));
+                .insert(Cover::new(UiRect::all(Val::Px(2.)), Color::GRAY))
+                .insert(Shadow::new(
+                    UiRect::all(Val::Px(4.)),
+                    Color::rgba(0., 0., 0., 0.25),
+                ));
+                break;
             }
         });
 }

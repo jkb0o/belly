@@ -366,12 +366,18 @@ impl StyleboxOperations for Cover {
 #[derive(Component, Debug, Default)]
 pub struct Shadow {
     pub offset: UiRect,
+    pub modulate: Color,
     translate: UiRectF32,
-    modulate: Color,
+    extend: UiRectF32,
+}
+impl Shadow {
+    pub fn new(offset: UiRect, modulate: Color) -> Shadow {
+        Shadow { offset, modulate, ..default() }
+    }
 }
 impl StyleboxOperations for Shadow {
     fn extend(&self) -> UiRectF32 {
-        UiRectF32::default()
+        self.extend
     }
     fn translate(&self) -> UiRectF32 {
         self.translate
@@ -432,26 +438,22 @@ pub fn compute_covers_and_shadows(
             commands.entity(entity).remove::<StyleboxSlices<Cover>>();
         }
         if let Some(mut shadow) = shadow {
-            let left = extend.left
-                + match shadow.offset.left {
+            let left = -1. * match shadow.offset.left {
                     Val::Px(v) => v,
                     Val::Percent(p) => size.x * p,
                     _ => 0.,
                 };
-            let right = extend.right
-                + match shadow.offset.right {
+            let right = match shadow.offset.right {
                     Val::Px(v) => v,
                     Val::Percent(p) => size.x * p,
                     _ => 0.,
                 };
-            let top = extend.top
-                + match shadow.offset.top {
+            let top = -1. * match shadow.offset.top {
                     Val::Px(v) => v,
                     Val::Percent(p) => size.y * p,
                     _ => 0.,
                 };
-            let bottom = extend.bottom
-                + match shadow.offset.bottom {
+            let bottom = match shadow.offset.bottom {
                     Val::Px(v) => v,
                     Val::Percent(p) => size.y * p,
                     _ => 0.,
@@ -459,6 +461,10 @@ pub fn compute_covers_and_shadows(
             let translate = UiRectF32::new(left, right, top, bottom);
             if shadow.translate != translate {
                 shadow.translate = translate;
+            }
+
+            if shadow.extend != extend {
+                shadow.extend = extend;
             }
             if shadow_slices.is_none() {
                 commands.entity(entity).insert(StyleboxSlices::<Shadow>::default());
@@ -495,9 +501,9 @@ pub fn compute_stylebox_slices<Operation: StyleboxOperations>(
         
         let extend = op.extend();
         
-        let translate = op.translate();
+        let tr = op.translate();
         slices.items.clear();
-        let size = uinode.size() + extend.size();
+        let size = uinode.size() + extend.size() + tr.size();
         // info!("computing slices for {}, extend: {:?}, orig-size: {:?}, size: {:?}", type_name::<Operation>(), extend, uinode.size(), size);
         let region = stylebox.region;
         let rpos = region.min;
@@ -516,14 +522,18 @@ pub fn compute_stylebox_slices<Operation: StyleboxOperations>(
         let h2 = bot * rsize.y * stylebox.width.bottom + extend.bottom;
         let h1 = size.y - h0 - h2;
 
-        let ui_x = &[0., w0, w0 + w1];
-        let ui_y = &[0., h0, h0 + h1];
+        let tr_h = 0.5 * (tr.right - tr.left);
+        let tr_v = 0.5 * (tr.bottom - tr.top);
+
+        let ui_x = &[tr_h, w0 + tr_h, w0 + w1 + tr_h];
+        let ui_y = &[tr_v, h0 + tr_v, h0 + h1 + tr_v];
         let ui_width = &[w0, w1, w2];
         let ui_height = &[h0, h1, h2];
-        // info!("ui_x: {:?}", ui_x);
-        // info!("ui_y: {:?}", ui_y);
-        // info!("ui_width: {:?}", ui_width);
-        // info!("ui_height: {:?}", ui_height);
+        let n = type_name::<Operation>();
+        info!("{n} ui_x: {:?}", ui_x);
+        info!("{n} ui_y: {:?}", ui_y);
+        info!("{n} ui_width: {:?}", ui_width);
+        info!("{n} ui_height: {:?}", ui_height);
 
         // make sure there is a minimum gap betwenn 0, left, right and 1
         let (left, right) = normalize_axis(left, right);
