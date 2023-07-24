@@ -1,5 +1,7 @@
+use bevy::ecs::component::Tick;
 use bevy::ecs::query::WorldQuery;
 use bevy::ecs::system::{Command, CommandQueue, SystemMeta, SystemParam};
+use bevy::ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy::ui::UiSystem;
 use bevy::utils::{HashMap, HashSet};
 use smallvec::SmallVec;
@@ -16,11 +18,10 @@ pub struct ElementsPlugin;
 impl Plugin for ElementsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ElementIdIndex>();
-        app.add_system(
+        app.add_systems(PostUpdate,
             invalidate_elements
-                .in_base_set(CoreSet::PostUpdate)
                 .in_set(InvalidateElements)
-                .before(UiSystem::Flex),
+                .before(UiSystem::Layout),
         );
     }
 }
@@ -31,7 +32,6 @@ pub struct InvalidateElements;
 #[derive(Bundle)]
 pub struct ElementBundle {
     pub element: Element,
-    #[bundle]
     pub node: NodeBundle,
 }
 
@@ -50,7 +50,6 @@ impl Default for ElementBundle {
 #[derive(Bundle)]
 pub struct TextElementBundle {
     pub element: Element,
-    #[bundle]
     pub text: TextBundle,
 }
 
@@ -70,7 +69,6 @@ impl Default for TextElementBundle {
 #[derive(Bundle)]
 pub struct ImageElementBundle {
     pub element: Element,
-    #[bundle]
     pub image: ImageBundle,
 }
 
@@ -172,10 +170,8 @@ pub struct Elements<'w, 's> {
     pub(crate) elements: Query<'w, 's, ElementsQuery, ()>,
     pub(crate) children: Query<'w, 's, ChildrenQuery, ()>,
     pub(crate) id_index: Res<'w, ElementIdIndex>,
-    #[system_param(ignore)]
-    states: HashMap<Entity, HashMap<Tag, bool>>,
-    #[system_param(ignore)]
-    classes: HashMap<Entity, HashSet<Tag>>,
+    states: Local<'s, HashMap<Entity, HashMap<Tag, bool>>>,
+    classes: Local<'s, HashMap<Entity, HashSet<Tag>>>,
 }
 
 impl<'w, 's> Elements<'w, 's> {
@@ -445,10 +441,10 @@ unsafe impl<'w, 's> SystemParam for ElementCommands<'w, 's> {
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         _system_meta: &SystemMeta,
-        world: &'world World,
-        _change_tick: u32,
+        world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
-        ElementCommands::new(&mut state.0, world)
+        ElementCommands::new(&mut state.0, world.world())
     }
 
     fn apply(state: &mut Self::State, _system_meta: &SystemMeta, world: &mut World) {
@@ -458,7 +454,7 @@ unsafe impl<'w, 's> SystemParam for ElementCommands<'w, 's> {
 
 pub struct RemoveStateCommand(Entity, Tag);
 impl Command for RemoveStateCommand {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         if let Some(mut element) = world.entity_mut(self.0).get_mut::<Element>() {
             let state = self.1;
             if element.state.contains(&state) {
@@ -469,7 +465,7 @@ impl Command for RemoveStateCommand {
 }
 pub struct AddStateCommand(Entity, Tag);
 impl Command for AddStateCommand {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         if let Some(mut element) = world.entity_mut(self.0).get_mut::<Element>() {
             let state = self.1;
             if !element.state.contains(&state) {
@@ -481,7 +477,7 @@ impl Command for AddStateCommand {
 
 pub struct AddClassCommand(Entity, Tag);
 impl Command for AddClassCommand {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         if let Some(mut element) = world.entity_mut(self.0).get_mut::<Element>() {
             let class = self.1;
             if !element.classes.contains(&class) {
@@ -493,7 +489,7 @@ impl Command for AddClassCommand {
 
 pub struct RemoveClassCommand(Entity, Tag);
 impl Command for RemoveClassCommand {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         if let Some(mut element) = world.entity_mut(self.0).get_mut::<Element>() {
             let class = self.1;
             if element.classes.contains(&class) {
@@ -505,7 +501,7 @@ impl Command for RemoveClassCommand {
 
 pub struct CleanupElementCommand(Entity);
 impl Command for CleanupElementCommand {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         world
             .entity_mut(self.0)
             .remove::<(ElementBundle, TextElementBundle, ImageElementBundle)>();

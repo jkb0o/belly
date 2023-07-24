@@ -4,8 +4,8 @@ use bevy_stylebox::*;
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
-        .add_plugin(StyleboxPlugin)
-        .add_startup_system(setup)
+        .add_plugins(StyleboxPlugin)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -19,7 +19,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         style: Style {
             position_type: PositionType::Absolute,
-            position: UiRect::all(Val::Percent(25.)),
+            top: Val::Percent(25.),
+            bottom: Val::Percent(25.),
+            left: Val::Percent(25.),
+            right: Val::Percent(25.),
             ..default()
         },
         ..default()

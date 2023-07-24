@@ -4,14 +4,15 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
+        .add_plugins(BellyPlugin)
         .add_event::<MyEvent>()
-        .add_startup_system(setup)
-        .add_system(greet)
-        .add_system(debug_my_event)
+        .add_systems(Startup, setup)
+         .add_systems(Update, greet)
+         .add_systems(Update, debug_my_event)
         .run();
 }
 
+#[derive(Event)]
 struct MyEvent {
     emited_at: f32,
 }
@@ -94,7 +95,7 @@ fn setup(mut commands: Commands) {
             </div>
             <div>
                 <button {grow} s:width=managed() on:press=run!(for grow |s: &mut Style| {
-                    s.size.width = Val::Px(if let Val::Px(width) = s.size.width {
+                    s.width = Val::Px(if let Val::Px(width) = s.width {
                         width + 5.
                     } else {
                         205.

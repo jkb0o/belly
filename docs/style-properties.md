@@ -99,7 +99,7 @@ stylebox-source: "images/stylebox.png"
 <!-- @property-type=$val -->
 Size type representing `bevy::prelude::Val` type. Possible values:
 - `auto` for `Val::Auto`
-- `undefined` for `Val::Undefined`
+- `undefined` for `Val::Px(0.)`
 - `px` suffixed for `Val::Px` (`25px`)
 - `%` suffixed for `Val::Percent` (`25%`)
 # Properties
@@ -311,7 +311,7 @@ TODO: add OverflowProperty descripion
 ### <a name="property-position"></a>`position`
 type: [`$rect`](#$rect)
 
-Specify element position by providing values to `Style.position`:
+Specify element position by providing values to `style`:
 ```css
 position: 2px 20% 10px auto;
 ```
@@ -324,7 +324,7 @@ type: [`$ident`](#$ident)
 default: `relative`
 
 Specify how an element is positioned in a document acording to the `top`,
-`right`, `bottom`, and `left` by providing value to `Style.position_type`:
+`right`, `bottom`, and `left` by providing value to `style_type`:
 ```css
 position-type: absolute;
 ```
@@ -346,7 +346,7 @@ type: [`$val`](#$val)
 
 default: `undefined`
 
-Specify element bottom position by providing value to `Style.position.bottom`:
+Specify element bottom position by providing value to `style.bottom`:
 ```css
 bottom: 5px;
 ```
@@ -358,7 +358,7 @@ type: [`$val`](#$val)
 
 default: `undefined`
 
-Specify element left position by providing value to `Style.position.left`:
+Specify element left position by providing value to `style.left`:
 ```css
 left: 5px;
 ```
@@ -370,7 +370,7 @@ type: [`$val`](#$val)
 
 default: `undefined`
 
-Specify element right position by providing value to `Style.position.right`:
+Specify element right position by providing value to `style.right`:
 ```css
 right: 5px;
 ```
@@ -382,7 +382,7 @@ type: [`$val`](#$val)
 
 default: `undefined`
 
-Specify element top position by providing value to `Style.position.top`:
+Specify element top position by providing value to `style.top`:
 ```css
 top: 5px;
 ```
@@ -412,7 +412,7 @@ type: [`$val`](#$val)
 
 default: `undefined`
 
-Specify element preferred height by providing value to `Style.size.height`:
+Specify element preferred height by providing value to `style.height`:
 ```css
 height: 5px;
 ```
@@ -472,7 +472,7 @@ type: [`$val`](#$val)
 
 default: `undefined`
 
-Specify element preferred width by providing value to `Style.size.width`:
+Specify element preferred width by providing value to `style.width`:
 ```css
 width: 5px;
 ```

@@ -414,7 +414,7 @@ impl<R: Component, W: Component, S: BindableSource, T: BindableTarget> std::fmt:
 impl<R: Component, W: Component, S: BindableSource, T: BindableTarget> Command
     for ComponentToComponent<R, W, S, T>
 {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         self.write(world);
     }
 }
@@ -864,7 +864,7 @@ mod test {
     #[test]
     fn single_property() {
         let mut app = App::new();
-        app.add_plugin(RelationsPlugin);
+        app.add_plugins(RelationsPlugin);
 
         let player = app.world.spawn_empty().id();
         let bar = app.world.spawn_empty().id();
@@ -931,7 +931,7 @@ mod test {
     #[test]
     fn chain_bind() {
         let mut app = App::new();
-        app.add_plugin(RelationsPlugin);
+        app.add_plugins(RelationsPlugin);
 
         let player = app.world.spawn_empty().id();
         let bar = app.world.spawn_empty().id();

@@ -40,7 +40,7 @@ impl Plugin for PropertyPlugin {
         app.register_property::<impls::layout_control::RightProperty>();
         app.register_property::<impls::layout_control::TopProperty>();
         app.register_property::<impls::layout_control::BottomProperty>();
-        app.register_property::<impls::layout_control::OverflowProperty>();
+        // app.register_property::<impls::layout_control::OverflowProperty>(); todo!(add back OverFlow)
         app.register_property::<impls::layout_control::DisplayProperty>();
 
         // flex container
@@ -435,12 +435,11 @@ impl RegisterProperty for bevy::prelude::App {
             .entry(T::name())
             .and_modify(|_| panic!("Property `{}` already registered.", T::name()))
             .or_insert(T::transform);
-        self.add_system(
+        self .add_systems(PostUpdate,
             T::apply_defaults
-                .in_base_set(CoreSet::PostUpdate)
                 .in_set(ApplyStyleProperties)
                 .after(InvalidateElements)
-                .before(UiSystem::Flex),
+                .before(UiSystem::Layout),
         );
         self
     }

@@ -34,7 +34,7 @@ pub fn val(prop: &StyleProperty) -> Result<Val, ElementsError> {
             Ok(Val::Px(val.into()))
         }
         StylePropertyToken::Identifier(val) if val.as_str() == "auto" => Ok(Val::Auto),
-        StylePropertyToken::Identifier(val) if val.as_str() == "undefined" => Ok(Val::Undefined),
+        StylePropertyToken::Identifier(val) if val.as_str() == "undefined" => Ok(Val::Px(0.)),
         p => Err(ElementsError::InvalidPropertyValue(format!(
             "Expected $val, got `{}`",
             p.to_string()
@@ -45,7 +45,7 @@ pub fn val(prop: &StyleProperty) -> Result<Val, ElementsError> {
 /// <!-- @property-type=$val -->
 /// Size type representing `bevy::prelude::Val` type. Possible values:
 /// - `auto` for `Val::Auto`
-/// - `undefined` for `Val::Undefined`
+/// - `undefined` for `Val::Px(0.)`
 /// - `px` suffixed for `Val::Px` (`25px`)
 /// - `%` suffixed for `Val::Percent` (`25%`)
 pub struct ValParser;

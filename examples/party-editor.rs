@@ -33,10 +33,10 @@ use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_startup_system(setup)
+        .add_plugins(BellyPlugin)
+        .add_plugins(LogDiagnosticsPlugin::default())
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
+        .add_systems(Startup, setup)
         .run();
 }
 

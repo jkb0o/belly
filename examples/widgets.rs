@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use bevy::{
     ecs::{
         query::{ReadOnlyWorldQuery, WorldQuery},
-        storage::TableRow,
+        storage::TableRow, component::Tick, world::unsafe_world_cell::UnsafeWorldCell,
     },
     prelude::*,
 };
@@ -264,10 +264,10 @@ unsafe impl WorldQuery for &lbl {
         lbl_relations::LblReadOnly::shrink(item)
     }
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         state: &Self::State,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> Self::Fetch<'w> {
         lbl_relations::LblReadOnly::init_fetch(world, state, last_change_tick, change_tick)
     }
@@ -338,10 +338,10 @@ unsafe impl WorldQuery for &mut lbl {
         lbl_relations::Lbl::shrink(item)
     }
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         state: &Self::State,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> Self::Fetch<'w> {
         lbl_relations::Lbl::init_fetch(world, state, last_change_tick, change_tick)
     }
@@ -413,10 +413,10 @@ unsafe impl<T: Widget> WorldQuery for WidgetRef<T> {
         T::ReadQuery::shrink(item)
     }
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         state: &Self::State,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> Self::Fetch<'w> {
         T::ReadQuery::init_fetch(world, state, last_change_tick, change_tick)
     }
@@ -488,10 +488,10 @@ unsafe impl<T: Widget> WorldQuery for WidgetMut<T> {
         T::WriteQuery::shrink(item)
     }
     unsafe fn init_fetch<'w>(
-        world: &'w World,
+        world: UnsafeWorldCell<'w>,
         state: &Self::State,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> Self::Fetch<'w> {
         T::WriteQuery::init_fetch(world, state, last_change_tick, change_tick)
     }

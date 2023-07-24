@@ -13,8 +13,8 @@ pub mod prelude {
 pub struct InputPlugins;
 impl Plugin for InputPlugins {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_plugin(button::ButtonPlugin);
-        app.add_plugin(slider::SliderPlugin);
-        app.add_plugin(text::TextInputPlugin);
+        app.add_plugins(button::ButtonPlugin);
+        app.add_plugins(slider::SliderPlugin);
+        app.add_plugins(text::TextInputPlugin);
     }
 }

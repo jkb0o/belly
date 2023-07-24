@@ -22,9 +22,9 @@ fn main() {
     App::new()
         .init_resource::<Viewport>()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_startup_systems((setup_viewport, setup_ui))
-        .add_system(rotator_system)
+        .add_plugins(BellyPlugin)
+        .add_systems(Startup, (setup_viewport, setup_ui))
+        .add_systems(Update, rotator_system)
         .run();
 }
 

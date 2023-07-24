@@ -5,9 +5,9 @@ use bevy::{prelude::*, render::camera::ScalingMode, text::TextSettings, window::
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_startup_system(setup)
-        .add_system(scale)
+        .add_plugins(BellyPlugin)
+        .add_systems(Startup, setup)
+        .add_systems(Update, scale)
         .run();
 }
 

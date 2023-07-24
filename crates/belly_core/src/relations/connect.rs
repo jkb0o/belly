@@ -7,13 +7,14 @@ use bevy::{
         system::{Command, EntityCommands},
     },
     prelude::*,
-    utils::HashMap,
+    // utils::HashMap,
 };
 use std::{
     any::{type_name, Any, TypeId},
     marker::PhantomData,
     mem,
     ops::{Deref, DerefMut},
+    collections::HashMap,
 };
 
 pub type WorldEvent<E> = fn(&E) -> bool;
@@ -231,7 +232,7 @@ impl<Q: 'static + WorldQuery, E: Event> Connection<Q, E> {
 }
 
 impl<Q: 'static + WorldQuery, E: Event> Command for Connection<Q, E> {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         self.write(world);
     }
 }

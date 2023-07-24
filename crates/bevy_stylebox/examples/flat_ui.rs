@@ -17,8 +17,8 @@ Resize application window to see
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
-        .add_plugin(StyleboxPlugin)
-        .add_startup_system(setup)
+        .add_plugins(StyleboxPlugin)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -57,7 +57,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
                 padding: UiRect::all(Val::Px(200.)),
                 justify_content: JustifyContent::SpaceAround,
                 ..default()
@@ -73,11 +74,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: Style {
                         flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::Center,
-                        min_size: Size::new(Val::Undefined, Val::Px(250.)),
+                        min_height: Val::Px(250.),
                         // align_self: AlignSelf::FlexEnd,
                         // align_content: AlignContent::Stretch,
                         // align_items: AlignItems::FlexStart,
-                        size: Size::new(Val::Px(500.), Val::Auto),
+                        width: Val::Px(500.),
+                        height: Val::Auto,
                         ..default()
                     },
 
@@ -93,7 +95,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             style: Style {
                                 justify_content: JustifyContent::SpaceBetween,
                                 align_self: AlignSelf::Stretch,
-                                size: Size::new(Val::Auto, Val::Px(32.)),
+                                height: Val::Px(32.),
                                 padding: UiRect::new(
                                     Val::Px(8.),
                                     Val::Px(10.),
@@ -117,8 +119,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                 ),
                                 style: Style {
-                                    size: Size::new(Val::Undefined, Val::Undefined),
-                                    max_size: Size::new(Val::Undefined, Val::Px(20.)),
+                                    max_width: Val::Px(20.),
                                     ..default()
                                 },
                                 ..default()
@@ -134,7 +135,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                     style: Style {
                                         padding: UiRect::all(Val::Px(2.)),
-                                        size: Size::new(Val::Px(20.), Val::Px(20.)),
+                                        width: Val::Px(20.),
+                                        height: Val::Px(20.),
                                         ..default()
                                     },
                                     ..default()
@@ -147,7 +149,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                             ..default()
                                         },
                                         style: Style {
-                                            size: Size::new(Val::Px(16.), Val::Px(16.)),
+                                            width: Val::Px(16.),
+                                            height: Val::Px(16.),
                                             ..default()
                                         },
                                         ..default()
@@ -213,7 +216,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 .spawn(StyleboxBundle {
                                     stylebox: box_round_all_button,
                                     style: Style {
-                                        size: Size::new(Val::Px(100.), Val::Px(32.)),
+                                        width: Val::Px(100.),
+                                        height: Val::Px(32.),
                                         justify_content: JustifyContent::Center,
                                         // align_content: AlignContent::Center,
                                         align_items: AlignItems::Center,

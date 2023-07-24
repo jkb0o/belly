@@ -8,9 +8,9 @@ use belly::widgets::common::Label;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_startup_system(setup)
-        .add_system(update_label)
+        .add_plugins(BellyPlugin)
+        .add_systems(Startup, setup)
+        .add_systems(Update, update_label)
         .run();
 }
 

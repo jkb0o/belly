@@ -33,16 +33,16 @@ impl Plugin for RelationsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<RelationsSystems>();
         app.init_resource::<ChangesState>();
-        app.configure_set(RelationsSet::PreUpdate.after(CoreSet::PreUpdate));
-        app.configure_set(RelationsSet::Update.after(CoreSet::Update));
-        app.configure_set(RelationsSet::PostUpdate.after(CoreSet::PostUpdate));
+        app.configure_set(Update, RelationsSet::PreUpdate);
+        app.configure_set(PostUpdate, RelationsSet::Update);
+        app.configure_set(Last, RelationsSet::PostUpdate);
 
-        app.add_system(process_relations_system.in_set(RelationsSet::PreUpdate));
+        app .add_systems(PreUpdate, process_relations_system.in_set(RelationsSet::PreUpdate));
         // For some reason with bevy 0.10 I can't process this system multiple times,
         // App panics with:
         // '`"Update"` and `"PostUpdate"` have a `before`-`after` relationship (which
         // may be transitive) but share systems.
-        // app.add_system(process_relations_system.in_set(RelationsSet::PostUpdate));
+        // app .add_systems(process_relations_system.in_set(RelationsSet::PostUpdate));
     }
 }
 
@@ -139,11 +139,11 @@ impl BindingSystemsInternal {
             .write()
             .unwrap()
             .push(Box::new(|schedule| {
-                schedule.add_system(process_signals_system::<P, E>.in_set(BindingSet::Process));
-                schedule.add_system(cleanup_signals_system::<P, E>.in_set(BindingSet::Process));
+                schedule .add_systems(process_signals_system::<P, E>.in_set(BindingSet::Process));
+                schedule .add_systems(cleanup_signals_system::<P, E>.in_set(BindingSet::Process));
             }));
     }
-    pub fn add_custom_system<Params, S: 'static + IntoSystemConfig<Params>>(
+    pub fn add_custom_system<Params, S: 'static + IntoSystemConfigs<Params>>(
         &self,
         system_id: TypeId,
         system: S,
@@ -160,7 +160,7 @@ impl BindingSystemsInternal {
             .write()
             .unwrap()
             .push(Box::new(move |schedule| {
-                schedule.add_system(system.in_set(BindingSet::Custom));
+                schedule .add_systems(system.in_set(BindingSet::Custom));
             }));
     }
     pub fn run(&self, world: &mut World) {
@@ -212,7 +212,7 @@ impl BindingSystemsInternal {
                 .write()
                 .unwrap()
                 .push(Box::new(|schedule| {
-                    schedule.add_system(bind::watch_changes::<R>.in_set(BindingSet::Watch));
+                    schedule .add_systems(bind::watch_changes::<R>.in_set(BindingSet::Watch));
                 }));
         }
 
@@ -228,7 +228,7 @@ impl BindingSystemsInternal {
             .write()
             .unwrap()
             .push(Box::new(|schedule| {
-                schedule.add_system(
+                schedule .add_systems(
                     bind::component_to_component_system::<R, W, S, T>.in_set(BindingSet::Bind),
                 );
             }));
@@ -259,7 +259,7 @@ impl BindingSystemsInternal {
             .write()
             .unwrap()
             .push(Box::new(|schedule| {
-                schedule.add_system(
+                schedule .add_systems(
                     bind::resource_to_component_system::<R, W, S, T>.in_set(BindingSet::Bind),
                 );
             }));

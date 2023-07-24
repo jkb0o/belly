@@ -24,7 +24,7 @@ impl Plugin for BuildPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<RequestReadyEvent>();
         app.add_event::<ReadyEvent>();
-        app.add_system(emit_ready_signal.in_base_set(CoreSet::PostUpdate));
+        app .add_systems(PostUpdate, emit_ready_signal);
         app.init_resource::<Slots>();
     }
 }
@@ -506,8 +506,9 @@ pub struct DefaultBindingsFrom;
 pub struct DefaultBindingsTo;
 pub struct DefaultSignals;
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, Event)]
 pub struct RequestReadyEvent(pub(crate) Entity);
+#[derive(Event)]
 pub struct ReadyEvent(Entity);
 
 fn emit_ready_signal(
@@ -557,7 +558,7 @@ impl Eml {
 }
 
 impl Command for Eml {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         (self.builder)(world, None);
     }
 }

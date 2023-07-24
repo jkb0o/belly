@@ -6,10 +6,10 @@ use bevy::{ecs::event::Event, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
+        .add_plugins(BellyPlugin)
         .add_event::<ToggleClass>()
-        .add_startup_system(setup)
-        .add_system(process_events)
+        .add_systems(Startup, setup)
+        .add_systems(Update, process_events)
         .run();
 }
 

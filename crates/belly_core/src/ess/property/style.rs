@@ -90,7 +90,7 @@ impl StylePropertyToken {
             StylePropertyToken::Percentage(p) => Ok(Val::Percent(p.to_float())),
             StylePropertyToken::Dimension(d, u) if u == "px" => Ok(Val::Px(d.to_float())),
             StylePropertyToken::Identifier(i) if i == "auto" => Ok(Val::Auto),
-            StylePropertyToken::Identifier(i) if i == "undefined" => Ok(Val::Undefined),
+            StylePropertyToken::Identifier(i) if i == "undefined" => Ok(Val::Px(0.)),
             _ => Err(ElementsError::InvalidPropertyValue(format!(
                 "Can't treat `{}` as size value",
                 self.to_string()
@@ -318,7 +318,7 @@ pub trait StylePropertyMethods {
             StylePropertyToken::Dimension(val, unit) if unit == "px" => Ok(Val::Px(val.into())),
             StylePropertyToken::Identifier(val) if val.as_str() == "auto" => Ok(Val::Auto),
             StylePropertyToken::Identifier(val) if val.as_str() == "undefined" => {
-                Ok(Val::Undefined)
+                Ok(Val::Px(0.))
             }
             p => Err(ElementsError::InvalidPropertyValue(format!(
                 "Can't parrse Val from '{}'",

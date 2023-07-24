@@ -13,11 +13,11 @@ use bevy::{ecs::event::Event, input::keyboard::KeyboardInput, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
+        .add_plugins(BellyPlugin)
         .add_event::<ButtonEvent>()
-        .add_startup_system(setup)
-        .add_system(emit_button_events)
-        .add_system(update_counter)
+        .add_systems(Startup, setup)
+        .add_systems(Update, emit_button_events)
+        .add_systems(Update, update_counter)
         .run();
 }
 

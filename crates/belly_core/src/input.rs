@@ -15,33 +15,28 @@ impl Plugin for ElementsInputPlugin {
         app.add_event::<PointerInput>()
             .add_event::<RequestFocus>()
             .init_resource::<Focused>()
-            .add_system(
+             .add_systems(PreUpdate,
                 pointer_input_system
-                    .in_base_set(CoreSet::PreUpdate)
                     .in_set(Label::Signals)
                     .after(InputSystem),
             )
-            .add_system(
+             .add_systems(PreUpdate,
                 tab_focus_system
-                    .in_base_set(CoreSet::PreUpdate)
                     .in_set(Label::TabFocus)
                     .after(Label::Signals),
             )
-            .add_system(
+             .add_systems(PreUpdate,
                 focus_system
-                    .in_base_set(CoreSet::PreUpdate)
                     .in_set(Label::Focus)
                     .after(Label::TabFocus),
             )
-            .add_system(
+             .add_systems(PreUpdate,
                 hover_system
-                    .in_base_set(CoreSet::PreUpdate)
                     .in_set(Label::Hover)
                     .after(Label::Signals),
             )
-            .add_system(
+             .add_systems(PreUpdate,
                 active_system
-                    .in_base_set(CoreSet::PreUpdate)
                     .in_set(Label::Active)
                     .after(Label::Signals),
             );
@@ -68,7 +63,7 @@ pub enum PointerInputData {
     Motion,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Event)]
 pub struct PointerInput {
     pub entities: Vec<Entity>,
     pub pos: Vec2,
@@ -442,6 +437,7 @@ pub struct Focus(bool);
 #[derive(Resource, Default)]
 pub struct Focused(Option<Entity>);
 
+#[derive(Debug, Event)]
 pub struct RequestFocus(Entity);
 
 pub fn focus_system(

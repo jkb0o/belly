@@ -19,7 +19,7 @@ use bevy::{
 /// fn main() {
 ///    let mut app = App::new();
 ///    app.add_plugins(DefaultPlugins);
-///    app.add_plugin(StyleboxPlugin);
+///    app.add_plugins(StyleboxPlugin);
 /// }
 /// ```
 pub struct StyleboxPlugin;
@@ -31,12 +31,11 @@ const ONE_MINUS_TWO_EPSILONS: f32 = ONE_MINUS_EPSILON - EPSILON;
 
 impl Plugin for StyleboxPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(compute_stylebox_configuration)
-            .add_system(compute_stylebox_slices.in_base_set(CoreSet::PostUpdate))
+        app .add_systems(Update, compute_stylebox_configuration)
+             .add_systems(PostUpdate, compute_stylebox_slices)
             .sub_app_mut(RenderApp)
-            .add_system(
+             .add_systems(ExtractSchedule,
                 extract_stylebox
-                    .in_schedule(ExtractSchedule)
                     .after(RenderUiSystem::ExtractNode),
             );
     }
@@ -72,12 +71,12 @@ pub struct Stylebox {
     /// The image is always sliced into nine sections: four corners, four edges and the middle.
     /// - when `Val::Px` specified, region sliced to the exact amount of pixels
     /// - when `Val::Percent` specified, image region sliced relative to it size
-    /// - `Val::Auto` & `Val::Undefined` treated as `Val::Percent(50.)`
+    /// - `Val::Auto` & `Val::Px(0.)` treated as `Val::Percent(50.)`
     pub slice: UiRect,
     /// specifies the width of the edgets of the sliced region:
     /// - edges specified by `Val::Px` values resizes to exact amout of pixels
     /// - edges specified by `Val::Percent` resized relative to width provided by `slice` property
-    /// - `Val::Auto` & `Val::Undefined` treated as `Val::Percent(100.)`
+    /// - `Val::Auto` & `Val::Px(0.)` treated as `Val::Percent(100.)`
     ///
     /// Default value for `width` is `Val::Percent(100.)`: use width provided by `slice` property.
     pub width: UiRect,
@@ -85,7 +84,7 @@ pub struct Stylebox {
     /// By default the hole area of image defined by `texture` is used.
     /// - `Val::Px` values defines exact offset from the image edges in pixels
     /// - `Val::Percent` values defines offset from the image edges relative to the image size
-    /// - `Val::Auto` & `Val::Undefined` treated as `Val::Px(0.)`
+    /// - `Val::Auto` & `Val::Px(0.)` treated as `Val::Px(0.)`
     ///
     /// Default value for `region` is `Val::Px(0.)`
     pub region: UiRect,

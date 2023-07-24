@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 // impl_style_single_value!("width", WidthProperty, Val, val, size.width);
 style_property! {
-    #[doc = " Specify element preferred width by providing value to `Style.size.width`:"]
+    #[doc = " Specify element preferred width by providing value to `style.width`:"]
     #[doc = " ```css"]
     #[doc = " width: 5px;"]
     #[doc = " ```"]
@@ -16,15 +16,15 @@ style_property! {
         Filters = With<Node>;
         Parser = parse::ValParser;
         Apply = |value, style, _assets, _commands, _entity| {
-            if &style.size.width != value {
-                style.size.width = *value;
+            if &style.width != value {
+                style.width = *value;
             }
         };
     }
 }
 // impl_style_single_value!("height", HeightProperty, Val, val, size.height);
 style_property! {
-    #[doc = " Specify element preferred height by providing value to `Style.size.height`:"]
+    #[doc = " Specify element preferred height by providing value to `style.height`:"]
     #[doc = " ```css"]
     #[doc = " height: 5px;"]
     #[doc = " ```"]
@@ -36,8 +36,8 @@ style_property! {
         Filters = With<Node>;
         Parser = parse::ValParser;
         Apply = |value, style, _assets, _commands, _entity| {
-            if &style.size.height != value {
-                style.size.height = *value;
+            if &style.height != value {
+                style.height = *value;
             }
         };
     }
@@ -57,8 +57,8 @@ style_property! {
         Filters = With<Node>;
         Parser = parse::ValParser;
         Apply = |value, style, _assets, _commands, _entity| {
-            if &style.min_size.width != value {
-                style.min_size.width = *value;
+            if &style.min_width != value {
+                style.min_width = *value;
             }
         };
     }
@@ -77,8 +77,8 @@ style_property! {
         Filters = With<Node>;
         Parser = parse::ValParser;
         Apply = |value, style, _assets, _commands, _entity| {
-            if &style.min_size.height != value {
-                style.min_size.height = *value;
+            if &style.min_height != value {
+                style.min_height = *value;
             }
         };
     }
@@ -98,8 +98,8 @@ style_property! {
         Filters = With<Node>;
         Parser = parse::ValParser;
         Apply = |value, style, _assets, _commands, _entity| {
-            if &style.max_size.width != value {
-                style.max_size.width = *value;
+            if &style.max_width != value {
+                style.max_width = *value;
             }
         };
     }
@@ -118,8 +118,8 @@ style_property! {
         Filters = With<Node>;
         Parser = parse::ValParser;
         Apply = |value, style, _assets, _commands, _entity| {
-            if &style.max_size.height != value {
-                style.max_size.height = *value;
+            if &style.max_height != value {
+                style.max_height = *value;
             }
         };
     }

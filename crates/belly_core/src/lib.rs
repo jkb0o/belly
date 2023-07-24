@@ -1,3 +1,5 @@
+#![feature(hash_drain_filter)]
+
 pub mod element;
 pub mod eml;
 pub mod ess;
@@ -77,12 +79,12 @@ pub mod build {
 pub struct ElementsCorePlugin;
 impl Plugin for ElementsCorePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ElementsPlugin)
-            .add_plugin(ElementsInputPlugin)
-            .add_plugin(RelationsPlugin)
-            .add_plugin(BuildPlugin)
-            .add_plugin(EssPlugin)
-            .add_plugin(EmlPlugin);
+        app.add_plugins(ElementsPlugin)
+            .add_plugins(ElementsInputPlugin)
+            .add_plugins(RelationsPlugin)
+            .add_plugins(BuildPlugin)
+            .add_plugins(EssPlugin)
+            .add_plugins(EmlPlugin);
     }
 }
 

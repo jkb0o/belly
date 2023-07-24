@@ -21,8 +21,8 @@
 //!     # return;
 //!     App::new()
 //!         .add_plugins(DefaultPlugins)
-//!         .add_plugin(BellyPlugin)
-//!         .add_startup_system(setup)
+//!         .add_plugins(BellyPlugin)
+//!         .add_systems(Startup, setup)
 //!         .run();
 //! }
 //!
@@ -105,8 +105,7 @@ pub mod prelude {
     pub struct BellyPlugin;
     impl Plugin for BellyPlugin {
         fn build(&self, app: &mut App) {
-            app.add_plugin(ElementsCorePlugin);
-            app.add_plugin(WidgetsPlugin);
+            app.add_plugins((ElementsCorePlugin, WidgetsPlugin));
         }
     }
 }

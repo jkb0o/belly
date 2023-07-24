@@ -22,8 +22,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_startup_system(setup)
+        .add_plugins(BellyPlugin)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -189,8 +189,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_startup_system(setup)
+        .add_plugins(BellyPlugin)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -267,8 +267,8 @@ use belly::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_startup_system(setup)
+        .add_plugins(BellyPlugin)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -336,8 +336,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_startup_system(setup)
+        .add_plugins(BellyPlugin)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -430,8 +430,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_startup_system(setup)
+        .add_plugins(BellyPlugin)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -823,9 +823,9 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_startup_system(setup)
-        .add_system(update_label)
+        .add_plugins(BellyPlugin)
+        .add_systems(Startup, setup)
+         .add_systems(update_label)
         .run();
 }
 
@@ -887,8 +887,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_startup_system(setup)
+        .add_plugins(BellyPlugin)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -1074,8 +1074,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_startup_system(setup)
+        .add_plugins(BellyPlugin)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -1232,8 +1232,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_startup_system(setup)
+        .add_plugins(BellyPlugin)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -1281,8 +1281,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_startup_system(setup)
+        .add_plugins(BellyPlugin)
+        .add_systems(Startup, setup)
         .run();
 }
 
