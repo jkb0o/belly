@@ -1,9 +1,9 @@
 use super::common::*;
 use belly_core::{build::*, impl_properties};
 use belly_macro::*;
-use bevy::{prelude::*, /*utils::HashMap*/};
-use std::str::FromStr;
+use bevy::prelude::*;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 pub mod prelude {
     pub use super::LayoutMode;

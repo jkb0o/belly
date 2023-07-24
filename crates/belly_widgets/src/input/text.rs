@@ -17,18 +17,21 @@ pub struct TextInputPlugin;
 impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut App) {
         app.register_widget::<TextinputWidget>();
-        app .add_systems(Update, blink_cursor)
-             .add_systems(PreUpdate,
+        app.add_systems(Update, blink_cursor)
+            .add_systems(
+                PreUpdate,
                 process_cursor_focus
                     .in_set(TextInputSet::Focus)
                     .after(belly_core::input::Label::Focus),
             )
-             .add_systems(PreUpdate,
+            .add_systems(
+                PreUpdate,
                 process_mouse
                     .in_set(TextInputSet::Mouse)
                     .after(TextInputSet::Focus), // .after(TextInputLabel::Focus)
             )
-             .add_systems(PreUpdate,
+            .add_systems(
+                PreUpdate,
                 process_keyboard_input
                     .in_set(TextInputSet::Keyboard)
                     .after(TextInputSet::Mouse),

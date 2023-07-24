@@ -1,5 +1,5 @@
 use belly::prelude::*;
-use bevy::{prelude::*, asset::ChangeWatcher};
+use bevy::{asset::ChangeWatcher, prelude::*};
 
 fn main() {
     App::new()

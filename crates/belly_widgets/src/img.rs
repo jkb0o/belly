@@ -6,7 +6,7 @@ use bevy::{
     prelude::*,
     // utils::{HashMap, HashSet},
 };
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
 pub mod prelude {
@@ -22,13 +22,15 @@ impl Plugin for ImgPlugin {
         app.register_widget::<ImgWidget>();
 
         app.init_resource::<ImageRegistry>();
-        app .add_systems(Update, load_img.in_set(ImgSet::Load));
-        app .add_systems(Update,
+        app.add_systems(Update, load_img.in_set(ImgSet::Load));
+        app.add_systems(
+            Update,
             update_img_size
                 .in_set(ImgSet::UpdateSize)
                 .after(ImgSet::Load),
         );
-        app .add_systems(Update,
+        app.add_systems(
+            Update,
             update_img_layout
                 .in_set(ImgSet::UpdateLayout)
                 .after(ImgSet::UpdateSize),

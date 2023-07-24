@@ -31,12 +31,12 @@ const ONE_MINUS_TWO_EPSILONS: f32 = ONE_MINUS_EPSILON - EPSILON;
 
 impl Plugin for StyleboxPlugin {
     fn build(&self, app: &mut App) {
-        app .add_systems(Update, compute_stylebox_configuration)
-             .add_systems(PostUpdate, compute_stylebox_slices)
+        app.add_systems(Update, compute_stylebox_configuration)
+            .add_systems(PostUpdate, compute_stylebox_slices)
             .sub_app_mut(RenderApp)
-             .add_systems(ExtractSchedule,
-                extract_stylebox
-                    .after(RenderUiSystem::ExtractNode),
+            .add_systems(
+                ExtractSchedule,
+                extract_stylebox.after(RenderUiSystem::ExtractNode),
             );
     }
 }

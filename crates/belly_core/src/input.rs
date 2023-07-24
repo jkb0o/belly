@@ -15,30 +15,29 @@ impl Plugin for ElementsInputPlugin {
         app.add_event::<PointerInput>()
             .add_event::<RequestFocus>()
             .init_resource::<Focused>()
-             .add_systems(PreUpdate,
+            .add_systems(
+                PreUpdate,
                 pointer_input_system
                     .in_set(Label::Signals)
                     .after(InputSystem),
             )
-             .add_systems(PreUpdate,
+            .add_systems(
+                PreUpdate,
                 tab_focus_system
                     .in_set(Label::TabFocus)
                     .after(Label::Signals),
             )
-             .add_systems(PreUpdate,
-                focus_system
-                    .in_set(Label::Focus)
-                    .after(Label::TabFocus),
+            .add_systems(
+                PreUpdate,
+                focus_system.in_set(Label::Focus).after(Label::TabFocus),
             )
-             .add_systems(PreUpdate,
-                hover_system
-                    .in_set(Label::Hover)
-                    .after(Label::Signals),
+            .add_systems(
+                PreUpdate,
+                hover_system.in_set(Label::Hover).after(Label::Signals),
             )
-             .add_systems(PreUpdate,
-                active_system
-                    .in_set(Label::Active)
-                    .after(Label::Signals),
+            .add_systems(
+                PreUpdate,
+                active_system.in_set(Label::Active).after(Label::Signals),
             );
     }
 }

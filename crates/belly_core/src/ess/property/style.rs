@@ -317,9 +317,7 @@ pub trait StylePropertyMethods {
             StylePropertyToken::Percentage(val) => Ok(Val::Percent(val.into())),
             StylePropertyToken::Dimension(val, unit) if unit == "px" => Ok(Val::Px(val.into())),
             StylePropertyToken::Identifier(val) if val.as_str() == "auto" => Ok(Val::Auto),
-            StylePropertyToken::Identifier(val) if val.as_str() == "undefined" => {
-                Ok(Val::Px(0.))
-            }
+            StylePropertyToken::Identifier(val) if val.as_str() == "undefined" => Ok(Val::Px(0.)),
             p => Err(ElementsError::InvalidPropertyValue(format!(
                 "Can't parrse Val from '{}'",
                 p.to_string()

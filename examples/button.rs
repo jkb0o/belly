@@ -7,8 +7,8 @@ fn main() {
         .add_plugins(BellyPlugin)
         .add_event::<MyEvent>()
         .add_systems(Startup, setup)
-         .add_systems(Update, greet)
-         .add_systems(Update, debug_my_event)
+        .add_systems(Update, greet)
+        .add_systems(Update, debug_my_event)
         .run();
 }
 

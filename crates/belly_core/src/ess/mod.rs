@@ -9,7 +9,7 @@ use bevy::{
     asset::{AssetLoader, LoadedAsset},
     ecs::system::Command,
     prelude::*,
-    reflect::{TypeUuid, TypePath},
+    reflect::{TypePath, TypeUuid},
     text::TextLayoutInfo,
     ui::UiSystem,
     utils::{hashbrown::hash_map::Keys, HashMap},
@@ -32,7 +32,8 @@ impl Plugin for EssPlugin {
         app.add_systems(Startup, crate::ess::defaults::setup_defaults);
 
         app.add_asset::<StyleSheet>();
-        app.add_systems(PostUpdate,
+        app.add_systems(
+            PostUpdate,
             fix_text_height
                 .after(ApplyStyleProperties)
                 .before(UiSystem::Layout),

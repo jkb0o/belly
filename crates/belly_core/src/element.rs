@@ -18,7 +18,8 @@ pub struct ElementsPlugin;
 impl Plugin for ElementsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ElementIdIndex>();
-        app.add_systems(PostUpdate,
+        app.add_systems(
+            PostUpdate,
             invalidate_elements
                 .in_set(InvalidateElements)
                 .before(UiSystem::Layout),

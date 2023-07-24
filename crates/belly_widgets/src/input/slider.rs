@@ -17,7 +17,8 @@ enum Label {
 pub(crate) struct SliderPlugin;
 impl Plugin for SliderPlugin {
     fn build(&self, app: &mut App) {
-        app .add_systems(PreUpdate,
+        app.add_systems(
+            PreUpdate,
             handle_grabber_input
                 .in_set(Label::GrabberInput)
                 .after(input::Label::Signals),

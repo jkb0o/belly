@@ -435,7 +435,8 @@ impl RegisterProperty for bevy::prelude::App {
             .entry(T::name())
             .and_modify(|_| panic!("Property `{}` already registered.", T::name()))
             .or_insert(T::transform);
-        self .add_systems(PostUpdate,
+        self.add_systems(
+            PostUpdate,
             T::apply_defaults
                 .in_set(ApplyStyleProperties)
                 .after(InvalidateElements)

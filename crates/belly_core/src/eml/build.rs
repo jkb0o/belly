@@ -24,7 +24,7 @@ impl Plugin for BuildPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<RequestReadyEvent>();
         app.add_event::<ReadyEvent>();
-        app .add_systems(PostUpdate, emit_ready_signal);
+        app.add_systems(PostUpdate, emit_ready_signal);
         app.init_resource::<Slots>();
     }
 }

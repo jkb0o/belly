@@ -11,10 +11,10 @@ use bevy::{
 };
 use std::{
     any::{type_name, Any, TypeId},
+    collections::HashMap,
     marker::PhantomData,
     mem,
     ops::{Deref, DerefMut},
-    collections::HashMap,
 };
 
 pub type WorldEvent<E> = fn(&E) -> bool;

@@ -3,8 +3,10 @@ use std::marker::PhantomData;
 // use belly_core::relations::bind::{ToComponent, BindableSource, BindableTarget};
 use bevy::{
     ecs::{
+        component::Tick,
         query::{ReadOnlyWorldQuery, WorldQuery},
-        storage::TableRow, component::Tick, world::unsafe_world_cell::UnsafeWorldCell,
+        storage::TableRow,
+        world::unsafe_world_cell::UnsafeWorldCell,
     },
     prelude::*,
 };

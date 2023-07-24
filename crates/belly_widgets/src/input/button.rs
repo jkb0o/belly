@@ -30,19 +30,22 @@ impl Plugin for ButtonPlugin {
         app.init_resource::<BtnGroups>();
         app.register_widget::<ButtonWidget>();
         app.register_widget::<ButtongroupWidget>();
-        app .add_systems(Update, process_btngroups_system);
-        app .add_systems(Update, force_btngroups_reconfiguration_system);
-        app .add_systems(PreUpdate,
+        app.add_systems(Update, process_btngroups_system);
+        app.add_systems(Update, force_btngroups_reconfiguration_system);
+        app.add_systems(
+            PreUpdate,
             handle_input_system
                 .in_set(Label::HandleInput)
                 .after(input::Label::Signals),
         );
-        app .add_systems(PreUpdate,
+        app.add_systems(
+            PreUpdate,
             handle_states_system
                 .in_set(Label::HandleStates)
                 .after(Label::HandleInput),
         );
-        app .add_systems(PreUpdate,
+        app.add_systems(
+            PreUpdate,
             report_btngroup_changes
                 .in_set(Label::ReportChanges)
                 .after(Label::HandleStates),
