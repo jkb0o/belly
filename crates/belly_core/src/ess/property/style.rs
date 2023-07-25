@@ -91,6 +91,7 @@ impl StylePropertyToken {
             StylePropertyToken::Dimension(d, u) if u == "px" => Ok(Val::Px(d.to_float())),
             StylePropertyToken::Identifier(i) if i == "auto" => Ok(Val::Auto),
             StylePropertyToken::Identifier(i) if i == "undefined" => Ok(Val::Px(0.)),
+            StylePropertyToken::Identifier(i) if i == "undefined" => Ok(Val::Px(0.)),
             _ => Err(ElementsError::InvalidPropertyValue(format!(
                 "Can't treat `{}` as size value",
                 self.to_string()
