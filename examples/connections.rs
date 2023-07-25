@@ -24,6 +24,7 @@ fn main() {
 #[derive(Component, Default)]
 pub struct Counter(usize);
 
+#[derive(Event)]
 enum ButtonEvent {
     Press(Entity),
     Hover(Entity),
@@ -149,7 +150,8 @@ impl<'w, 's> SuperCommands for Commands<'w, 's> {
         let mut counter = None;
         self.spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Percent(100.), Val::Percent(100.)),
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 // flex_wrap: FlexWrap::Wrap,
                 flex_direction: FlexDirection::Column,
                 ..default()
@@ -160,7 +162,8 @@ impl<'w, 's> SuperCommands for Commands<'w, 's> {
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        size: Size::new(Val::Percent(100.), Val::Px(80.)),
+                        width: Val::Percent(100.),
+                        height: Val::Px(80.),
                         ..default()
                     },
                     ..default()
@@ -186,7 +189,8 @@ impl<'w, 's> SuperCommands for Commands<'w, 's> {
                 });
             let root_node = parent.spawn(NodeBundle {
                 style: Style {
-                    size: Size::new(Val::Percent(100.), Val::Percent(100.)),
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
                     flex_wrap: FlexWrap::Wrap,
                     ..default()
                 },
@@ -215,7 +219,8 @@ impl<'a, 'w, 's, E: Event> SuperContext for EventContext<'a, 'w, 's, E> {
                 background_color: Color::WHITE.into(),
                 style: Style {
                     margin: UiRect::all(Val::Px(20.)),
-                    size: Size::new(Val::Auto, Val::Px(80.)),
+                    width: Val::Auto,
+                    height: Val::Px(80.),
                     ..default()
                 },
                 ..default()
