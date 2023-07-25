@@ -73,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: Style {
                         flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::Center,
-                        min_size: Size::new(Val::Undefined, Val::Px(250.)),
+                        min_size: Size::new(Val::Px(0.), Val::Px(250.)),
                         // align_self: AlignSelf::FlexEnd,
                         // align_content: AlignContent::Stretch,
                         // align_items: AlignItems::FlexStart,
@@ -117,8 +117,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                 ),
                                 style: Style {
-                                    size: Size::new(Val::Undefined, Val::Undefined),
-                                    max_size: Size::new(Val::Undefined, Val::Px(20.)),
+                                    size: Size::new(Val::Px(0.), Val::Px(0.)),
+                                    max_size: Size::new(Val::Px(0.), Val::Px(20.)),
                                     ..default()
                                 },
                                 ..default()

@@ -99,7 +99,7 @@ stylebox-source: "images/stylebox.png"
 <!-- @property-type=$val -->
 Size type representing `bevy::prelude::Val` type. Possible values:
 - `auto` for `Val::Auto`
-- `undefined` for `Val::Undefined`
+- `undefined` for `Val::Px(0.)`
 - `px` suffixed for `Val::Px` (`25px`)
 - `%` suffixed for `Val::Percent` (`25%`)
 # Properties

@@ -313,8 +313,8 @@ pub fn configure_range_layout(
         {
             let Ok(mut low) = styles.get_mut(progress.low_span) else { continue };
             match mode {
-                LayoutMode::Horizontal => low.min_size.height = Val::Undefined,
-                LayoutMode::Vertical => low.min_size.width = Val::Undefined,
+                LayoutMode::Horizontal => low.min_size.height = Val::Px(0.),
+                LayoutMode::Vertical => low.min_size.width = Val::Px(0.),
             }
         }
     }

@@ -406,7 +406,7 @@ fn update_img_layout(
                 style.margin.right = Val::Px(hmargin.min(0.));
             }
             ImgMode::Stretch => {
-                style.min_size = Size::new(Val::Undefined, Val::Undefined);
+                style.min_size = Size::new(Val::Px(0.), Val::Px(0.));
                 style.size = Size::new(Val::Percent(100.), Val::Percent(100.));
                 style.margin = UiRect::all(Val::Px(0.));
             }
