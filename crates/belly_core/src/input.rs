@@ -234,10 +234,7 @@ pub fn pointer_input_system(
         })
         .filter(|window| window.focused)
         .find_map(|window| {
-            window.cursor_position().map(|mut cursor_pos| {
-                cursor_pos.y = window.height() - cursor_pos.y;
-                cursor_pos
-            })
+            window.cursor_position()
         })
         .or_else(|| touches_input.first_pressed_position());
 
