@@ -40,7 +40,7 @@ impl Plugin for PropertyPlugin {
         app.register_property::<impls::layout_control::RightProperty>();
         app.register_property::<impls::layout_control::TopProperty>();
         app.register_property::<impls::layout_control::BottomProperty>();
-        // app.register_property::<impls::layout_control::OverflowProperty>(); todo!(add back OverFlow)
+        app.register_property::<impls::layout_control::OverflowProperty>();
         app.register_property::<impls::layout_control::DisplayProperty>();
 
         // flex container

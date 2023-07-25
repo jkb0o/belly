@@ -73,12 +73,6 @@ prop_to_enum! { AlignItems,
     "stretch" => Stretch,
 }
 
-// todo!("change to struct?")
-// prop_to_enum! { Overflow,
-//     "visible" => Overflow::visible(),
-//     "hidden" => Overflow::clip(),
-// }
-
 prop_to_enum! { AlignContent,
     "flex-start" => FlexStart,
     "flex-end" => FlexEnd,

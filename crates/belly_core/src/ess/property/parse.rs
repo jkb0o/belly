@@ -55,6 +55,35 @@ impl PropertyParser<Val> for ValParser {
     }
 }
 
+pub fn overflow(prop: &StyleProperty) -> Result<Overflow, ElementsError> {
+    let Some(prop) = prop.first() else {
+        return Err(ElementsError::InvalidPropertyValue(format!("Expected $val, found nothing")))
+    };
+    match prop {
+        StylePropertyToken::Identifier(val) if val.as_str() == "visible" => Ok(Overflow::visible()),
+        StylePropertyToken::Identifier(val) if val.as_str() == "clip" => Ok(Overflow::clip()),
+        StylePropertyToken::Identifier(val) if val.as_str() == "clip_x" => Ok(Overflow::clip_x()),
+        StylePropertyToken::Identifier(val) if val.as_str() == "clip_y" => Ok(Overflow::clip_y()),
+        p => Err(ElementsError::InvalidPropertyValue(format!(
+            "Expected $overflow, got `{}`",
+            p.to_string()
+        ))),
+    }
+}
+
+/// <!-- @property-type=$overflow -->
+/// Size type representing `bevy::prelude::Overflow` type. Possible values:
+/// - `visible` for `Overflow::visible()`
+/// - `clip` for `Overflow::clip()`
+/// - `clip_x` for `Overflow::clip_x()`
+/// - `clip_y` for `Overflow::clip_y()`
+pub struct OverflowParser;
+impl PropertyParser<Overflow> for OverflowParser {
+    fn parse(value: &StyleProperty) -> Result<Overflow, ElementsError> {
+        overflow(value)
+    }
+}
+
 pub fn rect(prop: &StyleProperty) -> Result<UiRect, ElementsError> {
     match prop.len() {
         1 => prop[0].val().map(UiRect::all),

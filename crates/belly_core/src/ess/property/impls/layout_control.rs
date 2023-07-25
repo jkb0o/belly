@@ -128,22 +128,22 @@ style_property! {
 }
 
 // todo!(add back Overflow)
-// style_property! {
-//     #[doc = " TODO: add OverflowProperty descripion"]
-//     #[doc = " <!-- @property-category=Layout Control -->"]
-//     OverflowProperty("overflow") {
-//         Default = "visible";
-//         Item = Overflow;
-//         Components = &'static mut Style;
-//         Filters = With<Node>;
-//         Parser = parse::IdentifierParser<Overflow>;
-//         Apply = |value, style, _assets, _commands, _entity| {
-//             if &style.overflow != value {
-//                 style.overflow = *value;
-//             }
-//         };
-//     }
-// }
+style_property! {
+    #[doc = " TODO: add OverflowProperty descripion"]
+    #[doc = " <!-- @property-category=Layout Control -->"]
+    OverflowProperty("overflow") {
+        Default = "visible";
+        Item = Overflow;
+        Components = &'static mut Style;
+        Filters = With<Node>;
+        Parser = parse::OverflowParser;
+        Apply = |value, style, _assets, _commands, _entity| {
+            if &style.overflow != value {
+                style.overflow = *value;
+            }
+        };
+    }
+}
 
 style_property! {
     #[doc = " Specify element display by providing value to `Style.display`:"]
