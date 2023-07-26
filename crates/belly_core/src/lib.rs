@@ -1,5 +1,3 @@
-#![feature(hash_drain_filter)]
-
 pub mod element;
 pub mod eml;
 pub mod ess;
