@@ -177,9 +177,11 @@ pub struct Elements<'w, 's> {
 
 impl<'w, 's> Elements<'w, 's> {
     pub fn invalidate(&mut self, tree: Entity) {
-        self.commands()
-            .entity(tree)
-            .insert(InvalidateElement::default());
+        let cmd = self.commands()
+            .get_entity(tree);
+        if let Some(mut cmd) = cmd {
+            cmd.insert(InvalidateElement::default());
+        }
     }
 
     pub fn invalidate_all(&mut self) {
@@ -456,10 +458,12 @@ unsafe impl<'w, 's> SystemParam for ElementCommands<'w, 's> {
 pub struct RemoveStateCommand(Entity, Tag);
 impl Command for RemoveStateCommand {
     fn apply(self, world: &mut World) {
-        if let Some(mut element) = world.entity_mut(self.0).get_mut::<Element>() {
-            let state = self.1;
-            if element.state.contains(&state) {
-                element.state.remove(&state);
+        if let Some(mut entity) = world.get_entity_mut(self.0) {
+            if let Some(mut element) = entity.get_mut::<Element>() {
+                let state = self.1;
+                if element.state.contains(&state) {
+                    element.state.remove(&state);
+                }
             }
         }
     }
@@ -467,10 +471,12 @@ impl Command for RemoveStateCommand {
 pub struct AddStateCommand(Entity, Tag);
 impl Command for AddStateCommand {
     fn apply(self, world: &mut World) {
-        if let Some(mut element) = world.entity_mut(self.0).get_mut::<Element>() {
-            let state = self.1;
-            if !element.state.contains(&state) {
-                element.state.insert(state);
+        if let Some(mut entity) = world.get_entity_mut(self.0) {
+            if let Some(mut element) = entity.get_mut::<Element>() {
+                let state = self.1;
+                if !element.state.contains(&state) {
+                    element.state.insert(state);
+                }
             }
         }
     }
@@ -479,10 +485,12 @@ impl Command for AddStateCommand {
 pub struct AddClassCommand(Entity, Tag);
 impl Command for AddClassCommand {
     fn apply(self, world: &mut World) {
-        if let Some(mut element) = world.entity_mut(self.0).get_mut::<Element>() {
-            let class = self.1;
-            if !element.classes.contains(&class) {
-                element.classes.insert(class);
+        if let Some(mut entity) = world.get_entity_mut(self.0) {
+            if let Some(mut element) = entity.get_mut::<Element>() {
+                let class = self.1;
+                if !element.classes.contains(&class) {
+                    element.classes.insert(class);
+                }
             }
         }
     }
@@ -491,10 +499,12 @@ impl Command for AddClassCommand {
 pub struct RemoveClassCommand(Entity, Tag);
 impl Command for RemoveClassCommand {
     fn apply(self, world: &mut World) {
-        if let Some(mut element) = world.entity_mut(self.0).get_mut::<Element>() {
-            let class = self.1;
-            if element.classes.contains(&class) {
-                element.classes.remove(&class);
+        if let Some(mut entity) = world.get_entity_mut(self.0) {
+            if let Some(mut element) = entity.get_mut::<Element>() {
+                let class = self.1;
+                if element.classes.contains(&class) {
+                    element.classes.remove(&class);
+                }
             }
         }
     }
@@ -503,9 +513,9 @@ impl Command for RemoveClassCommand {
 pub struct CleanupElementCommand(Entity);
 impl Command for CleanupElementCommand {
     fn apply(self, world: &mut World) {
-        world
-            .entity_mut(self.0)
-            .remove::<(ElementBundle, TextElementBundle, ImageElementBundle)>();
+        if let Some(mut entity) = world.get_entity_mut(self.0) {
+            entity.remove::<(ElementBundle, TextElementBundle, ImageElementBundle)>();
+        }
     }
 }
 
