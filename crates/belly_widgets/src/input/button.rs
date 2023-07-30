@@ -34,21 +34,13 @@ impl Plugin for ButtonPlugin {
         app.add_systems(Update, force_btngroups_reconfiguration_system);
         app.add_systems(
             PreUpdate,
-            handle_input_system
-                .in_set(Label::HandleInput)
-                .after(input::Label::Signals),
-        );
-        app.add_systems(
-            PreUpdate,
-            handle_states_system
-                .in_set(Label::HandleStates)
-                .after(Label::HandleInput),
-        );
-        app.add_systems(
-            PreUpdate,
-            report_btngroup_changes
-                .in_set(Label::ReportChanges)
-                .after(Label::HandleStates),
+            (
+                handle_input_system,
+                handle_states_system,
+                report_btngroup_changes,
+            )
+                .chain()
+                .in_set(input::InputSystemsSet),
         );
     }
 }
@@ -162,13 +154,6 @@ ess_define! {
     .button-foreground * {
         color: #2f2f2f;
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
-enum Label {
-    HandleInput,
-    HandleStates,
-    ReportChanges,
 }
 
 #[derive(Event)]

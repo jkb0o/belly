@@ -24,7 +24,7 @@ impl Plugin for BuildPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<RequestReadyEvent>();
         app.add_event::<ReadyEvent>();
-        app.add_systems(PostUpdate, emit_ready_signal);
+        app.add_systems(PostUpdate, emit_ready_signal.in_set(ReadySystemSet));
         app.init_resource::<Slots>();
     }
 }
@@ -510,6 +510,9 @@ pub struct DefaultSignals;
 pub struct RequestReadyEvent(pub(crate) Entity);
 #[derive(Event)]
 pub struct ReadyEvent(Entity);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
+pub struct ReadySystemSet;
 
 fn emit_ready_signal(
     mut requests: EventReader<RequestReadyEvent>,

@@ -305,7 +305,7 @@ impl<Q: 'static + WorldQuery, E: Event> Connections<Q, E> {
             connections.sources.remove(&Some(*entity));
         }
     }
-    
+
     /// Clear connection entries matched the predicate `func`
     pub fn drain<F: Fn(Entity) -> bool>(&mut self, func: F) {
         for (_, connections) in self.iter_mut() {
@@ -316,7 +316,7 @@ impl<Q: 'static + WorldQuery, E: Event> Connections<Q, E> {
                     true
                 }
             });
-            
+
             connections.targets.retain(|entity, targets| {
                 let Some(entity) = entity else {
                     return true

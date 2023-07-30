@@ -177,8 +177,7 @@ pub struct Elements<'w, 's> {
 
 impl<'w, 's> Elements<'w, 's> {
     pub fn invalidate(&mut self, tree: Entity) {
-        let cmd = self.commands()
-            .get_entity(tree);
+        let cmd = self.commands().get_entity(tree);
         if let Some(mut cmd) = cmd {
             cmd.insert(InvalidateElement::default());
         }

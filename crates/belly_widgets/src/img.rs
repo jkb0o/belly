@@ -22,18 +22,9 @@ impl Plugin for ImgPlugin {
         app.register_widget::<ImgWidget>();
 
         app.init_resource::<ImageRegistry>();
-        app.add_systems(Update, load_img.in_set(ImgSet::Load));
         app.add_systems(
             Update,
-            update_img_size
-                .in_set(ImgSet::UpdateSize)
-                .after(ImgSet::Load),
-        );
-        app.add_systems(
-            Update,
-            update_img_layout
-                .in_set(ImgSet::UpdateLayout)
-                .after(ImgSet::UpdateSize),
+            (load_img, update_img_size, update_img_layout).chain(),
         );
         app.add_event::<ImgEvent>();
     }
@@ -63,13 +54,6 @@ fn img(ctx: &mut WidgetContext, img: &mut Img) {
     ctx.insert(ElementBundle::default())
         .push_children(&[img.entity]);
     ctx.commands().entity(img.entity).push_children(&content);
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
-pub enum ImgSet {
-    Load,
-    UpdateSize,
-    UpdateLayout,
 }
 
 #[derive(Resource, Deref, DerefMut, Default)]

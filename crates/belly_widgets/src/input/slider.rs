@@ -9,19 +9,12 @@ pub mod prelude {
     pub use super::SliderWidgetExtension;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
-enum Label {
-    GrabberInput,
-}
-
 pub(crate) struct SliderPlugin;
 impl Plugin for SliderPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PreUpdate,
-            handle_grabber_input
-                .in_set(Label::GrabberInput)
-                .after(input::Label::Signals),
+            handle_grabber_input.in_set(input::InputSystemsSet),
         );
         app.register_widget::<SliderWidget>();
     }

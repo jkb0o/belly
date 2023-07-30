@@ -1,6 +1,6 @@
 use crate::common::*;
 use ab_glyph::ScaleFont;
-use belly_core::build::*;
+use belly_core::{build::*, input};
 use belly_macro::*;
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
@@ -17,25 +17,13 @@ pub struct TextInputPlugin;
 impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut App) {
         app.register_widget::<TextinputWidget>();
-        app.add_systems(Update, blink_cursor)
-            .add_systems(
-                PreUpdate,
-                process_cursor_focus
-                    .in_set(TextInputSet::Focus)
-                    .after(belly_core::input::Label::Focus),
-            )
-            .add_systems(
-                PreUpdate,
-                process_mouse
-                    .in_set(TextInputSet::Mouse)
-                    .after(TextInputSet::Focus), // .after(TextInputLabel::Focus)
-            )
-            .add_systems(
-                PreUpdate,
-                process_keyboard_input
-                    .in_set(TextInputSet::Keyboard)
-                    .after(TextInputSet::Mouse),
-            );
+        app.add_systems(Update, blink_cursor);
+        app.add_systems(
+            PreUpdate,
+            (process_cursor_focus, process_mouse, process_keyboard_input)
+                .chain()
+                .in_set(input::InputSystemsSet),
+        );
     }
 }
 
@@ -106,13 +94,6 @@ ess_define! {
         bottom: 1px;
         background-color: #2f2f2f;
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
-pub enum TextInputSet {
-    Focus,
-    Mouse,
-    Keyboard,
 }
 
 #[derive(Component)]

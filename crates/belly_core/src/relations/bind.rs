@@ -38,7 +38,7 @@ fn write_component_changes<W: Component, S: BindableSource, T: BindableTarget>(
                     error!("Error transforming {:?}: {}", id, e.0);
                 } else if prop_descriptor.changed() {
                     // TODO: protect infinity circular loops by tracking property changes
-                    // info!("[bind] just writed {:?}", id);
+                    info!("[bind] just writed {:?}", id);
                     component_change.set_changed();
                 }
             }

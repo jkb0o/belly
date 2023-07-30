@@ -1,7 +1,6 @@
 use crate::{element::Element, element::Elements, tags};
 use bevy::{
     ecs::query::WorldQuery,
-    input::InputSystem,
     prelude::*,
     render::camera::RenderTarget,
     ui::{FocusPolicy, UiStack},
@@ -17,39 +16,28 @@ impl Plugin for ElementsInputPlugin {
             .init_resource::<Focused>()
             .add_systems(
                 PreUpdate,
-                pointer_input_system
-                    .in_set(Label::Signals)
-                    .after(InputSystem),
+                (
+                    pointer_input_system,
+                    (
+                        (hover_system, active_system),
+                        (tab_focus_system, focus_system).chain(),
+                    ),
+                )
+                    .chain()
+                    .in_set(InternalInputSystemsSet),
             )
-            .add_systems(
+            .configure_sets(
                 PreUpdate,
-                tab_focus_system
-                    .in_set(Label::TabFocus)
-                    .after(Label::Signals),
-            )
-            .add_systems(
-                PreUpdate,
-                focus_system.in_set(Label::Focus).after(Label::TabFocus),
-            )
-            .add_systems(
-                PreUpdate,
-                hover_system.in_set(Label::Hover).after(Label::Signals),
-            )
-            .add_systems(
-                PreUpdate,
-                active_system.in_set(Label::Active).after(Label::Signals),
+                (InternalInputSystemsSet, InputSystemsSet).chain(),
             );
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
-pub enum Label {
-    Signals,
-    TabFocus,
-    Focus,
-    Hover,
-    Active,
-}
+struct InternalInputSystemsSet;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
+pub struct InputSystemsSet;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PointerInputData {
@@ -233,9 +221,7 @@ pub fn pointer_input_system(
             }
         })
         .filter(|window| window.focused)
-        .find_map(|window| {
-            window.cursor_position()
-        })
+        .find_map(|window| window.cursor_position())
         .or_else(|| touches_input.first_pressed_position());
 
     if down {

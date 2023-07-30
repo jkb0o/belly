@@ -3,7 +3,7 @@ pub mod connect;
 pub mod ops;
 pub mod props;
 
-use crate::element::Elements;
+use crate::{element::Elements, eml::ReadySystemSet, input::InputSystemsSet};
 
 use self::bind::{BindableSource, BindableTarget, ChangesState};
 pub use self::connect::{Connections, EventContext, Handler};
@@ -22,44 +22,21 @@ use std::{
 
 pub struct RelationsPlugin;
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum RelationsSet {
-    PreUpdate,
-    Update,
-    PostUpdate,
-}
-
 impl Plugin for RelationsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<RelationsSystems>();
         app.init_resource::<ChangesState>();
-        app.configure_set(Update, RelationsSet::PreUpdate);
-        app.configure_set(PostUpdate, RelationsSet::Update);
-        app.configure_set(Last, RelationsSet::PostUpdate);
-
-        app.add_systems(
-            PreUpdate,
-            process_relations_system.in_set(RelationsSet::PreUpdate),
-        );
-        // For some reason with bevy 0.10 I can't process this system multiple times,
-        // App panics with:
-        // '`"Update"` and `"PostUpdate"` have a `before`-`after` relationship (which
-        // may be transitive) but share systems.
-        // app .add_systems(process_relations_system.in_set(RelationsSet::PostUpdate));
+        app.add_systems(PreUpdate, process_relations_system.after(InputSystemsSet));
+        app.add_systems(PostUpdate, process_relations_system.after(ReadySystemSet));
     }
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum BindingSet {
-    Process,
-    Collect,
-    Apply,
+pub enum RelationsSystemSet {
+    Binds,
+    Changes,
+    Signals,
     Custom,
-    Report,
-
-    // new `bound` system states
-    Bind,
-    Watch,
 }
 
 pub fn process_relations_system(world: &mut World) {
@@ -142,8 +119,12 @@ impl BindingSystemsInternal {
             .write()
             .unwrap()
             .push(Box::new(|schedule| {
-                schedule.add_systems(process_signals_system::<P, E>.in_set(BindingSet::Process));
-                schedule.add_systems(cleanup_signals_system::<P, E>.in_set(BindingSet::Process));
+                schedule.add_systems(
+                    process_signals_system::<P, E>.in_set(RelationsSystemSet::Signals),
+                );
+                schedule.add_systems(
+                    cleanup_signals_system::<P, E>.in_set(RelationsSystemSet::Signals),
+                );
             }));
     }
     pub fn add_custom_system<Params, S: 'static + IntoSystemConfigs<Params>>(
@@ -163,7 +144,7 @@ impl BindingSystemsInternal {
             .write()
             .unwrap()
             .push(Box::new(move |schedule| {
-                schedule.add_systems(system.in_set(BindingSet::Custom));
+                schedule.add_systems(system.in_set(RelationsSystemSet::Custom));
             }));
     }
     pub fn run(&self, world: &mut World) {
@@ -215,7 +196,8 @@ impl BindingSystemsInternal {
                 .write()
                 .unwrap()
                 .push(Box::new(|schedule| {
-                    schedule.add_systems(bind::watch_changes::<R>.in_set(BindingSet::Watch));
+                    schedule
+                        .add_systems(bind::watch_changes::<R>.in_set(RelationsSystemSet::Changes));
                 }));
         }
 
@@ -232,7 +214,8 @@ impl BindingSystemsInternal {
             .unwrap()
             .push(Box::new(|schedule| {
                 schedule.add_systems(
-                    bind::component_to_component_system::<R, W, S, T>.in_set(BindingSet::Bind),
+                    bind::component_to_component_system::<R, W, S, T>
+                        .in_set(RelationsSystemSet::Binds),
                 );
             }));
     }
@@ -263,7 +246,8 @@ impl BindingSystemsInternal {
             .unwrap()
             .push(Box::new(|schedule| {
                 schedule.add_systems(
-                    bind::resource_to_component_system::<R, W, S, T>.in_set(BindingSet::Bind),
+                    bind::resource_to_component_system::<R, W, S, T>
+                        .in_set(RelationsSystemSet::Binds),
                 );
             }));
     }
@@ -278,7 +262,16 @@ impl Default for BindingSystemsInternal {
         let systems = HashSet::default();
         let watchers = HashSet::default();
 
-        let schedule = Schedule::default();
+        let mut schedule = Schedule::default();
+        schedule.configure_sets(
+            (
+                RelationsSystemSet::Binds,
+                RelationsSystemSet::Changes,
+                RelationsSystemSet::Signals,
+                RelationsSystemSet::Custom,
+            )
+                .chain(),
+        );
         Self {
             schedule: RwLock::new(schedule),
             processors: RwLock::new(processors),
