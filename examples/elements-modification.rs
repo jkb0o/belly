@@ -13,6 +13,7 @@ fn main() {
         .run();
 }
 
+#[derive(Event)]
 pub struct ToggleClass(&'static str);
 
 fn process_events(mut elements: Elements, mut events: EventReader<ToggleClass>) {

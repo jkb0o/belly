@@ -127,7 +127,7 @@ fn emit_button_events(
 ) {
     for (entity, interaction) in interactions.iter() {
         match interaction {
-            Interaction::Clicked => events.send(ButtonEvent::Press(entity)),
+            Interaction::Pressed => events.send(ButtonEvent::Press(entity)),
             Interaction::Hovered => events.send(ButtonEvent::Hover(entity)),
             _ => {}
         }
