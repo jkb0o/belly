@@ -6,7 +6,7 @@ use bevy::prelude::*;
 
 style_property! {
     #[doc = " Specify how an element is positioned in a document acording to the `top`,"]
-    #[doc = " `right`, `bottom`, and `left` by providing value to `style_type`:"]
+    #[doc = " `right`, `bottom`, and `left` by providing value to `Style.position_type`:"]
     #[doc = " ```css"]
     #[doc = " position-type: absolute;"]
     #[doc = " ```"]
@@ -35,7 +35,7 @@ style_property! {
 }
 
 compound_style_property! {
-    #[doc = " Specify element position by providing values to `style`:"]
+    #[doc = " Specify element position by providing values to `Style.top` `Style.left` `Style.bottom` `Style.right`:"]
     #[doc = " ```css"]
     #[doc = " position: 2px 20% 10px auto;"]
     #[doc = " ```"]
@@ -48,7 +48,7 @@ compound_style_property! {
 }
 
 style_property! {
-    #[doc = " Specify element left position by providing value to `style.left`:"]
+    #[doc = " Specify element left position by providing value to `Style.left`:"]
     #[doc = " ```css"]
     #[doc = " left: 5px;"]
     #[doc = " ```"]
@@ -68,7 +68,7 @@ style_property! {
 }
 
 style_property! {
-    #[doc = " Specify element right position by providing value to `style.right`:"]
+    #[doc = " Specify element right position by providing value to `Style.right`:"]
     #[doc = " ```css"]
     #[doc = " right: 5px;"]
     #[doc = " ```"]
@@ -88,7 +88,7 @@ style_property! {
 }
 
 style_property! {
-    #[doc = " Specify element top position by providing value to `style.top`:"]
+    #[doc = " Specify element top position by providing value to `Style.top`:"]
     #[doc = " ```css"]
     #[doc = " top: 5px;"]
     #[doc = " ```"]
@@ -108,7 +108,7 @@ style_property! {
 }
 
 style_property! {
-    #[doc = " Specify element bottom position by providing value to `style.bottom`:"]
+    #[doc = " Specify element bottom position by providing value to `Style.bottom`:"]
     #[doc = " ```css"]
     #[doc = " bottom: 5px;"]
     #[doc = " ```"]
