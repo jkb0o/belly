@@ -232,7 +232,7 @@ fn process_keyboard_input(
     mut inputs: Query<(Entity, &mut TextInput, &Element)>,
     mut cursors: Query<&mut TextInputCursor>,
     mut styles: Query<&mut Style>,
-    mut texts: Query<&Text>,
+    texts: Query<&Text>,
 ) {
     let Some((entity, mut input)) = inputs.iter_mut()
         .filter(|(_, _, e)| e.focused())
@@ -243,7 +243,7 @@ fn process_keyboard_input(
         return;
     }
 
-    let Ok(text) = texts.get_mut(input.text)
+    let Ok(text) = texts.get(input.text)
         else { return };
 
     // not shure how it behaves on Windows or *nix,
