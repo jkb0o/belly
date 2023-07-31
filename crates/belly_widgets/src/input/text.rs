@@ -47,7 +47,12 @@ fn textinput(ctx: &mut WidgetContext, ti: &mut TextInput) {
         <span interactable="block" c:text-input c:text-input-border>
             <span c:text-input-background>
                 <span {container} c:text-input-container>
-                    <span {selection} c:text-input-selection s:display=managed()/>
+                    <span {selection}
+                        c:text-input-selection
+                        s:display=managed()
+                        s:left=managed()
+                        s:width=managed()
+                    />
                     <label {text} c:text-input-value/>
                     <span {cursor} c:text-input-cursor
                         s:position-type="absolute"
