@@ -412,6 +412,7 @@ pub trait Widget {
             ctx.insert(policy);
             ctx.insert(Interaction::default());
         }
+        ctx.insert(Name::new(self.name().as_str()));
         let names = vec![self.name()].into();
         let aliases = if let Some(alias) = self.alias() {
             vec![alias].into()
