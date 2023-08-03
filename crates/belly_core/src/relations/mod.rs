@@ -184,21 +184,19 @@ impl BindingSystemsInternal {
             TypeId::of::<S>(),
             TypeId::of::<T>(),
         );
-        if self.watchers.read().unwrap().contains(&watcher) {
-            return;
-        }
-        {
-            let watchers = self.watchers.write().unwrap();
-            if watchers.contains(&watcher) {
-                return;
+        if !self.watchers.read().unwrap().contains(&watcher) {
+            let mut watchers = self.watchers.write().unwrap();
+            if !watchers.contains(&watcher) {
+                watchers.insert(watcher);
+                self.system_queue
+                    .write()
+                    .unwrap()
+                    .push(Box::new(move |schedule| {
+                        schedule.add_systems(
+                            bind::watch_changes::<R>.in_set(RelationsSystemSet::Changes),
+                        );
+                    }));
             }
-            self.system_queue
-                .write()
-                .unwrap()
-                .push(Box::new(|schedule| {
-                    schedule
-                        .add_systems(bind::watch_changes::<R>.in_set(RelationsSystemSet::Changes));
-                }));
         }
 
         if self.systems.read().unwrap().contains(&entry) {
