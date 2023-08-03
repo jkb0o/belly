@@ -121,8 +121,10 @@ impl Element {
     }
     pub fn invalidate_entity(entity: Entity) -> impl Command {
         move |world: &mut World| {
-            if let Some(mut element) = world.entity_mut(entity).get_mut::<Element>() {
-                element.invalidate()
+            if let Some(mut entity) = world.get_entity_mut(entity) {
+                if let Some(mut element) = entity.get_mut::<Element>() {
+                    element.invalidate()
+                }
             }
         }
     }
@@ -177,10 +179,7 @@ pub struct Elements<'w, 's> {
 
 impl<'w, 's> Elements<'w, 's> {
     pub fn invalidate(&mut self, tree: Entity) {
-        let cmd = self.commands().get_entity(tree);
-        if let Some(mut cmd) = cmd {
-            cmd.insert(InvalidateElement::default());
-        }
+        self.commands().add(InvalidateElementCommand(tree));
     }
 
     pub fn invalidate_all(&mut self) {
@@ -397,7 +396,9 @@ impl<'w, 's, 'e> SelectedElements<'w, 's, 'e> {
 
     pub fn remove(self) {
         for entity in self.entities {
-            self.elements.commands.entity(entity).despawn_recursive();
+            if let Some(entity) = self.elements.commands.get_entity(entity) {
+                entity.despawn_recursive();
+            }
         }
     }
 
@@ -451,6 +452,15 @@ unsafe impl<'w, 's> SystemParam for ElementCommands<'w, 's> {
 
     fn apply(state: &mut Self::State, _system_meta: &SystemMeta, world: &mut World) {
         state.0.apply(world);
+    }
+}
+
+pub struct InvalidateElementCommand(Entity);
+impl Command for InvalidateElementCommand {
+    fn apply(self, world: &mut World) {
+        if let Some(mut entity) = world.get_entity_mut(self.0) {
+            entity.insert(InvalidateElement::default());
+        }
     }
 }
 
@@ -530,7 +540,9 @@ pub fn invalidate_elements(
     invalidated.clear();
     for entity in invalid.iter() {
         invalidate_children(entity, &children, &mut elements, invalidated.deref_mut());
-        commands.entity(entity).remove::<InvalidateElement>();
+        if let Some(mut entity) = commands.get_entity(entity) {
+            entity.remove::<InvalidateElement>();
+        }
     }
 }
 
