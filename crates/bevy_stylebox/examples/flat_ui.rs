@@ -1,3 +1,5 @@
+// This example renders wrong.
+// See https://github.com/bevyengine/bevy/issues/9350
 use bevy::prelude::*;
 use bevy_stylebox::*;
 
@@ -6,13 +8,12 @@ use bevy_stylebox::*;
 const INNER_RADIUS: f32 = 12.;
 const OUTER_RADIUS: f32 = 16.;
 const BUTTON_RADIUS: f32 = 6.;
-const MESSAGE: &str = "
-  This example demonstrate how
-to use circle texture to create
-    UI with rounded corners.
-Resize application window to see
-     how the content feels.
-";
+
+const MESSAGE: &str = "This example demonstrates how \
+to use circle texture to create \
+UI with rounded corners. \
+Resize application window to see \
+how the content behaves.";
 
 fn main() {
     let mut app = App::new();
@@ -74,11 +75,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     style: Style {
                         flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::Center,
-                        min_width: Val::Px(0.),
+                        min_width: Val::Auto,
                         min_height: Val::Px(250.),
-                        // align_self: AlignSelf::FlexEnd,
-                        // align_content: AlignContent::Stretch,
-                        // align_items: AlignItems::FlexStart,
                         width: Val::Px(500.),
                         height: Val::Auto,
                         ..default()
@@ -120,9 +118,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     },
                                 ),
                                 style: Style {
-                                    width: Val::Px(0.),
-                                    height: Val::Px(0.),
-                                    max_width: Val::Px(0.),
+                                    width: Val::Auto,
+                                    height: Val::Auto,
+                                    // width: Val::Px(0.),
+                                    // height: Val::Px(0.),
+                                    max_width: Val::Auto,
                                     max_height: Val::Px(20.),
                                     ..default()
                                 },
@@ -179,6 +179,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 flex_direction: FlexDirection::Column,
                                 align_items: AlignItems::Center,
                                 padding: UiRect::all(Val::Px(8.)),
+                                // width: Val::Percent(100.),
                                 ..default()
                             },
                             stylebox: box_round_bot_inner.clone(),
@@ -189,29 +190,30 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                             parent
                                 .spawn(NodeBundle {
+                                    background_color: Color::LIME_GREEN.into(),
                                     style: Style {
                                         flex_grow: 1.,
                                         justify_content: JustifyContent::Center,
-                                        // align_content: AlignContent::Center,
                                         align_items: AlignItems::Center,
+                                        align_content: AlignContent::Center,
+                                        flex_wrap: FlexWrap::Wrap,
+                                        column_gap: Val::Px(5.),
                                         ..default()
                                     },
                                     ..default()
                                 })
                                 .with_children(|parent| {
-                                    parent.spawn(TextBundle {
-                                        text: Text::from_section(
-                                            MESSAGE.to_string(),
+                                    for word in MESSAGE.split(" ").filter(|w| !w.is_empty()) {
+                                        parent.spawn(TextBundle::from_section(
+                                            word,
                                             TextStyle {
                                                 font: asset_server
                                                     .load("SourceCodePro-ExtraLight.ttf"),
                                                 font_size: 20.,
                                                 color: Color::BLACK,
                                             },
-                                        ),
-                                        style: Style { ..default() },
-                                        ..default()
-                                    });
+                                        ));
+                                    }
                                 });
 
                             // OK BUTTON
