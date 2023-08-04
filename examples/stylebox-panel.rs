@@ -21,6 +21,7 @@ fn setup(mut commands: Commands) {
             flex-grow: 1;
             color: black;
         }
+
         .flat {
             stylebox: "circle.basis", 50%, 6px, 0px, #bfbfbf;
         }

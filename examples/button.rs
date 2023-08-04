@@ -109,6 +109,7 @@ fn setup(mut commands: Commands) {
     commands.add(StyleSheet::parse(
         r#"
         body: {
+            flex-direction: column;
             padding: 20px;
             justify-content: center;
             align-content: center;

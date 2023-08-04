@@ -15,6 +15,7 @@ fn setup(mut commands: Commands) {
         r#"
         div { 
             padding: 10px;
+            flex-direction: column;
         }
         .primary {
             background-color: white;
