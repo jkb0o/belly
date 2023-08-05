@@ -72,6 +72,8 @@ impl Plugin for PropertyPlugin {
         app.register_property::<impls::spacing::BorderRightProperty>();
         app.register_property::<impls::spacing::BorderTopProperty>();
         app.register_property::<impls::spacing::BorderBottomProperty>();
+        app.register_property::<impls::spacing::ColumnGapProperty>();
+        app.register_property::<impls::spacing::RowGapProperty>();
 
         // size constraints
         app.register_property::<impls::size_constraints::WidthProperty>();
