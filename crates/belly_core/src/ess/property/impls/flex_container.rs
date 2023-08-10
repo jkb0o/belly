@@ -76,6 +76,9 @@ style_property! {
     #[doc = " it controls the alignment of items on the [Cross Axis](https://developer.mozilla.org/en-US/docs/Glossary/Cross_Axis)."]
     #[doc = " "]
     #[doc = " Supported values:"]
+    #[doc = " - `default`: The items are packed in their default position as if no alignment was applied"]
+    #[doc = " - `start`: Items are packed towards the start of the axis."]
+    #[doc = " - `end`: Items are packed towards the end of the axis."]
     #[doc = " - `flex-start`: The cross-start margin edges of the flex items are flushed with"]
     #[doc = "   the cross-start edge of the line."]
     #[doc = " - `flex-end`: The cross-start margin edges of the flex items are flushed with"]
@@ -89,7 +92,7 @@ style_property! {
     #[doc = "   box is the same as the line while respecting width and height constraints."]
     #[doc = " <!-- @property-category=Flex Container -->"]
     AlignItemsProperty("align-items") {
-        Default = "stretch";
+        Default = "default";
         Item = AlignItems;
         Components = &'static mut Style;
         Filters = With<Node>;
@@ -103,10 +106,33 @@ style_property! {
 }
 
 style_property! {
-    #[doc = " TODO: write AlignContent description"]
+    #[doc = " For Flexbox containers:"]
+    #[doc = " - Controls alignment of lines if `flex-wrap` is set to `wrap`"]
+    #[doc = "   and there are multiple lines of items"]
+    #[doc = " For CSS Grid container:"]
+    #[doc = " - Controls alignment of grid rows"]
+    #[doc = " "]
+    #[doc = " <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>"]
+    #[doc = " "]
+    #[doc = " Supported values:"]
+    #[doc = " - `default`: The items are packed in their default position as if no alignment was applied"]
+    #[doc = " - `start`: Each line moves towards the start of the cross axis."]
+    #[doc = " - `end`: Each line moves towards the end of the cross axis."]
+    #[doc = " - `flex-start`: Each line moves towards the start of the cross axis, unless the flex"]
+    #[doc = "   direction is reversed; then the line moves towards the end of the cross axis."]
+    #[doc = " - `flex-end`: Each line moves towards the end of the cross axis, unless the flex"]
+    #[doc = "   direction is reversed; then the line moves towards the start of the cross axis."]
+    #[doc = " - `center`: Each line moves towards the center of the cross axis."]
+    #[doc = " - `stretch`: Each line will stretch to fill the remaining space."]
+    #[doc = " - `space-between`: Each line fills the space it needs, putting the remaining space,"]
+    #[doc = "   if any inbetween the lines."]
+    #[doc = " - `space-evenly`: The gap between the first and last items is exactly THE SAME as the"]
+    #[doc = "   gap between items. The gaps are distributed evenly."]
+    #[doc = " - `space-around`: Each line fills the space it needs, putting the remaining space, if"]
+    #[doc = "   any around the lines."]
     #[doc = " <!-- @property-category=Flex Container -->"]
     AlignContentProperty("align-content") {
-        Default = "stretch";
+        Default = "default";
         Item = AlignContent;
         Components = &'static mut Style;
         Filters = With<Node>;
@@ -120,10 +146,29 @@ style_property! {
 }
 
 style_property! {
-    #[doc = " TODO: write JustifyContent description"]
+    #[doc = " For Flexbox containers:"]
+    #[doc = " - Controls alignment of items in the main axis"]
+    #[doc = " For CSS Grid containers:"]
+    #[doc = " - Controls alignment of grid columns"]
+    #[doc = " "]
+    #[doc = " <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>"]
+    #[doc = " "]
+    #[doc = " Supported values:"]
+    #[doc = " - `default`: The items are packed in their default position as"]
+    #[doc = "   if no alignment was applied"]
+    #[doc = " - `start`: Items are packed toward the start of the axis."]
+    #[doc = " - `end`: Items are packed toward the end of the axis."]
+    #[doc = " - `flex-start`: Pushed towards the start, unless the flex direction"]
+    #[doc = "   is reversed; then pushed towards the end."]
+    #[doc = " - `flex-end`: Pushed towards the end, unless the flex direction is reversed;"]
+    #[doc = "   then pushed towards the start."]
+    #[doc = " - `center`: Centered along the main axis."]
+    #[doc = " - `space-between`: Remaining space is distributed between the items."]
+    #[doc = " - `space-around`: Remaining space is distributed around the items."]
+    #[doc = " - `space-evenly`: Like `space-around` but with even spacing between items."]
     #[doc = " <!-- @property-category=Flex Container -->"]
     JustifyContentProperty("justify-content") {
-        Default = "flex-start";
+        Default = "default";
         Item = JustifyContent;
         Components = &'static mut Style;
         Filters = With<Node>;

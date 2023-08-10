@@ -159,6 +159,8 @@ style_property! {
     #[doc = "   without actually rendering anything"]
     #[doc = " - `flex`: display element according to the"]
     #[doc = "   [Flexbox](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flexible_Box_Layout)."]
+    #[doc = " - `grid`: display element according to the"]
+    #[doc = "   [Grid](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout)."]
     #[doc = " "]
     #[doc = " <!-- @property-category=Layout Control -->"]
     DisplayProperty("display") {
@@ -169,7 +171,6 @@ style_property! {
         Parser = parse::IdentifierParser<Display>;
         Apply = |value, style, _assets, _commands, _entity| {
             if &style.display != value {
-                info!("set display = {value:?}");
                 style.display = *value;
             }
         };

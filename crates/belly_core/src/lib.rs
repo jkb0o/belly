@@ -101,6 +101,7 @@ pub enum ElementsError {
     InvalidSelector,
     /// An unexpected token was found on a style sheet rule.
     UnexpectedToken(String),
+    EndOfInput,
 }
 
 impl std::error::Error for ElementsError {}
@@ -115,6 +116,7 @@ impl std::fmt::Display for ElementsError {
             ElementsError::InvalidPropertyValue(p) => write!(f, "Invalid property value: {}", p),
             ElementsError::InvalidSelector => write!(f, "Invalid selector"),
             ElementsError::UnexpectedToken(t) => write!(f, "Unexpected token: {}", t),
+            ElementsError::EndOfInput => write!(f, "Unexpected end of input"),
         }
     }
 }

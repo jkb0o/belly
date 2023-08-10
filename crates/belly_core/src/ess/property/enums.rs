@@ -39,6 +39,7 @@ macro_rules! prop_to_enum {
 prop_to_enum! { Display,
     "none" => None,
     "flex" => Flex,
+    "grid" => Grid,
 }
 
 prop_to_enum! { PositionType,
@@ -66,6 +67,9 @@ prop_to_enum! { FlexWrap,
 }
 
 prop_to_enum! { AlignItems,
+    "default" => Default,
+    "start" => Start,
+    "end" => End,
     "flex-start" => FlexStart,
     "flex-end" => FlexEnd,
     "center" => Center,
@@ -74,6 +78,9 @@ prop_to_enum! { AlignItems,
 }
 
 prop_to_enum! { AlignContent,
+    "default" => Default,
+    "start" => Start,
+    "end" => End,
     "flex-start" => FlexStart,
     "flex-end" => FlexEnd,
     "center" => Center,
@@ -83,12 +90,33 @@ prop_to_enum! { AlignContent,
 }
 
 prop_to_enum! { JustifyContent,
+    "default" => Default,
+    "start" => Start,
+    "end" => End,
     "flex-start" => FlexStart,
     "flex-end" => FlexEnd,
     "center" => Center,
     "space-between" => SpaceBetween,
     "space-around" => SpaceAround,
     "space-evenly" => SpaceEvenly,
+}
+
+prop_to_enum! { JustifyItems,
+    "default" => Default,
+    "start" => Start,
+    "end" => End,
+    "center" => Center,
+    "baseline" => Baseline,
+    "stretch" => Stretch,
+}
+
+prop_to_enum! { JustifySelf,
+    "auto" => Auto,
+    "start" => Start,
+    "end" => End,
+    "center" => Center,
+    "baseline" => Baseline,
+    "stretch" => Stretch,
 }
 
 prop_to_enum! { AlignSelf,
@@ -98,4 +126,12 @@ prop_to_enum! { AlignSelf,
     "center" => Center,
     "baseline" => Baseline,
     "stretch" => Stretch,
+}
+
+
+prop_to_enum! { GridAutoFlow,
+    "row" => Row,
+    "column" => Column,
+    "row-dense" => RowDense,
+    "column-dense" => ColumnDense,
 }
