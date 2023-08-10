@@ -9,6 +9,9 @@ use crate::{
     ess::SelectorElement, ess::StyleProperty, ess::StyleRule, ElementsError,
 };
 
+use super::StylePropertyToken;
+use super::StylePropertyFunction;
+
 pub struct StyleSheetParser {
     transformer: PropertyTransformer,
     extractor: PropertyExtractor,
@@ -214,15 +217,7 @@ impl<'i> DeclarationParser<'i> for PropertyParser {
         name: cssparser::CowRcStr<'i>,
         parser: &mut Parser<'i, 't>,
     ) -> Result<Self::Declaration, ParseError<'i, ElementsError>> {
-        let mut tokens = smallvec![];
-        for token in parse_values(parser)? {
-            match token.try_into() {
-                Ok(t) => tokens.push(t),
-                Err(_) => continue,
-            }
-        }
-
-        Ok((name.to_string().as_tag(), StyleProperty(tokens)))
+        Ok((name.to_string().as_tag(), StyleProperty(parse_values(parser)?)))
     }
 }
 
@@ -234,18 +229,84 @@ impl<'i> AtRuleParser<'i> for PropertyParser {
 
 fn parse_values<'i, 'tt>(
     parser: &mut Parser<'i, 'tt>,
-) -> Result<SmallVec<[Token<'i>; 8]>, ParseError<'i, ElementsError>> {
+) -> Result<SmallVec<[StylePropertyToken; 8]>, ParseError<'i, ElementsError>> {
     let mut values = SmallVec::new();
-
-    while let Ok(token) = parser.next_including_whitespace() {
-        values.push(token.clone())
+    loop {
+        match parse_value(parser) {
+            Ok(token) => values.push(token),
+            Err(
+                ParseError { kind: ParseErrorKind::Custom(ElementsError::EndOfInput), .. }
+            ) => return Ok(values),
+            Err(err) => return Err(err)
+        }
     }
+}
 
-    Ok(values)
+fn parse_value<'i, 'tt>(
+    parser: &mut Parser<'i, 'tt>,
+) -> Result<StylePropertyToken, ParseError<'i, ElementsError>> {
+    let loc = parser.current_source_location();
+    if let Ok(token) = parser.next().cloned() {
+        match token {
+            Token::Function(func) => {
+                let args = parser.parse_nested_block(|parser| {
+                    parser.parse_comma_separated(|parser| {
+                        let mut tokens = parse_values(parser)?;
+                        if tokens.len() == 1 {
+                            Ok(tokens.pop().unwrap())
+                        } else {
+                            Ok(StylePropertyToken::Tokens(tokens.into_vec()))
+                        }
+                    })
+                })?;
+                Ok(StylePropertyToken::Function(StylePropertyFunction {
+                    name: func.to_string(), args
+                }))
+            }
+            Token::Ident(val) => Ok(StylePropertyToken::Identifier(val.to_string())),
+            Token::Hash(val) => Ok(StylePropertyToken::Hash(val.to_string())),
+            Token::IDHash(val) => Ok(StylePropertyToken::Hash(val.to_string())),
+            Token::QuotedString(val) => Ok(StylePropertyToken::String(val.to_string())),
+            Token::Number { value, .. } => Ok(StylePropertyToken::Number(value.into())),
+            Token::Percentage { unit_value, .. } => {
+                Ok(StylePropertyToken::Percentage((unit_value * 100.0).into()))
+            }
+            Token::Dimension { value, unit, .. } => {
+                Ok(StylePropertyToken::Dimension(value.into(), unit.to_string()))
+            }
+            Token::Comma => Ok(StylePropertyToken::Comma),
+            Token::Delim(d) if d == '/' => Ok(StylePropertyToken::Slash),
+            token => Err(loc.new_custom_error(
+                ElementsError::UnexpectedToken(format!("Invalid token: {:?}", token))
+            ))
+        }
+    } else {
+        Err(loc.new_custom_error(
+            ElementsError::EndOfInput
+        ))
+    }
+}
+
+pub fn parse_style_property_value<T: AsRef<str>>(value: T) -> Result<StyleProperty, ElementsError> {
+    let mut input = cssparser::ParserInput::new(value.as_ref());
+    let mut parser = cssparser::Parser::new(&mut input);
+    match parse_values(&mut parser) {
+        Ok(tokens) => Ok(StyleProperty(tokens)),
+        Err(ParseError { kind: ParseErrorKind::Custom(err), .. }) =>  Err(err),
+        Err(ParseError { location, .. }) => {
+            Err(ElementsError::UnsupportedProperty(format!(
+                "Unesupported property value at {}:{}",
+                location.line,
+                location.column,
+            )))
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use crate::ess::{ExtractProperty, PropertyValue, StylePropertyToken, TransformProperty};
 
     use super::*;
@@ -624,5 +685,45 @@ mod tests {
                     assert_eq!(token, expected);
                 })
         });
+    }
+
+    #[test]
+    fn parse_function() {
+        let rules = TestParser::new().parse("a { f: minmax(1, \"23\", 4px); }");
+        assert_eq!(rules.len(), 1, "Should have a single rule (a)");
+        let value = rules[0]
+            .properties
+            .get(&"f".as_tag())
+            .unwrap()
+            .downcast_ref::<StyleProperty>()
+            .unwrap();
+        assert_eq!(value.len(), 1, "Should have a single token (func minmax)");
+        let func = value.get(0).unwrap();
+        assert_eq!(func, &StylePropertyToken::Function(
+            StylePropertyFunction {
+                name: "minmax".into(),
+                args: vec![
+                    StylePropertyToken::new_number(1.0),
+                    StylePropertyToken::new_string("23"),
+                    StylePropertyToken::new_dimension(4., "px")
+                ]
+            }
+        ));
+
+        let func = StyleProperty::from_str("minmax(1, \"23\", 4px)");
+        assert!(func.is_ok());
+        let func = func.unwrap();
+        assert_eq!(func.len(), 1);
+        let func = func.get(0).unwrap();
+        assert_eq!(func, &StylePropertyToken::Function(
+            StylePropertyFunction {
+                name: "minmax".into(),
+                args: vec![
+                    StylePropertyToken::new_number(1.0),
+                    StylePropertyToken::new_string("23"),
+                    StylePropertyToken::new_dimension(4., "px")
+                ]
+            }
+        ));
     }
 }
