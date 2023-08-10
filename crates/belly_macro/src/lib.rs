@@ -47,6 +47,17 @@ pub fn ess_define(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 }
 
 #[proc_macro]
+pub fn ess(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let stylesheet = parse_macro_input!(input as ess::StyleSheet);
+    let ctx = context::Context::new();
+    let core = ctx.core_path();
+    let repr = format!("{stylesheet:#}");
+    proc_macro::TokenStream::from(quote! {
+        #core::ess::StyleSheet::parse(#repr)
+    })
+}
+
+#[proc_macro]
 pub fn run(tree: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let run = parse_macro_input!(tree as Run);
     proc_macro::TokenStream::from(run.build())
