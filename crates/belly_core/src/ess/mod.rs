@@ -10,8 +10,6 @@ use bevy::{
     ecs::system::Command,
     prelude::*,
     reflect::{TypePath, TypeUuid},
-    text::TextLayoutInfo,
-    ui::UiSystem,
     utils::{hashbrown::hash_map::Keys, HashMap},
 };
 pub use property::*;
@@ -32,12 +30,6 @@ impl Plugin for EssPlugin {
         app.add_systems(Startup, crate::ess::defaults::setup_defaults);
 
         app.add_asset::<StyleSheet>();
-        app.add_systems(
-            PostUpdate,
-            fix_text_height
-                .after(ApplyStyleProperties)
-                .before(UiSystem::Layout),
-        );
         let extractor = app
             .world
             .get_resource_or_insert_with(PropertyExtractor::default)
@@ -276,15 +268,5 @@ fn process_styles_system(
     }
     if styles_changed {
         elements.invalidate_all();
-    }
-}
-
-pub fn fix_text_height(
-    mut texts: Query<(&Text, &mut Style), Or<(Changed<Text>, Changed<TextLayoutInfo>)>>,
-) {
-    for (text, mut style) in texts.iter_mut() {
-        if text.sections.len() > 0 {
-            style.height = Val::Px(text.sections[0].style.font_size);
-        }
     }
 }
