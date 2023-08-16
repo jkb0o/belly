@@ -50,10 +50,6 @@ Simplest of examples.
 Display an image with asset handles
 ![image-sources](../docs/img/examples/image-sources.png)
 
-## [line-breaks](line-breaks.rs)
-Render text with line breaks
-![line-breaks](../docs/img/examples/line-breaks.png)
-
 ## [primary-secondary](primary-secondary.rs)
 Reuse classes to style multiple elements
 ![primary-secondary](../docs/img/examples/primary-secondary.png)

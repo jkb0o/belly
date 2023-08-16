@@ -17,6 +17,9 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
     commands.add(StyleSheet::parse(
         "
+        body {
+          flex-direction: column;
+        }
         .hidden {
             display: none;
         }
@@ -33,7 +36,6 @@ fn setup(mut commands: Commands) {
           <button value=".tab2">"Tab 2"</button>
           <button value=".tab3">"Tab 3"</button>
         </buttongroup>
-        <br/>
         <div c:content>
           <div c:tab1>"Tab 1 content"</div>
           <div c:tab2 c:hidden>"Tab 2 content"</div>

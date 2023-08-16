@@ -79,7 +79,7 @@ fn buttongroup(ctx: &mut WidgetContext) {
 #[styles = BUTTON_STYLES]
 /// The `<button>` tag defines a clickable button.
 /// Inside a `<button>` widget you can put text (and tags
-/// like `<strong>`, `<br>`, `<img>`, etc.)
+/// like `<strong>`, `<img>`, etc.)
 /// A button can emit `pressed` and `released` signals.
 /// The button behaviour is defined by the `mode` param.
 /// When changing its pressed state, button adds `:pressed` ess

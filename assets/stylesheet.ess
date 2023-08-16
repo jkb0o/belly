@@ -1,6 +1,7 @@
 /* stylesheet.ess */
 body {
     padding: 5px;
+    flex-direction: column;
 }
 span {
     padding: 25px;

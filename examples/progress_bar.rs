@@ -12,10 +12,13 @@ fn main() {
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
     commands.add(eml! {
-        <body s:padding="50px">
-            "First five seconds progress:"<br/>
+        <body 
+            s:padding="50px"
+            s:flex-direction="column"
+            s:align-items="start"
+        >
+            "First five seconds progress:"
             <progressbar s:width="400px" maximum=3. bind:value=from!(Time:elapsed_seconds())/>
-            <br/>
             <progressbar s:height="400px" mode="vertical" maximum=3. bind:value=from!(Time:elapsed_seconds())/>
         </body>
     });

@@ -13,6 +13,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle {
+        transform: Transform::from_translation(Vec3::new(0., 0., 5.)),
         projection: OrthographicProjection {
             scaling_mode: ScalingMode::AutoMin {
                 min_width: 1024.,

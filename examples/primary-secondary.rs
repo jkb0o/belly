@@ -13,7 +13,8 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
     commands.add(StyleSheet::parse(
         r#"
-        div { 
+        div {
+            width: 100%;
             padding: 10px;
             flex-direction: column;
         }

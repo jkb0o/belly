@@ -15,7 +15,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
     commands.add(eml! {
         <body s:padding="50px">
-            "Hello, "<strong>"world"</strong>"!"<button>"and"</button><button><strong>"me"</strong></button>
+            "Hello, "<strong>"world"</strong>"!"
         </body>
     });
 }
