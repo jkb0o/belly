@@ -410,7 +410,18 @@ impl<'w, 's, 'e> SelectedElements<'w, 's, 'e> {
         self
     }
 
-    /// Adds eml content from `children` func to each matchet element
+    pub fn add_child_with<F: FnOnce(Entity) -> Eml>(&mut self, func: F) -> &mut Self {
+        if let Some(entity) = self.entities.first() {
+            let child = self.elements.commands.spawn_empty().id();
+            self.elements.commands.entity(*entity).add_child(child);
+            self.elements.commands.add(func(child).render_to(child));
+        }
+        self
+    }
+
+    /// Adds eml content from `children` func to each matched element
+    /// Looks like this is wrong implementation
+    #[deprecated(note = "This method works weird or doesn't work at all. Do not use it.")]
     pub fn add_children<F: Fn(Entity) -> Eml>(&mut self, children: F) -> &mut Self {
         for entity in self.entities.iter().copied() {
             self.elements.add_child(entity, children(entity));
