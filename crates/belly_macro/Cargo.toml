@@ -13,7 +13,6 @@ bevy = "0.11"
 quote = "1.0.21"
 syn-rsx = { git = "https://github.com/stoically/syn-rsx.git" }
 # syn-rsx = { git = "https://github.com/jkb0o/syn-rsx.git", branch = "add_syn_printing_feature" }
-belly_core = { path = "../belly_core" }
 proc-macro2 = { version="1.0.50", features = ["span-locations"] }
 procout = "0.1.13"
 syn = "1.0.107"
