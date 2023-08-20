@@ -10,10 +10,15 @@ use bevy::{
     prelude::*,
     utils::HashMap,
 };
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 fn main() {
     App::new()
+        // Maintenance
+        .register_type::<Item<TaskData>>()
+        // Defaults
         .add_plugins(DefaultPlugins)
+        .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(BellyPlugin)
         .add_systems(Startup, setup)
         // this will be implemented inside belly plugins
@@ -25,6 +30,7 @@ fn main() {
 
 // this is how example will look like
 
+#[derive(PartialEq, Debug, Reflect)]
 pub struct TaskData {
     name: String,
     complete: bool,
@@ -49,18 +55,20 @@ fn setup(mut commands: Commands, mut db: Tasks) {
     let todo = db
         .add_collection()
         .push(TaskData {
-            name: "hello".into(),
+            name: "Unfinished one".into(),
             complete: false,
         })
         .push(TaskData {
-            name: "".into(),
+            name: "Completed task example".into(),
             complete: true,
         })
         .id();
 
+    let create_task_data = commands.spawn(Name::new("Create task data")).id();
+
     commands.add(eml! {
         <body>
-            <list collection=todo render-item=|item| eml! {
+            <list collection=todo render-item= move |item| eml! {
                 <span c:task>
                     <textinput
                         bind:value=from!(item, Task:name)
@@ -71,6 +79,9 @@ fn setup(mut commands: Commands, mut db: Tasks) {
                         bind:pressed=to!(item, Task:complete)
                     >
                         {from!(item, Task:complete_label())}
+                    </button>
+                    <button on:press=run!(|ctx| { ctx.remove_item(todo, item); })>
+                        "Delete"
                     </button>
                 </span>
             }/>
@@ -88,12 +99,16 @@ fn setup(mut commands: Commands, mut db: Tasks) {
             // as run! closure argument, only WorldQuery args work.
             // There is the version with EventContext push_item
             // extension:
-            <button on:press=run!(|ctx| {
-                ctx.push_item(todo, TaskData {
-                    name: format!("Yet another task"),
-                    complete: false
-                });
-            })>"Add task"</button>
+            //
+            <span>
+                <textinput bind:value=!to(create_task_data, TaskData|name)/>
+                <button on:press=run!(|ctx| {
+                    ctx.push_item(todo, TaskData {
+                        name: format!("Yet another task"),
+                        complete: false
+                    });
+                })>"Add task"</button>
+            </span>
         </body>
     });
 
@@ -137,7 +152,8 @@ fn setup(mut commands: Commands, mut db: Tasks) {
 pub struct Collection;
 
 /// `Item` is the
-#[derive(Component, Deref, DerefMut)]
+#[derive(Reflect, Component, Deref, DerefMut, PartialEq, Debug)]
+// #[reflect(Component)]
 pub struct Item<T>(T);
 
 #[derive(Event, Debug)]
@@ -150,13 +166,17 @@ pub enum DatabaseEvent {
 pub struct Database<'w, 's, T: 'static + Send + Sync> {
     lists: Query<'w, 's, QCollections, ()>,
     items: Query<'w, 's, QItems<T>, ()>,
+
     commands: DatabaseCommands<'w, 's>,
     events: EventWriter<'w, DatabaseEvent>,
 }
 
 impl<'w, 's, T: 'static + Send + Sync> Database<'w, 's, T> {
     pub fn add_collection<'d>(&'d mut self) -> CollectionRef<'w, 's, 'd, T> {
-        let entity = self.commands.spawn(Collection).id();
+        let entity = self
+            .commands
+            .spawn((Collection, Name::new("Collection".clone())))
+            .id();
         self.collection(entity)
     }
     pub fn collection<'d>(&'d mut self, entity: Entity) -> CollectionRef<'w, 's, 'd, T> {
@@ -176,6 +196,7 @@ pub struct QCollections {
 
 #[derive(WorldQuery)]
 pub struct QItems<T: 'static + Send + Sync> {
+    pub entity: Entity,
     item: &'static Item<T>,
 }
 
@@ -226,11 +247,34 @@ impl<'w, 's, 'd, T: 'static + Send + Sync> CollectionRef<'w, 's, 'd, T> {
     }
     pub fn push(&mut self, item: T) -> &mut Self {
         let item = self.db.commands.spawn(Item(item)).id();
+        info!("Added entity {:?}", item);
         self.db.commands.entity(self.root).add_child(item);
         self.db.events.send(DatabaseEvent::ItemAdded {
             collection: self.root,
             item,
         });
+        self
+    }
+
+    pub fn remove(&mut self, item: Item<T>) -> &mut Self
+    where
+        T: PartialEq,
+    {
+        info!("call to remove");
+        // self.db.entities_by_item.
+        for qitem in self.db.items.iter_mut() {
+            if *qitem.item != item {
+                continue;
+            }
+            // info!("removing item: {:?}, qitem: {:?}", item, qitem.item);
+            self.db.events.send(DatabaseEvent::ItemRemoved {
+                collection: self.root,
+                item: qitem.entity,
+            });
+
+            self.db.commands.entity(qitem.entity).despawn_recursive();
+        }
+
         self
     }
 
@@ -243,14 +287,26 @@ impl<'w, 's, 'd, T: 'static + Send + Sync> CollectionRef<'w, 's, 'd, T> {
 
 pub trait EventContextCollectionExtension {
     fn push_item<T: 'static + Send + Sync>(&mut self, collection: Entity, item: T);
+    fn remove_item(&mut self, collection: Entity, item: Entity);
 }
 
 impl<'c, 'w, 's, E: Event> EventContextCollectionExtension for EventContext<'c, 'w, 's, E> {
     fn push_item<T: 'static + Send + Sync>(&mut self, collection: Entity, item: T) {
+        // collection = self.get_component::<Collection>(collection);
+        // collection.p
+
         let item = self.commands().spawn(Item(item)).id();
         self.commands().entity(collection).add_child(item);
         self.commands().add(move |world: &mut World| {
             let event = DatabaseEvent::ItemAdded { collection, item };
+            world.resource_mut::<Events<DatabaseEvent>>().send(event);
+        });
+    }
+
+    fn remove_item(&mut self, collection: Entity, item: Entity) {
+        self.commands().add(move |world: &mut World| {
+            world.entity_mut(item).despawn_recursive();
+            let event = DatabaseEvent::ItemRemoved { collection, item };
             world.resource_mut::<Events<DatabaseEvent>>().send(event);
         });
     }
@@ -320,17 +376,26 @@ fn process_events_system(
             info!("list with collection: {:?}", widget.collection);
             match event {
                 DatabaseEvent::ItemAdded { collection, item } => {
-                    // info!("item added, {:?}, {:?}, {:?}", widget.collection, )
+                    info!("item added");
                     if &widget.collection == collection && !widget.rendered_items.contains_key(item)
                     {
-                        info!("adding child to {entity:?}");
+                        info!("adding child {item:?} to {entity:?}");
                         elements.entity(entity).add_child_with(|rendered| {
                             widget.rendered_items.insert(*item, rendered);
                             (widget.render_func)(*item)
                         });
                     }
                 }
-                _ => (),
+                DatabaseEvent::ItemRemoved { collection, item } => {
+                    info!("Handling event: {:?}", event);
+                    if &widget.collection == collection && widget.rendered_items.contains_key(item)
+                    {
+                        let widget_item = widget.rendered_items.get(item).unwrap();
+                        elements.entity(*widget_item).remove();
+                        widget.rendered_items.remove(item);
+                        info!("item removed, {:?}", item);
+                    }
+                }
             }
         }
     }

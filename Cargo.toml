@@ -23,6 +23,7 @@ belly_macro = { path = "crates/belly_macro" }
 belly_core = { path = "crates/belly_core" }
 belly_widgets = { path = "crates/belly_widgets" }
 
+bevy-inspector-egui = "0.19.0"
 
 
 [[example]]
@@ -33,3 +34,9 @@ path = "examples/text-input.rs"
 name = "stylebox-panel"
 path = "examples/stylebox-panel.rs"
 required-features = ["bevy/basis-universal"]
+
+[[example]]
+name = "todo"
+path = "examples/todo.rs"
+
+
