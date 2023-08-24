@@ -1333,6 +1333,87 @@ Coming soon
 
 ---
 
+## <a name="goals"></a> Design goals
+
+---
+
+`belly` design goals is to become [`polako`](https://crates.io/crates/polako) and come to a world without capitalism.
+
+The [`polako`](https://crates.io/crates/polako) looks at least like this:
+
+```rust
+/* 00 */ // examples/color-picker.rs
+/* 01 */ // cargo run --example color-picker
+/* 02 */ use bevy::prelude::*;
+/* 03 */ use polako::ui::*;
+/* 04 */ 
+/* 05 */ fn main() {
+/* 06 */     App::new()
+/* 07 */         .add_plugins(DefaultPlugins)
+/* 08 */         .add_plugin(BellyPlugin)
+/* 09 */         .add_startup_system(setup)
+/* 10 */         .run();
+/* 11 */ }
+/* 12 */ 
+/* 13 */ const COLORS: &[&'static str] = &[
+/* 14 */     // from https://colorswall.com/palette/105557
+/* 15 */     // Red     Pink       Purple     Deep Purple
+/* 16 */     "#f44336", "#e81e63", "#9c27b0", "#673ab7",
+/* 17 */     // Indigo  Blue       Light Blue Cyan
+/* 18 */     "#3f51b5", "#2196f3", "#03a9f4", "#00bcd4",
+/* 19 */     // Teal    Green      Light      Green Lime
+/* 20 */     "#009688", "#4caf50", "#8bc34a", "#cddc39",
+/* 21 */     // Yellow  Amber      Orange     Deep Orange
+/* 22 */     "#ffeb3b", "#ffc107", "#ff9800", "#ff5722",
+/* 23 */ ];
+/* 24 */
+/* 24 */
+/* 25 */ #[widget(ColorBox)]        // associate widget with component
+/* 26 */ #[prop(color: Rgba)]       // generate bindable prop for ColorBox
+/* 27 */ fn colorbox() {
+/* 28 */     eml! { <span s:backround-color={{ this.color }}/> }
+/* 29 */ }
+/* 30 */ 
+/* 31 */ fn setup(mut commands: Commands, mut el: Elements) {
+/* 32 */     commands.spawn(Camera2dBundle::default());
+/* 33 */     el.body().add(eml! {
+/* 34 */         <style load="color-picker.ess"/>
+/* 35 */         <span c:header>"Color value: "{{ cb.value }}</span>
+/* 36 */         <span c:controls>
+/* 37 */             <slider c:red bind:value={{ cb.color.r }} />
+/* 38 */             <slider c:green bind:value={{ cb.color.g }} />
+/* 39 */             <slider c:blue bind:value={{ cb.color.b }} />
+/* 40 */             <slider c:alpha bind:value={{ cb.color.a }} />
+/* 41 */         </span>
+/* 42 */         <img src="trbg.png">
+/* 43 */             <colrobox:cb/>
+/* 44 */         </img>
+/* 45 */         <span c:colors>
+/* 46 */         <for color in COLORS>
+/* 47 */             <button on:press={|| cb.color = color.into() }>
+/* 48 */                 <span s:background-color=*color/>
+/* 49 */             </button>
+/* 50 */         </for>
+/* 51 */         </span>
+/* 52 */     });
+/* 53 */ }
+```
+
+diff:
+- no need to call `commands.add(StyleSheet::load(".."))`
+- no need to spaws entities explictly
+- assosiated binds sintad `{{ associated_expression }}`
+- associated entity for attribute defined explictly
+- bindable style props
+- no `on:ready` needed
+- scoped styles
+- entity binds to nodes with `<span:my_entity>` syntax
+- handlers defined with `{|...| associated_expression}` syntax
+
+
+
+---
+
 ## <a name="license"></a> License
 
 ---
