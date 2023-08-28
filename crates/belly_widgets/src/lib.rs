@@ -2,6 +2,7 @@ pub mod common;
 pub mod img;
 pub mod input;
 pub mod range;
+pub mod follow;
 use bevy::prelude::Plugin;
 
 #[derive(Default)]
@@ -13,6 +14,7 @@ impl Plugin for WidgetsPlugin {
         app.add_plugins(range::RangePlugin);
         app.add_plugins(img::ImgPlugin);
         app.add_plugins(input::InputPlugins);
+        app.add_plugins(follow::FollowPlugin);
     }
 }
 
@@ -20,6 +22,7 @@ pub mod prelude {
     pub use crate::common::prelude::*;
     pub use crate::img::prelude::*;
     pub use crate::input::prelude::*;
+    pub use crate::follow::prelude::*;
 }
 
 pub mod tags {
