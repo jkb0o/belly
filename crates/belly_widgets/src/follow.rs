@@ -46,14 +46,15 @@ fn follow_system(
     mut commands: Commands,
     windows: Query<&Window>,
 ) {
-    let window = windows.single();
-    for (entity, follow, mut style, node) in follows.iter_mut() {
-        let Ok(tr) = transforms.get(follow.target) else {
+    for window in windows.iter() {
+        for (entity, follow, mut style, node) in follows.iter_mut() {
+            let Ok(tr) = transforms.get(follow.target) else {
             commands.entity(entity).despawn_recursive();
             continue
         };
-        let pos = tr.translation();
-        style.left = Val::Px((pos.x + window.width() * 0.5 - 0.5 * node.size().x).round());
-        style.top = Val::Px((window.height() * 0.5 - pos.y - 0.5 * node.size().y).round());
+            let pos = tr.translation();
+            style.left = Val::Px((pos.x + window.width() * 0.5 - 0.5 * node.size().x).round());
+            style.top = Val::Px((window.height() * 0.5 - pos.y - 0.5 * node.size().y).round());
+        }
     }
 }
