@@ -13,6 +13,7 @@ members = [
     "crates/belly_widgets",
     "crates/bevy_stylebox",
     "crates/tagstr",
+    "crates/bevy_mod_props",
 ]
 
 [dependencies]

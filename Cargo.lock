@@ -817,6 +817,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_mod_props"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "bevy_pbr"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
