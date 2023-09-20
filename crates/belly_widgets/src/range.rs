@@ -1,7 +1,8 @@
 use super::common::*;
 use belly_core::{build::*, impl_properties};
 use belly_macro::*;
-use bevy::{prelude::*, utils::HashMap};
+use bevy::prelude::*;
+use std::collections::HashMap;
 use std::str::FromStr;
 
 pub mod prelude {
@@ -14,8 +15,8 @@ pub(crate) struct RangePlugin;
 impl Plugin for RangePlugin {
     fn build(&self, app: &mut App) {
         app.register_widget::<RangeWidget>();
-        app.add_system(update_range_representation);
-        app.add_system(configure_range_layout);
+        app.add_systems(Update, update_range_representation);
+        app.add_systems(Update, configure_range_layout);
     }
 }
 
@@ -273,8 +274,8 @@ pub fn update_range_representation(
         let size = low.size() + high.size();
         let offset = size * range.value.relative();
         match range.mode {
-            LayoutMode::Horizontal => style.min_size.width = Val::Px(offset.x),
-            LayoutMode::Vertical => style.min_size.height = Val::Px(offset.y),
+            LayoutMode::Horizontal => style.min_width = Val::Px(offset.x),
+            LayoutMode::Vertical => style.min_height = Val::Px(offset.y),
         }
     }
 }
@@ -313,8 +314,8 @@ pub fn configure_range_layout(
         {
             let Ok(mut low) = styles.get_mut(progress.low_span) else { continue };
             match mode {
-                LayoutMode::Horizontal => low.min_size.height = Val::Undefined,
-                LayoutMode::Vertical => low.min_size.width = Val::Undefined,
+                LayoutMode::Horizontal => low.min_height = Val::Px(0.),
+                LayoutMode::Vertical => low.min_width = Val::Px(0.),
             }
         }
     }

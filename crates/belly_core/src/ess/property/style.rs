@@ -1,15 +1,19 @@
+use std::str::FromStr;
+
 use bevy::{
     prelude::{Color, Deref},
     ui::{UiRect, Val},
     utils::HashMap,
 };
-use cssparser::{BasicParseErrorKind, Token};
+
+use itertools::Itertools;
 use smallvec::SmallVec;
 use tagstr::Tag;
 
 use crate::ElementsError;
 
 use super::{colors, PropertyValue};
+use crate::ess::parser::parse_style_property_value;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Hash)]
 pub struct Number([u8; 4]);
@@ -49,6 +53,12 @@ impl From<&Number> for f32 {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Hash)]
+pub struct StylePropertyFunction {
+    pub name: String,
+    pub args: Vec<StylePropertyToken>
+}
+
 /// A property value token which was parsed from a CSS rule.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Hash)]
 pub enum StylePropertyToken {
@@ -66,12 +76,25 @@ pub enum StylePropertyToken {
     Hash(String),
     /// A quoted string, like `"some value"`.
     String(String),
+    /// Function, like minmax(2, 3)
+    Function(StylePropertyFunction),
+    /// Multiple tokens separated by space. Used in function parameters
+    Tokens(Vec<StylePropertyToken>),
     /// Property delimiter (comma or slash)
     Slash,
     Comma,
 }
 
 impl StylePropertyToken {
+    pub fn new_number(num: f32) -> Self {
+        StylePropertyToken::Number(Number::from_float(num))
+    }
+    pub fn new_string<T: AsRef<str>>(value: T) -> Self {
+        StylePropertyToken::String(value.as_ref().to_string())
+    }
+    pub fn new_dimension<T: AsRef<str>>(num: f32, dim: T) -> Self {
+        StylePropertyToken::Dimension(Number::from_float(num), dim.as_ref().to_string())
+    }
     pub fn to_string(&self) -> String {
         match self {
             StylePropertyToken::Percentage(v) => format!("{}%", v.to_float()),
@@ -80,6 +103,8 @@ impl StylePropertyToken {
             StylePropertyToken::Identifier(v) => format!("{}", v),
             StylePropertyToken::Hash(v) => format!("#{}", v),
             StylePropertyToken::String(v) => format!("\"{}\"", v),
+            StylePropertyToken::Function(f) => format!("{}({})", f.name, f.args.iter().map(|a| a.to_string()).join(", ")),
+            StylePropertyToken::Tokens(t) => t.iter().map(|t| t.to_string()).join(" "),
             StylePropertyToken::Slash => format!("/"),
             StylePropertyToken::Comma => format!(","),
         }
@@ -90,7 +115,8 @@ impl StylePropertyToken {
             StylePropertyToken::Percentage(p) => Ok(Val::Percent(p.to_float())),
             StylePropertyToken::Dimension(d, u) if u == "px" => Ok(Val::Px(d.to_float())),
             StylePropertyToken::Identifier(i) if i == "auto" => Ok(Val::Auto),
-            StylePropertyToken::Identifier(i) if i == "undefined" => Ok(Val::Undefined),
+            StylePropertyToken::Identifier(i) if i == "undefined" => Ok(Val::Px(0.)),
+            StylePropertyToken::Identifier(i) if i == "undefined" => Ok(Val::Px(0.)),
             _ => Err(ElementsError::InvalidPropertyValue(format!(
                 "Can't treat `{}` as size value",
                 self.to_string()
@@ -98,40 +124,27 @@ impl StylePropertyToken {
         }
     }
 
-    fn is_delimiter(&self) -> bool {
+    pub fn is_delimiter(&self) -> bool {
         match self {
             Self::Slash | Self::Comma => true,
             _ => false,
         }
     }
-}
 
-impl<'i> TryFrom<Token<'i>> for StylePropertyToken {
-    type Error = String;
-
-    fn try_from(token: Token<'i>) -> Result<Self, Self::Error> {
-        match token {
-            Token::Ident(val) => Ok(Self::Identifier(val.to_string())),
-            Token::Hash(val) => Ok(Self::Hash(val.to_string())),
-            Token::IDHash(val) => Ok(Self::Hash(val.to_string())),
-            Token::QuotedString(val) => Ok(Self::String(val.to_string())),
-            Token::Number { value, .. } => Ok(Self::Number(value.into())),
-            Token::Percentage { unit_value, .. } => {
-                Ok(Self::Percentage((unit_value * 100.0).into()))
-            }
-            Token::Dimension { value, unit, .. } => {
-                Ok(Self::Dimension(value.into(), unit.to_string()))
-            }
-            Token::Comma => Ok(Self::Comma),
-            Token::Delim(d) if d == '/' => Ok(Self::Slash),
-            token => Err(format!("Invalid token: {:?}", token)),
+    pub fn is_ident<T: AsRef<str>>(&self, ident: T) -> bool {
+        match self {
+            Self::Identifier(i) if i.as_str() == ident.as_ref() => true,
+            _ => false
         }
     }
 }
 
+
+pub type StylePropertyTokens = SmallVec<[StylePropertyToken; 8]>;
+
 /// A list of [`PropertyToken`] which was parsed from a single property.
 #[derive(Debug, Default, Clone, Deref, PartialEq, Eq, Hash)]
-pub struct StyleProperty(pub(crate) SmallVec<[StylePropertyToken; 8]>);
+pub struct StyleProperty(pub(crate) StylePropertyTokens);
 
 impl StyleProperty {
     pub fn as_stream(&self) -> StylePropertyTokenStream {
@@ -187,7 +200,6 @@ impl From<&StyleProperty> for StyleProperty {
 
 pub trait StylePropertyMethods {
     fn tokens(&self) -> &[StylePropertyToken];
-    fn hello(&self) {}
     fn to_string(&self) -> String {
         let mut result = "".to_string();
         for value in self.tokens().iter() {
@@ -317,9 +329,7 @@ pub trait StylePropertyMethods {
             StylePropertyToken::Percentage(val) => Ok(Val::Percent(val.into())),
             StylePropertyToken::Dimension(val, unit) if unit == "px" => Ok(Val::Px(val.into())),
             StylePropertyToken::Identifier(val) if val.as_str() == "auto" => Ok(Val::Auto),
-            StylePropertyToken::Identifier(val) if val.as_str() == "undefined" => {
-                Ok(Val::Undefined)
-            }
+            StylePropertyToken::Identifier(val) if val.as_str() == "undefined" => Ok(Val::Px(0.)),
             p => Err(ElementsError::InvalidPropertyValue(format!(
                 "Can't parrse Val from '{}'",
                 p.to_string()
@@ -416,48 +426,30 @@ impl ToRectMap for UiRect {
     }
 }
 
-fn parse_style_propery_value(value: &str) -> Result<StyleProperty, ElementsError> {
-    let mut input = cssparser::ParserInput::new(value);
-    let mut parser = cssparser::Parser::new(&mut input);
-    let mut values: SmallVec<[StylePropertyToken; 8]> = SmallVec::new();
-    loop {
-        let next = parser.next();
-        match next {
-            Ok(token) => values.push(token.clone().try_into().map_err(|e| {
-                ElementsError::InvalidPropertyValue(format!(
-                    "Can't parse `{}` (invalid token `{:?}`: {:?}",
-                    value, token, e
-                ))
-            })?),
-            Err(e) if e.kind == BasicParseErrorKind::EndOfInput => break,
-            Err(e) => {
-                return Err(ElementsError::InvalidPropertyValue(format!(
-                    "Can't parse `{}`: {:?}",
-                    value, e
-                )))
-            }
-        }
+impl FromStr for StyleProperty {
+    type Err = ElementsError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        parse_style_property_value(s)
     }
-    Ok(StyleProperty(values))
 }
 
 impl TryFrom<&str> for StyleProperty {
     type Error = ElementsError;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        parse_style_propery_value(value)
+        parse_style_property_value(value)
     }
 }
 
 impl TryFrom<String> for StyleProperty {
     type Error = ElementsError;
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        parse_style_propery_value(&value)
+        parse_style_property_value(&value)
     }
 }
 
 impl TryFrom<&String> for StyleProperty {
     type Error = ElementsError;
     fn try_from(value: &String) -> Result<Self, Self::Error> {
-        parse_style_propery_value(value.as_str())
+        parse_style_property_value(value.as_str())
     }
 }

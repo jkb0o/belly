@@ -34,6 +34,6 @@ impl Plugin for EmlPlugin {
             extractor,
             registry,
         });
-        app.add_system(update_eml_scene);
+        app.add_systems(Update, update_eml_scene);
     }
 }

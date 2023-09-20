@@ -28,15 +28,11 @@ use belly::build::*;
 use belly::widgets::input::button::ButtonWidget;
 use bevy::prelude::*;
 
-use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_startup_system(setup)
+        .add_plugins(BellyPlugin)
+        .add_systems(Startup, setup)
         .run();
 }
 

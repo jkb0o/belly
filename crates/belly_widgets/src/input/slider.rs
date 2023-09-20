@@ -9,19 +9,12 @@ pub mod prelude {
     pub use super::SliderWidgetExtension;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
-enum Label {
-    GrabberInput,
-}
-
 pub(crate) struct SliderPlugin;
 impl Plugin for SliderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(
-            handle_grabber_input
-                .in_base_set(CoreSet::PreUpdate)
-                .in_set(Label::GrabberInput)
-                .after(input::Label::Signals),
+        app.add_systems(
+            PreUpdate,
+            handle_grabber_input.in_set(input::InputSystemsSet),
         );
         app.register_widget::<SliderWidget>();
     }
@@ -97,11 +90,11 @@ fn handle_grabber_input(
             let relative = offset / (low_node.size() + high_node.size());
             match range.mode {
                 LayoutMode::Horizontal => {
-                    style.min_size.width = Val::Px(offset.x);
+                    style.min_width = Val::Px(offset.x);
                     range.value.set_relative(relative.x);
                 }
                 LayoutMode::Vertical => {
-                    style.min_size.height = Val::Px(offset.y);
+                    style.min_height = Val::Px(offset.y);
                     range.value.set_relative(relative.y);
                 }
             }

@@ -8,7 +8,6 @@ use bevy::{
     prelude::*,
     render::{Extract, RenderApp},
     ui::{ExtractedUiNode, ExtractedUiNodes, FocusPolicy, RenderUiSystem, UiStack},
-    window::PrimaryWindow,
 };
 
 /// `Stylebox` plugin for `bevy` engine. Dont forget to register it:
@@ -19,7 +18,7 @@ use bevy::{
 /// fn main() {
 ///    let mut app = App::new();
 ///    app.add_plugins(DefaultPlugins);
-///    app.add_plugin(StyleboxPlugin);
+///    app.add_plugins(StyleboxPlugin);
 /// }
 /// ```
 pub struct StyleboxPlugin;
@@ -31,13 +30,12 @@ const ONE_MINUS_TWO_EPSILONS: f32 = ONE_MINUS_EPSILON - EPSILON;
 
 impl Plugin for StyleboxPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(compute_stylebox_configuration)
-            .add_system(compute_stylebox_slices.in_base_set(CoreSet::PostUpdate))
+        app.add_systems(Update, compute_stylebox_configuration)
+            .add_systems(PostUpdate, compute_stylebox_slices)
             .sub_app_mut(RenderApp)
-            .add_system(
-                extract_stylebox
-                    .in_schedule(ExtractSchedule)
-                    .after(RenderUiSystem::ExtractNode),
+            .add_systems(
+                ExtractSchedule,
+                extract_stylebox.after(RenderUiSystem::ExtractNode),
             );
     }
 }
@@ -72,12 +70,12 @@ pub struct Stylebox {
     /// The image is always sliced into nine sections: four corners, four edges and the middle.
     /// - when `Val::Px` specified, region sliced to the exact amount of pixels
     /// - when `Val::Percent` specified, image region sliced relative to it size
-    /// - `Val::Auto` & `Val::Undefined` treated as `Val::Percent(50.)`
+    /// - `Val::Auto` treated as `Val::Percent(50.)`
     pub slice: UiRect,
     /// specifies the width of the edgets of the sliced region:
     /// - edges specified by `Val::Px` values resizes to exact amout of pixels
     /// - edges specified by `Val::Percent` resized relative to width provided by `slice` property
-    /// - `Val::Auto` & `Val::Undefined` treated as `Val::Percent(100.)`
+    /// - `Val::Auto` treated as `Val::Percent(100.)`
     ///
     /// Default value for `width` is `Val::Percent(100.)`: use width provided by `slice` property.
     pub width: UiRect,
@@ -85,7 +83,7 @@ pub struct Stylebox {
     /// By default the hole area of image defined by `texture` is used.
     /// - `Val::Px` values defines exact offset from the image edges in pixels
     /// - `Val::Percent` values defines offset from the image edges relative to the image size
-    /// - `Val::Auto` & `Val::Undefined` treated as `Val::Px(0.)`
+    /// - `Val::Auto` treated as `Val::Px(0.)`
     ///
     /// Default value for `region` is `Val::Px(0.)`
     pub region: UiRect,
@@ -115,7 +113,7 @@ impl std::fmt::Display for Stylebox {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct UiRectF32 {
     left: f32,
     right: f32,
@@ -395,7 +393,6 @@ fn normalize_axis(left: f32, right: f32) -> (f32, f32) {
 pub fn extract_stylebox(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     ui_stack: Extract<Res<UiStack>>,
-    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     images: Extract<Res<Assets<Image>>>,
     uinode_query: Extract<
         Query<(
@@ -408,10 +405,6 @@ pub fn extract_stylebox(
         )>,
     >,
 ) {
-    let Ok(primary) = windows.get_single() else {
-        return;
-    };
-    let scale_factor = primary.scale_factor() as f32;
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         let Ok((uinode, transform, stylebox, slices, visibility, clip)) = uinode_query.get(*entity) else {
             continue
@@ -434,10 +427,7 @@ pub fn extract_stylebox(
 
         for patch in slices.items.iter() {
             extracted_uinodes.uinodes.push(ExtractedUiNode {
-                transform: tr
-                    * GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()))
-                        .compute_matrix()
-                    * patch.transform,
+                transform: tr * patch.transform,
                 color: stylebox.modulate,
                 rect: patch.region,
                 image: image.clone_weak(),

@@ -2,6 +2,7 @@ use crate::element::Element;
 use crate::eml::WidgetData;
 use crate::eml::{parse, Param, Slots};
 use crate::ess::{PropertyExtractor, PropertyTransformer};
+use bevy::reflect::TypePath;
 use bevy::{
     asset::{AssetLoader, LoadedAsset},
     prelude::*,
@@ -43,7 +44,7 @@ impl EmlScene {
     }
 }
 
-#[derive(TypeUuid, Clone)]
+#[derive(TypeUuid, Clone, TypePath)]
 #[uuid = "f8d22a65-d671-4fa6-ae8f-0dccdb387ddd"]
 pub struct EmlAsset {
     root: Arc<EmlNode>,

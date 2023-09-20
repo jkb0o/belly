@@ -1,5 +1,6 @@
 pub mod flex_container;
 pub mod flex_item;
+pub mod grid;
 pub mod layout_control;
 pub mod size_constraints;
 pub mod spacing;

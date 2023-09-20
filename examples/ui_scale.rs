@@ -5,14 +5,15 @@ use bevy::{prelude::*, render::camera::ScalingMode, text::TextSettings, window::
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_startup_system(setup)
-        .add_system(scale)
+        .add_plugins(BellyPlugin)
+        .add_systems(Startup, setup)
+        .add_systems(Update, scale)
         .run();
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle {
+        transform: Transform::from_translation(Vec3::new(0., 0., 5.)),
         projection: OrthographicProjection {
             scaling_mode: ScalingMode::AutoMin {
                 min_width: 1024.,

@@ -97,7 +97,7 @@ pub fn parse_ident(input: syn::parse::ParseStream) -> syn::Result<String> {
             // println!("tttry {tt:?}, space: {has_space}, last: {last:?}, start: {:?}", tt.span().start());
             last = span.clone();
             if !first_iter && has_space {
-                return Ok((value, next));
+                return Ok((value, rest));
             }
             first_iter = false;
             match tt {
@@ -201,19 +201,32 @@ pub enum StyleValueToken {
     Ident(String),
     String(String),
     Color(String),
+    Values(Vec<StyleValueToken>),
+    Function(String, Vec<StyleValueToken>),
     Comma,
+    Slash
 }
 
 impl StyleValueToken {
     fn to_string(&self) -> String {
         match self {
-            Self::Ident(i) => format!(" {i}"),
-            Self::Dimension(b, s) => format!(" {b}{s}"),
-            Self::Percent(p) => format! {" {p}%"},
-            Self::Num(n) => format! {" {n}"},
-            Self::String(s) => format!(" \"{s}\""),
-            Self::Color(s) => format!(" #{s}"),
-            Self::Comma => format!(","),
+            Self::Ident(i) => format!("{i}"),
+            Self::Dimension(b, s) => format!("{b}{s}"),
+            Self::Percent(p) => format! {"{p}%"},
+            Self::Num(n) => format! {"{n}"},
+            Self::String(s) => format!("\"{s}\""),
+            Self::Color(s) => format!("#{s}"),
+            Self::Values(v) => format!(
+                "{}",
+                v.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(" "),
+            ),
+            Self::Function(name, args) => format!(
+                "{}({})",
+                name,
+                args.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(", "),
+            ),
+            Self::Comma => format!(", "),
+            Self::Slash => format!("/"),
         }
     }
 }
@@ -223,13 +236,12 @@ pub struct StyleValue(Vec<StyleValueToken>);
 
 impl std::fmt::Display for StyleValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut result = format!("");
-        for (idx, mut s) in self.0.iter().map(|s| s.to_string()).enumerate() {
-            if idx == 0 {
-                s = s.trim().to_string();
-            }
-            result = result + s.as_str();
-        }
+        let result = self.0
+            .iter()
+            .map(|v| v.to_string())
+            .collect::<Vec<_>>()
+            .join(" ")
+            .replace(" , ", ",");
         f.write_str(result.as_str())
     }
 }
@@ -238,6 +250,10 @@ impl syn::parse::Parse for StyleValue {
     fn parse(mut input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut value = vec![];
         loop {
+            // it is possible when parsing function arguments
+            if input.is_empty() {
+                return Ok(StyleValue(value));
+            }
             let span = input.span();
             if input.peek(Token![;]) {
                 return Ok(StyleValue(value));
@@ -245,6 +261,9 @@ impl syn::parse::Parse for StyleValue {
             if input.peek(Token![,]) {
                 input.parse::<Token![,]>()?;
                 value.push(StyleValueToken::Comma);
+            } else if input.peek(Token![/]) {
+                input.parse::<Token![/]>()?;
+                value.push(StyleValueToken::Slash);
             } else if input.peek(Token![#]) {
                 input.parse::<Token![#]>()?;
                 let color = input.step(|cursor| {
@@ -323,7 +342,21 @@ impl syn::parse::Parse for StyleValue {
                 }
             } else {
                 let ident = parse_ident(&mut input)?;
-                value.push(StyleValueToken::Ident(ident))
+                if !input.peek(syn::token::Paren) { // just an ident
+                    value.push(StyleValueToken::Ident(ident))
+                } else { // function
+                    let content;
+                    syn::parenthesized!(content in input);
+                    let args: Punctuated<StyleValue, Token![,]> = content.parse_terminated(StyleValue::parse)?;
+                    value.push(StyleValueToken::Function(
+                        ident,
+                        args.into_iter().map(|mut value| if value.len() == 1 {
+                            value.0.pop().unwrap()
+                        } else {
+                            StyleValueToken::Values(value.0)
+                        }).collect()
+                    ));
+                }
             }
         }
     }
@@ -616,6 +649,13 @@ mod test {
             r#"body { padding: 2px 10%; margin-left: 10px; }"#,
             // multi-prop with delim
             r#"body { stylebox: "hello.png", 2px 10%, 10%; margin-left: 10px; }"#,
+            // simple func
+            r#"body { grid-template-rows: flex(1); }"#,
+            // complex func
+            r#"body { grid-template-rows: repeat(2, flex(1)); }"#,
+            r#"body { grid-template-columns: min-content flex(1); }"#,
+            // test slash formating
+            r#"body { grid-row: 2 / span 2; }"#,
         ];
         for src in rules {
             println!("Checking '{src}'");

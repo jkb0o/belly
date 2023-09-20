@@ -35,7 +35,7 @@ style_property! {
 }
 
 compound_style_property! {
-    #[doc = " Specify element position by providing values to `Style.position`:"]
+    #[doc = " Specify element position by providing values to `Style.top` `Style.left` `Style.bottom` `Style.right`:"]
     #[doc = " ```css"]
     #[doc = " position: 2px 20% 10px auto;"]
     #[doc = " ```"]
@@ -48,7 +48,7 @@ compound_style_property! {
 }
 
 style_property! {
-    #[doc = " Specify element left position by providing value to `Style.position.left`:"]
+    #[doc = " Specify element left position by providing value to `Style.left`:"]
     #[doc = " ```css"]
     #[doc = " left: 5px;"]
     #[doc = " ```"]
@@ -60,15 +60,15 @@ style_property! {
         Filters = With<Node>;
         Parser = parse::ValParser;
         Apply = |value, style, _assets, _commands, _entity| {
-            if &style.position.left != value {
-                style.position.left = *value;
+            if &style.left != value {
+                style.left = *value;
             }
         };
     }
 }
 
 style_property! {
-    #[doc = " Specify element right position by providing value to `Style.position.right`:"]
+    #[doc = " Specify element right position by providing value to `Style.right`:"]
     #[doc = " ```css"]
     #[doc = " right: 5px;"]
     #[doc = " ```"]
@@ -80,15 +80,15 @@ style_property! {
         Filters = With<Node>;
         Parser = parse::ValParser;
         Apply = |value, style, _assets, _commands, _entity| {
-            if &style.position.right != value {
-                style.position.right = *value;
+            if &style.right != value {
+                style.right = *value;
             }
         };
     }
 }
 
 style_property! {
-    #[doc = " Specify element top position by providing value to `Style.position.top`:"]
+    #[doc = " Specify element top position by providing value to `Style.top`:"]
     #[doc = " ```css"]
     #[doc = " top: 5px;"]
     #[doc = " ```"]
@@ -100,15 +100,15 @@ style_property! {
         Filters = With<Node>;
         Parser = parse::ValParser;
         Apply = |value, style, _assets, _commands, _entity| {
-            if &style.position.top != value {
-                style.position.top = *value;
+            if &style.top != value {
+                style.top = *value;
             }
         };
     }
 }
 
 style_property! {
-    #[doc = " Specify element bottom position by providing value to `Style.position.bottom`:"]
+    #[doc = " Specify element bottom position by providing value to `Style.bottom`:"]
     #[doc = " ```css"]
     #[doc = " bottom: 5px;"]
     #[doc = " ```"]
@@ -120,13 +120,14 @@ style_property! {
         Filters = With<Node>;
         Parser = parse::ValParser;
         Apply = |value, style, _assets, _commands, _entity| {
-            if &style.position.bottom != value {
-                style.position.bottom = *value;
+            if &style.bottom != value {
+                style.bottom = *value;
             }
         };
     }
 }
 
+// todo!(add back Overflow)
 style_property! {
     #[doc = " TODO: add OverflowProperty descripion"]
     #[doc = " <!-- @property-category=Layout Control -->"]
@@ -135,7 +136,7 @@ style_property! {
         Item = Overflow;
         Components = &'static mut Style;
         Filters = With<Node>;
-        Parser = parse::IdentifierParser<Overflow>;
+        Parser = parse::OverflowParser;
         Apply = |value, style, _assets, _commands, _entity| {
             if &style.overflow != value {
                 style.overflow = *value;
@@ -158,6 +159,8 @@ style_property! {
     #[doc = "   without actually rendering anything"]
     #[doc = " - `flex`: display element according to the"]
     #[doc = "   [Flexbox](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flexible_Box_Layout)."]
+    #[doc = " - `grid`: display element according to the"]
+    #[doc = "   [Grid](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout)."]
     #[doc = " "]
     #[doc = " <!-- @property-category=Layout Control -->"]
     DisplayProperty("display") {
@@ -168,7 +171,6 @@ style_property! {
         Parser = parse::IdentifierParser<Display>;
         Apply = |value, style, _assets, _commands, _entity| {
             if &style.display != value {
-                info!("set display = {value:?}");
                 style.display = *value;
             }
         };

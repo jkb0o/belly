@@ -1,12 +1,12 @@
 [package]
 name = "belly_widgets"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = "0.10"
+bevy = "0.11"
 belly_core = { path = "../belly_core" }
 belly_macro = { path = "../belly_macro" }
 tagstr = { path = "../tagstr" }

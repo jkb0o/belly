@@ -10,6 +10,7 @@ pub use self::colors::*;
 pub use self::style::StyleProperty;
 pub use self::style::StylePropertyMethods;
 pub use self::style::StylePropertyToken;
+pub use self::style::StylePropertyFunction;
 pub use self::style::ToRectMap;
 use crate::tags::*;
 use crate::{
@@ -72,6 +73,8 @@ impl Plugin for PropertyPlugin {
         app.register_property::<impls::spacing::BorderRightProperty>();
         app.register_property::<impls::spacing::BorderTopProperty>();
         app.register_property::<impls::spacing::BorderBottomProperty>();
+        app.register_property::<impls::spacing::ColumnGapProperty>();
+        app.register_property::<impls::spacing::RowGapProperty>();
 
         // size constraints
         app.register_property::<impls::size_constraints::WidthProperty>();
@@ -94,6 +97,18 @@ impl Plugin for PropertyPlugin {
         app.register_property::<impls::stylebox::StyleboxRegionProperty>();
         app.register_property::<impls::stylebox::StyleboxSliceProperty>();
         app.register_property::<impls::stylebox::StyleboxWidthProperty>();
+
+        // grid
+        app.register_property::<impls::grid::GridAutoColumnsProperty>();
+        app.register_property::<impls::grid::GridAutoRowsProperty>();
+        app.register_property::<impls::grid::GridTemplateColumnsProperty>();
+        app.register_property::<impls::grid::GridTemplateRowsProperty>();
+        app.register_property::<impls::grid::GridRowProperty>();
+        app.register_property::<impls::grid::GridColumnProperty>();
+        app.register_property::<impls::grid::GridAutoFlowProperty>();
+        app.register_property::<impls::grid::JustifyItemsProperty>();
+        app.register_property::<impls::grid::JustifySelfProperty>();
+        
     }
 }
 
@@ -435,12 +450,12 @@ impl RegisterProperty for bevy::prelude::App {
             .entry(T::name())
             .and_modify(|_| panic!("Property `{}` already registered.", T::name()))
             .or_insert(T::transform);
-        self.add_system(
+        self.add_systems(
+            PostUpdate,
             T::apply_defaults
-                .in_base_set(CoreSet::PostUpdate)
                 .in_set(ApplyStyleProperties)
                 .after(InvalidateElements)
-                .before(UiSystem::Flex),
+                .before(UiSystem::Layout),
         );
         self
     }

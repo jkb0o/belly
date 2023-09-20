@@ -315,3 +315,49 @@ style_property! {
         };
     }
 }
+
+style_property! {
+    #[doc = " The size of the gutters between items in a horizontal flexbox"]
+    #[doc = " layout or between column in a grid layout"]
+    #[doc = " ```css"]
+    #[doc = " column-gap: 5px;"]
+    #[doc = " ```"]
+    #[doc = " Note: Values of `auto` are not valid and are treated as `0px`."]
+    #[doc = " <https://developer.mozilla.org/en-US/docs/Web/CSS/column-gap>"]
+    #[doc = " <!-- @property-category=Spacing -->"]
+    ColumnGapProperty("column-gap") {
+        Default = "0px";
+        Item = Val;
+        Components = &'static mut Style;
+        Filters = With<Node>;
+        Parser = parse::ValParser;
+        Apply = |value, style, _assets, _commands, _entity| {
+            if &style.column_gap != value {
+                style.column_gap = *value;
+            }
+        };
+    }
+}
+
+style_property! {
+    #[doc = " The size of the gutters between items in a vertical flexbox"]
+    #[doc = " layout or between rows in a grid layout"]
+    #[doc = " ```css"]
+    #[doc = " row-gap: 5px;"]
+    #[doc = " ```"]
+    #[doc = " Note: Values of `auto` are not valid and are treated as `0px`."]
+    #[doc = " <https://developer.mozilla.org/en-US/docs/Web/CSS/column-gap>"]
+    #[doc = " <!-- @property-category=Spacing -->"]
+    RowGapProperty("row-gap") {
+        Default = "0px";
+        Item = Val;
+        Components = &'static mut Style;
+        Filters = With<Node>;
+        Parser = parse::ValParser;
+        Apply = |value, style, _assets, _commands, _entity| {
+            if &style.row_gap != value {
+                style.row_gap = *value;
+            }
+        };
+    }
+}

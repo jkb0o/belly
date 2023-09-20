@@ -1,6 +1,6 @@
 use crate::common::*;
 use ab_glyph::ScaleFont;
-use belly_core::build::*;
+use belly_core::{build::*, input};
 use belly_macro::*;
 use bevy::{input::keyboard::KeyboardInput, prelude::*};
 
@@ -17,25 +17,13 @@ pub struct TextInputPlugin;
 impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut App) {
         app.register_widget::<TextinputWidget>();
-        app.add_system(blink_cursor)
-            .add_system(
-                process_cursor_focus
-                    .in_base_set(CoreSet::PreUpdate)
-                    .in_set(TextInputSet::Focus)
-                    .after(belly_core::input::Label::Focus),
-            )
-            .add_system(
-                process_mouse
-                    .in_base_set(CoreSet::PreUpdate)
-                    .in_set(TextInputSet::Mouse)
-                    .after(TextInputSet::Focus), // .after(TextInputLabel::Focus)
-            )
-            .add_system(
-                process_keyboard_input
-                    .in_base_set(CoreSet::PreUpdate)
-                    .in_set(TextInputSet::Keyboard)
-                    .after(TextInputSet::Mouse),
-            );
+        app.add_systems(Update, blink_cursor);
+        app.add_systems(
+            PreUpdate,
+            (process_cursor_focus, process_mouse, process_keyboard_input)
+                .chain()
+                .in_set(input::InputSystemsSet),
+        );
     }
 }
 
@@ -59,7 +47,12 @@ fn textinput(ctx: &mut WidgetContext, ti: &mut TextInput) {
         <span interactable="block" c:text-input c:text-input-border>
             <span c:text-input-background>
                 <span {container} c:text-input-container>
-                    <span {selection} c:text-input-selection s:display=managed()/>
+                    <span {selection}
+                        c:text-input-selection
+                        s:display=managed()
+                        s:left=managed()
+                        s:width=managed()
+                    />
                     <label {text} c:text-input-value/>
                     <span {cursor} c:text-input-cursor
                         s:position-type="absolute"
@@ -91,7 +84,7 @@ ess_define! {
         width: 100%;
         height: 100%;
         width: 100%;
-        overflow: hidden;
+        overflow: clip;
     }
     .text-input-selection {
         position-type: absolute;
@@ -106,13 +99,6 @@ ess_define! {
         bottom: 1px;
         background-color: #2f2f2f;
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
-pub enum TextInputSet {
-    Focus,
-    Mouse,
-    Keyboard,
 }
 
 #[derive(Component)]
@@ -232,7 +218,7 @@ fn process_keyboard_input(
     mut inputs: Query<(Entity, &mut TextInput, &Element)>,
     mut cursors: Query<&mut TextInputCursor>,
     mut styles: Query<&mut Style>,
-    mut texts: Query<&Text>,
+    texts: Query<&Text>,
 ) {
     let Some((entity, mut input)) = inputs.iter_mut()
         .filter(|(_, _, e)| e.focused())
@@ -243,13 +229,13 @@ fn process_keyboard_input(
         return;
     }
 
-    let Ok(text) = texts.get_mut(input.text)
+    let Ok(text) = texts.get(input.text)
         else { return };
 
     // not shure how it behaves on Windows or *nix,
     // may be platform dependent compilation here?
-    let cmd = keyboard.any_pressed([KeyCode::LWin, KeyCode::RWin]);
-    let shift = keyboard.any_pressed([KeyCode::LShift, KeyCode::RShift]);
+    let cmd = keyboard.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight]);
+    let shift = keyboard.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
     let mut index = input.index;
     let mut selected = input.selected.clone();
 
@@ -400,7 +386,7 @@ fn process_keyboard_input(
     let cursor_position = position_from_start + offset;
     // let offset = (position_from_start - container_width).max(0.);
     if let Ok(mut cursor_style) = styles.get_mut(input.cursor) {
-        cursor_style.position.left = Val::Px(cursor_position);
+        cursor_style.left = Val::Px(cursor_position);
     }
     if let Ok(mut contaienr_style) = styles.get_mut(input.container) {
         contaienr_style.padding.left = Val::Px(offset);
@@ -408,8 +394,8 @@ fn process_keyboard_input(
     if let Ok(mut selection_style) = styles.get_mut(input.selection) {
         if !selected.is_empty() {
             selection_style.display = Display::Flex;
-            selection_style.position.left = Val::Px(selection_from);
-            selection_style.size.width = Val::Px(selection_to - selection_from);
+            selection_style.left = Val::Px(selection_from);
+            selection_style.width = Val::Px(selection_to - selection_from);
         } else {
             selection_style.display = Display::None;
         }
@@ -516,7 +502,7 @@ fn process_mouse(
             }
 
             let mut selected = input.selected.clone();
-            let shift = keyboard.any_pressed([KeyCode::LShift, KeyCode::RShift]);
+            let shift = keyboard.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
             if evt.down() && evt.presses() == 2 {
                 selected.start(word_start);
                 selected.extend(word_end);

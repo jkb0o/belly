@@ -4,8 +4,8 @@ use bevy_stylebox::*;
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
-        .add_plugin(StyleboxPlugin)
-        .add_startup_system(setup)
+        .add_plugins(StyleboxPlugin)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -26,7 +26,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Percent(100.), Val::Percent(100.)),
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
                 justify_content: JustifyContent::SpaceAround,
                 align_items: AlignItems::Center,
                 ..default()
@@ -38,7 +39,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 parent.spawn(StyleboxBundle {
                     stylebox,
                     style: Style {
-                        size: Size::new(Val::Percent(40.), Val::Percent(80.)),
+                        width: Val::Percent(40.),
+                        height: Val::Percent(80.),
                         ..default()
                     },
                     ..default()

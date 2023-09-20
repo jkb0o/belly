@@ -12,8 +12,8 @@ fn main() {
     let mut app = App::new();
     app
         .add_plugins(DefaultPlugins)
-        .add_plugin(StyleboxPlugin)
-        .add_startup_system(setup)
+        .add_plugins(StyleboxPlugin)
+        .add_systems(Startup, setup)
         .run();
 }
 

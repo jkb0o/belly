@@ -1,5 +1,7 @@
+use bevy::ecs::component::Tick;
 use bevy::ecs::query::WorldQuery;
 use bevy::ecs::system::{Command, CommandQueue, SystemMeta, SystemParam};
+use bevy::ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy::ui::UiSystem;
 use bevy::utils::{HashMap, HashSet};
 use smallvec::SmallVec;
@@ -16,11 +18,11 @@ pub struct ElementsPlugin;
 impl Plugin for ElementsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ElementIdIndex>();
-        app.add_system(
+        app.add_systems(
+            PostUpdate,
             invalidate_elements
-                .in_base_set(CoreSet::PostUpdate)
                 .in_set(InvalidateElements)
-                .before(UiSystem::Flex),
+                .before(UiSystem::Layout),
         );
     }
 }
@@ -31,7 +33,6 @@ pub struct InvalidateElements;
 #[derive(Bundle)]
 pub struct ElementBundle {
     pub element: Element,
-    #[bundle]
     pub node: NodeBundle,
 }
 
@@ -50,7 +51,6 @@ impl Default for ElementBundle {
 #[derive(Bundle)]
 pub struct TextElementBundle {
     pub element: Element,
-    #[bundle]
     pub text: TextBundle,
 }
 
@@ -70,7 +70,6 @@ impl Default for TextElementBundle {
 #[derive(Bundle)]
 pub struct ImageElementBundle {
     pub element: Element,
-    #[bundle]
     pub image: ImageBundle,
 }
 
@@ -122,8 +121,10 @@ impl Element {
     }
     pub fn invalidate_entity(entity: Entity) -> impl Command {
         move |world: &mut World| {
-            if let Some(mut element) = world.entity_mut(entity).get_mut::<Element>() {
-                element.invalidate()
+            if let Some(mut entity) = world.get_entity_mut(entity) {
+                if let Some(mut element) = entity.get_mut::<Element>() {
+                    element.invalidate()
+                }
             }
         }
     }
@@ -172,17 +173,13 @@ pub struct Elements<'w, 's> {
     pub(crate) elements: Query<'w, 's, ElementsQuery, ()>,
     pub(crate) children: Query<'w, 's, ChildrenQuery, ()>,
     pub(crate) id_index: Res<'w, ElementIdIndex>,
-    #[system_param(ignore)]
-    states: HashMap<Entity, HashMap<Tag, bool>>,
-    #[system_param(ignore)]
-    classes: HashMap<Entity, HashSet<Tag>>,
+    states: Local<'s, HashMap<Entity, HashMap<Tag, bool>>>,
+    classes: Local<'s, HashMap<Entity, HashSet<Tag>>>,
 }
 
 impl<'w, 's> Elements<'w, 's> {
     pub fn invalidate(&mut self, tree: Entity) {
-        self.commands()
-            .entity(tree)
-            .insert(InvalidateElement::default());
+        self.commands().add(InvalidateElementCommand(tree));
     }
 
     pub fn invalidate_all(&mut self) {
@@ -399,7 +396,9 @@ impl<'w, 's, 'e> SelectedElements<'w, 's, 'e> {
 
     pub fn remove(self) {
         for entity in self.entities {
-            self.elements.commands.entity(entity).despawn_recursive();
+            if let Some(entity) = self.elements.commands.get_entity(entity) {
+                entity.despawn_recursive();
+            }
         }
     }
 
@@ -411,7 +410,18 @@ impl<'w, 's, 'e> SelectedElements<'w, 's, 'e> {
         self
     }
 
-    /// Adds eml content from `children` func to each matchet element
+    pub fn add_child_with<F: FnOnce(Entity) -> Eml>(&mut self, func: F) -> &mut Self {
+        if let Some(entity) = self.entities.first() {
+            let child = self.elements.commands.spawn_empty().id();
+            self.elements.commands.entity(*entity).add_child(child);
+            self.elements.commands.add(func(child).render_to(child));
+        }
+        self
+    }
+
+    /// Adds eml content from `children` func to each matched element
+    /// Looks like this is wrong implementation
+    #[deprecated(note = "This method works weird or doesn't work at all. Do not use it.")]
     pub fn add_children<F: Fn(Entity) -> Eml>(&mut self, children: F) -> &mut Self {
         for entity in self.entities.iter().copied() {
             self.elements.add_child(entity, children(entity));
@@ -445,10 +455,10 @@ unsafe impl<'w, 's> SystemParam for ElementCommands<'w, 's> {
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         _system_meta: &SystemMeta,
-        world: &'world World,
-        _change_tick: u32,
+        world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
-        ElementCommands::new(&mut state.0, world)
+        ElementCommands::new(&mut state.0, world.world())
     }
 
     fn apply(state: &mut Self::State, _system_meta: &SystemMeta, world: &mut World) {
@@ -456,24 +466,37 @@ unsafe impl<'w, 's> SystemParam for ElementCommands<'w, 's> {
     }
 }
 
+pub struct InvalidateElementCommand(Entity);
+impl Command for InvalidateElementCommand {
+    fn apply(self, world: &mut World) {
+        if let Some(mut entity) = world.get_entity_mut(self.0) {
+            entity.insert(InvalidateElement::default());
+        }
+    }
+}
+
 pub struct RemoveStateCommand(Entity, Tag);
 impl Command for RemoveStateCommand {
-    fn write(self, world: &mut World) {
-        if let Some(mut element) = world.entity_mut(self.0).get_mut::<Element>() {
-            let state = self.1;
-            if element.state.contains(&state) {
-                element.state.remove(&state);
+    fn apply(self, world: &mut World) {
+        if let Some(mut entity) = world.get_entity_mut(self.0) {
+            if let Some(mut element) = entity.get_mut::<Element>() {
+                let state = self.1;
+                if element.state.contains(&state) {
+                    element.state.remove(&state);
+                }
             }
         }
     }
 }
 pub struct AddStateCommand(Entity, Tag);
 impl Command for AddStateCommand {
-    fn write(self, world: &mut World) {
-        if let Some(mut element) = world.entity_mut(self.0).get_mut::<Element>() {
-            let state = self.1;
-            if !element.state.contains(&state) {
-                element.state.insert(state);
+    fn apply(self, world: &mut World) {
+        if let Some(mut entity) = world.get_entity_mut(self.0) {
+            if let Some(mut element) = entity.get_mut::<Element>() {
+                let state = self.1;
+                if !element.state.contains(&state) {
+                    element.state.insert(state);
+                }
             }
         }
     }
@@ -481,11 +504,13 @@ impl Command for AddStateCommand {
 
 pub struct AddClassCommand(Entity, Tag);
 impl Command for AddClassCommand {
-    fn write(self, world: &mut World) {
-        if let Some(mut element) = world.entity_mut(self.0).get_mut::<Element>() {
-            let class = self.1;
-            if !element.classes.contains(&class) {
-                element.classes.insert(class);
+    fn apply(self, world: &mut World) {
+        if let Some(mut entity) = world.get_entity_mut(self.0) {
+            if let Some(mut element) = entity.get_mut::<Element>() {
+                let class = self.1;
+                if !element.classes.contains(&class) {
+                    element.classes.insert(class);
+                }
             }
         }
     }
@@ -493,11 +518,13 @@ impl Command for AddClassCommand {
 
 pub struct RemoveClassCommand(Entity, Tag);
 impl Command for RemoveClassCommand {
-    fn write(self, world: &mut World) {
-        if let Some(mut element) = world.entity_mut(self.0).get_mut::<Element>() {
-            let class = self.1;
-            if element.classes.contains(&class) {
-                element.classes.remove(&class);
+    fn apply(self, world: &mut World) {
+        if let Some(mut entity) = world.get_entity_mut(self.0) {
+            if let Some(mut element) = entity.get_mut::<Element>() {
+                let class = self.1;
+                if element.classes.contains(&class) {
+                    element.classes.remove(&class);
+                }
             }
         }
     }
@@ -505,10 +532,10 @@ impl Command for RemoveClassCommand {
 
 pub struct CleanupElementCommand(Entity);
 impl Command for CleanupElementCommand {
-    fn write(self, world: &mut World) {
-        world
-            .entity_mut(self.0)
-            .remove::<(ElementBundle, TextElementBundle, ImageElementBundle)>();
+    fn apply(self, world: &mut World) {
+        if let Some(mut entity) = world.get_entity_mut(self.0) {
+            entity.remove::<(ElementBundle, TextElementBundle, ImageElementBundle)>();
+        }
     }
 }
 
@@ -524,7 +551,9 @@ pub fn invalidate_elements(
     invalidated.clear();
     for entity in invalid.iter() {
         invalidate_children(entity, &children, &mut elements, invalidated.deref_mut());
-        commands.entity(entity).remove::<InvalidateElement>();
+        if let Some(mut entity) = commands.get_entity(entity) {
+            entity.remove::<InvalidateElement>();
+        }
     }
 }
 

@@ -8,8 +8,6 @@ pub(crate) struct CommonsPlugin;
 
 pub mod prelude {
     pub use super::BodyWidgetExtension;
-    pub use super::BrWidgetExtension;
-    pub use super::BrlWidgetExtension;
     pub use super::DivWidgetExtension;
     pub use super::LabelWidgetExtension;
     pub use super::ProgressbarWidgetExtension;
@@ -22,8 +20,6 @@ pub mod prelude {
 impl Plugin for CommonsPlugin {
     fn build(&self, app: &mut App) {
         app.register_widget::<BodyWidget>();
-        app.register_widget::<BrWidget>();
-        app.register_widget::<BrlWidget>();
         app.register_widget::<DivWidget>();
         app.register_widget::<LabelWidget>();
         // app.register_widget::<Label>();
@@ -38,9 +34,6 @@ impl Plugin for CommonsPlugin {
     body {
         width: 100%;
         height: 100%;
-        align-content: flex-start;
-        align-items: flex-start;
-        flex-wrap: wrap;
     }
 )]
 /// The `<body>` tag defines a ui content (text, images, links, inputs, etc.).
@@ -56,24 +49,6 @@ fn body(ctx: &mut WidgetContext) {
     ctx.insert(ElementBundle::default())
         .insert(Interaction::None)
         .push_children(&content);
-}
-
-#[widget]
-#[styles(br { flex-basis: 100%; })]
-/// The `<br/>` tag inserts single line break. `<br/>` height is
-/// zero, so combining multiple `<br/>` tags has no effect. Use
-/// [`<brl/>`](BrlWidget) if you want to insert extra empty line.
-fn br(ctx: &mut WidgetContext) {
-    ctx.insert(ElementBundle::default());
-}
-
-#[widget]
-#[styles( brl {flex-basis: 100%; })]
-/// The `<brl/>` tag inserts line break **and** extra empty line
-/// with the height of the current font-size. If you only need
-/// to insert single line break use [`<br/>`](br) tag instead.
-fn brl(ctx: &mut WidgetContext) {
-    ctx.insert(TextElementBundle::default());
 }
 
 #[widget]

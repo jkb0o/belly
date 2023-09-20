@@ -9,9 +9,7 @@ use bevy::{
     asset::{AssetLoader, LoadedAsset},
     ecs::system::Command,
     prelude::*,
-    reflect::TypeUuid,
-    text::TextLayoutInfo,
-    ui::UiSystem,
+    reflect::{TypePath, TypeUuid},
     utils::{hashbrown::hash_map::Keys, HashMap},
 };
 pub use property::*;
@@ -29,15 +27,9 @@ impl Plugin for EssPlugin {
 
         // TODO: may be desabled with feature
         app.insert_resource(Defaults::default());
-        app.add_startup_system(crate::ess::defaults::setup_defaults);
+        app.add_systems(Startup, crate::ess::defaults::setup_defaults);
 
         app.add_asset::<StyleSheet>();
-        app.add_system(
-            fix_text_height
-                .in_base_set(CoreSet::PostUpdate)
-                .after(ApplyStyleProperties)
-                .before(UiSystem::Flex),
-        );
         let extractor = app
             .world
             .get_resource_or_insert_with(PropertyExtractor::default)
@@ -50,9 +42,9 @@ impl Plugin for EssPlugin {
             validator,
             extractor,
         });
-        app.add_system(process_styles_system);
-        app.add_plugin(property::PropertyPlugin);
-        app.add_plugin(bevy_stylebox::StyleboxPlugin);
+        app.add_systems(Update, process_styles_system);
+        app.add_plugins(property::PropertyPlugin);
+        app.add_plugins(bevy_stylebox::StyleboxPlugin);
 
         // app.register_property::<impls::BackgroundColorProperty>();
         // app.register_property::<impls::ScaleProperty>();
@@ -89,7 +81,7 @@ impl AssetLoader for EssLoader {
     }
 }
 
-#[derive(Default, TypeUuid)]
+#[derive(Default, TypeUuid, TypePath)]
 #[uuid = "93767098-caca-4f2b-b1d3-cdc91919be75"]
 pub struct StyleSheet {
     weight: usize,
@@ -109,7 +101,7 @@ pub struct ParseCommand {
 }
 
 impl Command for ParseCommand {
-    fn write(self, world: &mut bevy::prelude::World) {
+    fn apply(self, world: &mut bevy::prelude::World) {
         let world = world.cell();
         let extractor = world.resource::<PropertyExtractor>().clone();
         let validator = world.resource::<PropertyTransformer>().clone();
@@ -132,7 +124,7 @@ pub struct AddCommand {
 }
 
 impl Command for AddCommand {
-    fn write(self, world: &mut bevy::prelude::World) {
+    fn apply(self, world: &mut bevy::prelude::World) {
         let world = world.cell();
         let stylesheet = StyleSheet::new(self.rules);
         let mut styles = world.resource_mut::<Styles>();
@@ -146,7 +138,7 @@ impl Command for AddCommand {
 }
 
 impl Command for LoadCommand {
-    fn write(self, world: &mut bevy::prelude::World) {
+    fn apply(self, world: &mut bevy::prelude::World) {
         let world = world.cell();
         let mut styles = world.resource_mut::<Styles>();
         let handle = world.resource::<AssetServer>().load(&self.path);
@@ -276,15 +268,5 @@ fn process_styles_system(
     }
     if styles_changed {
         elements.invalidate_all();
-    }
-}
-
-pub fn fix_text_height(
-    mut texts: Query<(&Text, &mut Style), Or<(Changed<Text>, Changed<TextLayoutInfo>)>>,
-) {
-    for (text, mut style) in texts.iter_mut() {
-        if text.sections.len() > 0 {
-            style.size.height = Val::Px(text.sections[0].style.font_size);
-        }
     }
 }

@@ -4,14 +4,15 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
+        .add_plugins(BellyPlugin)
         .add_event::<MyEvent>()
-        .add_startup_system(setup)
-        .add_system(greet)
-        .add_system(debug_my_event)
+        .add_systems(Startup, setup)
+        .add_systems(Update, greet)
+        .add_systems(Update, debug_my_event)
         .run();
 }
 
+#[derive(Event)]
 struct MyEvent {
     emited_at: f32,
 }
@@ -57,7 +58,7 @@ fn setup(mut commands: Commands) {
                     "I will disappear"
                 </button>
             </div>
-            <div>
+            <div c:column>
                 <button c:bluex on:press=run!(for that |ctx, e: Entity| ctx.commands().entity(*e).despawn_recursive() )>
                     "That will disappear:"
                 </button>
@@ -90,11 +91,10 @@ fn setup(mut commands: Commands) {
                         <div id="color" c:red>"I'm red"</div>
                     </div>
                 </button>
-                <br/>
             </div>
             <div>
                 <button {grow} s:width=managed() on:press=run!(for grow |s: &mut Style| {
-                    s.size.width = Val::Px(if let Val::Px(width) = s.size.width {
+                    s.width = Val::Px(if let Val::Px(width) = s.width {
                         width + 5.
                     } else {
                         205.
@@ -107,14 +107,17 @@ fn setup(mut commands: Commands) {
     });
     commands.add(StyleSheet::parse(
         r#"
-        body: {
+        body {
+            flex-direction: column;
             padding: 20px;
             justify-content: center;
             align-content: center;
             align-items: center;
         }
-        div: {
+        body > div {
             justify-content: center;
+            align-content: center;
+            align-items: center;
         }
         .counter {
             max-width: 200px;
@@ -128,7 +131,9 @@ fn setup(mut commands: Commands) {
             width: 200px;
             height: 175px;
         }
-        .colorbox div {
+        .colorbox > div {
+            width: 100%;
+            height: 100%;
             justify-content: center;
             align-items: center;
         }
@@ -144,6 +149,9 @@ fn setup(mut commands: Commands) {
             background-color: lightblue;
             color: indianred;
             padding: 10px;
+        }
+        .column {
+            flex-direction: column;
         }
 
     "#,

@@ -4,8 +4,9 @@ use belly_macro::*;
 use bevy::{
     asset::Asset,
     prelude::*,
-    utils::{HashMap, HashSet},
+    // utils::{HashMap, HashSet},
 };
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
 pub mod prelude {
@@ -21,16 +22,9 @@ impl Plugin for ImgPlugin {
         app.register_widget::<ImgWidget>();
 
         app.init_resource::<ImageRegistry>();
-        app.add_system(load_img.in_set(ImgSet::Load));
-        app.add_system(
-            update_img_size
-                .in_set(ImgSet::UpdateSize)
-                .after(ImgSet::Load),
-        );
-        app.add_system(
-            update_img_layout
-                .in_set(ImgSet::UpdateLayout)
-                .after(ImgSet::UpdateSize),
+        app.add_systems(
+            Update,
+            (load_img, update_img_size, update_img_layout).chain(),
         );
         app.add_event::<ImgEvent>();
     }
@@ -62,17 +56,10 @@ fn img(ctx: &mut WidgetContext, img: &mut Img) {
     ctx.commands().entity(img.entity).push_children(&content);
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
-pub enum ImgSet {
-    Load,
-    UpdateSize,
-    UpdateLayout,
-}
-
 #[derive(Resource, Deref, DerefMut, Default)]
 struct ImageRegistry(HashMap<Handle<Image>, HashSet<Entity>>);
 
-// #[derive(Even)]
+#[derive(Event)]
 pub enum ImgEvent {
     Loaded(Vec<Entity>),
     Unloaded(Vec<Entity>),
@@ -360,9 +347,10 @@ fn update_img_layout(
                         (width, height)
                     }
                 };
-                style.min_size.height = Val::Px(height);
-                style.min_size.width = Val::Px(width);
-                style.size = style.min_size;
+                style.min_height = Val::Px(height);
+                style.height = Val::Px(height);
+                style.min_width = Val::Px(width);
+                style.width = Val::Px(width);
                 let hmargin = 0.5 * (node.size().x - width);
                 let vmargin = 0.5 * (node.size().y - height);
 
@@ -394,9 +382,10 @@ fn update_img_layout(
                     }
                 };
 
-                style.min_size.height = Val::Px(height);
-                style.min_size.width = Val::Px(width);
-                style.size = style.min_size;
+                style.min_height = Val::Px(height);
+                style.height = Val::Px(height);
+                style.min_width = Val::Px(width);
+                style.width = Val::Px(width);
                 let hmargin = 0.5 * (node.size().x - width);
                 let vmargin = 0.5 * (node.size().y - height);
 
@@ -406,13 +395,17 @@ fn update_img_layout(
                 style.margin.right = Val::Px(hmargin.min(0.));
             }
             ImgMode::Stretch => {
-                style.min_size = Size::new(Val::Undefined, Val::Undefined);
-                style.size = Size::new(Val::Percent(100.), Val::Percent(100.));
+                style.min_width = Val::Px(0.);
+                style.min_height = Val::Px(0.);
+                style.width = Val::Percent(100.);
+                style.height = Val::Percent(100.);
                 style.margin = UiRect::all(Val::Px(0.));
             }
             ImgMode::Source => {
-                style.size = Size::new(Val::Px(element.size.x), Val::Px(element.size.y));
-                style.min_size = style.size;
+                style.width = Val::Px(element.size.x);
+                style.height = Val::Px(element.size.y);
+                style.min_width = Val::Px(element.size.x);
+                style.min_height = Val::Px(element.size.y);
                 let hmargin = 0.5 * (node.size().x - element.size.x);
                 let vmargin = 0.5 * (node.size().y - element.size.y);
                 style.margin.left = Val::Px(hmargin);

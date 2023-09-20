@@ -4,8 +4,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_startup_system(setup)
+        .add_plugins(BellyPlugin)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -13,7 +13,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
     let ten_percent = Val::Percent(10.);
     commands.add(eml! {
-        <body s:padding="5px">
+        <body s:padding="5px" s:flex-direction="column">
             <span s:padding="25px" s:margin="5px" s:background-color="black">
                 "Black span with padding of 25 px and margin of 5px"
             </span>

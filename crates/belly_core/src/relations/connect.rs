@@ -231,7 +231,7 @@ impl<Q: 'static + WorldQuery, E: Event> Connection<Q, E> {
 }
 
 impl<Q: 'static + WorldQuery, E: Event> Command for Connection<Q, E> {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         self.write(world);
     }
 }
@@ -306,21 +306,23 @@ impl<Q: 'static + WorldQuery, E: Event> Connections<Q, E> {
         }
     }
 
+    /// Clear connection entries matched the predicate `func`
     pub fn drain<F: Fn(Entity) -> bool>(&mut self, func: F) {
         for (_, connections) in self.iter_mut() {
-            connections.sources.drain_filter(|entity, _| {
-                if let Some(entity) = entity {
-                    func(*entity)
+            connections.sources.retain(|k, _| {
+                if let Some(entity) = k {
+                    !func(*entity)
                 } else {
-                    false
+                    true
                 }
             });
-            connections.targets.drain_filter(|entity, targets| {
+
+            connections.targets.retain(|entity, targets| {
                 let Some(entity) = entity else {
-                    return false
+                    return true
                 };
                 if !func(*entity) {
-                    return false;
+                    return true;
                 }
                 for source in targets.iter() {
                     connections
@@ -328,7 +330,7 @@ impl<Q: 'static + WorldQuery, E: Event> Connections<Q, E> {
                         .entry(*source)
                         .and_modify(|e| e.retain(|c| c.0 != Some(*entity)));
                 }
-                true
+                false
             });
         }
     }

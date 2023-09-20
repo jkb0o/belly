@@ -34,7 +34,7 @@ pub fn val(prop: &StyleProperty) -> Result<Val, ElementsError> {
             Ok(Val::Px(val.into()))
         }
         StylePropertyToken::Identifier(val) if val.as_str() == "auto" => Ok(Val::Auto),
-        StylePropertyToken::Identifier(val) if val.as_str() == "undefined" => Ok(Val::Undefined),
+        StylePropertyToken::Identifier(val) if val.as_str() == "undefined" => Ok(Val::Px(0.)),
         p => Err(ElementsError::InvalidPropertyValue(format!(
             "Expected $val, got `{}`",
             p.to_string()
@@ -45,13 +45,42 @@ pub fn val(prop: &StyleProperty) -> Result<Val, ElementsError> {
 /// <!-- @property-type=$val -->
 /// Size type representing `bevy::prelude::Val` type. Possible values:
 /// - `auto` for `Val::Auto`
-/// - `undefined` for `Val::Undefined`
+/// - `undefined` for `Val::Px(0.)`
 /// - `px` suffixed for `Val::Px` (`25px`)
 /// - `%` suffixed for `Val::Percent` (`25%`)
 pub struct ValParser;
 impl PropertyParser<Val> for ValParser {
     fn parse(value: &StyleProperty) -> Result<Val, ElementsError> {
         val(value)
+    }
+}
+
+pub fn overflow(prop: &StyleProperty) -> Result<Overflow, ElementsError> {
+    let Some(prop) = prop.first() else {
+        return Err(ElementsError::InvalidPropertyValue(format!("Expected $val, found nothing")))
+    };
+    match prop {
+        StylePropertyToken::Identifier(val) if val.as_str() == "visible" => Ok(Overflow::visible()),
+        StylePropertyToken::Identifier(val) if val.as_str() == "clip" => Ok(Overflow::clip()),
+        StylePropertyToken::Identifier(val) if val.as_str() == "clip_x" => Ok(Overflow::clip_x()),
+        StylePropertyToken::Identifier(val) if val.as_str() == "clip_y" => Ok(Overflow::clip_y()),
+        p => Err(ElementsError::InvalidPropertyValue(format!(
+            "Expected $overflow, got `{}`",
+            p.to_string()
+        ))),
+    }
+}
+
+/// <!-- @property-type=$overflow -->
+/// Size type representing `bevy::prelude::Overflow` type. Possible values:
+/// - `visible` for `Overflow::visible()`
+/// - `clip` for `Overflow::clip()`
+/// - `clip_x` for `Overflow::clip_x()`
+/// - `clip_y` for `Overflow::clip_y()`
+pub struct OverflowParser;
+impl PropertyParser<Overflow> for OverflowParser {
+    fn parse(value: &StyleProperty) -> Result<Overflow, ElementsError> {
+        overflow(value)
     }
 }
 

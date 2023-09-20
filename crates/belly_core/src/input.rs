@@ -1,7 +1,6 @@
 use crate::{element::Element, element::Elements, tags};
 use bevy::{
     ecs::query::WorldQuery,
-    input::InputSystem,
     prelude::*,
     render::camera::RenderTarget,
     ui::{FocusPolicy, UiStack},
@@ -15,47 +14,30 @@ impl Plugin for ElementsInputPlugin {
         app.add_event::<PointerInput>()
             .add_event::<RequestFocus>()
             .init_resource::<Focused>()
-            .add_system(
-                pointer_input_system
-                    .in_base_set(CoreSet::PreUpdate)
-                    .in_set(Label::Signals)
-                    .after(InputSystem),
+            .add_systems(
+                PreUpdate,
+                (
+                    pointer_input_system,
+                    (
+                        (hover_system, active_system),
+                        (tab_focus_system, focus_system).chain(),
+                    ),
+                )
+                    .chain()
+                    .in_set(InternalInputSystemsSet),
             )
-            .add_system(
-                tab_focus_system
-                    .in_base_set(CoreSet::PreUpdate)
-                    .in_set(Label::TabFocus)
-                    .after(Label::Signals),
-            )
-            .add_system(
-                focus_system
-                    .in_base_set(CoreSet::PreUpdate)
-                    .in_set(Label::Focus)
-                    .after(Label::TabFocus),
-            )
-            .add_system(
-                hover_system
-                    .in_base_set(CoreSet::PreUpdate)
-                    .in_set(Label::Hover)
-                    .after(Label::Signals),
-            )
-            .add_system(
-                active_system
-                    .in_base_set(CoreSet::PreUpdate)
-                    .in_set(Label::Active)
-                    .after(Label::Signals),
+            .configure_sets(
+                PreUpdate,
+                (InternalInputSystemsSet, InputSystemsSet).chain(),
             );
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
-pub enum Label {
-    Signals,
-    TabFocus,
-    Focus,
-    Hover,
-    Active,
-}
+struct InternalInputSystemsSet;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
+pub struct InputSystemsSet;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PointerInputData {
@@ -68,7 +50,7 @@ pub enum PointerInputData {
     Motion,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Event)]
 pub struct PointerInput {
     pub entities: Vec<Entity>,
     pub pos: Vec2,
@@ -239,12 +221,7 @@ pub fn pointer_input_system(
             }
         })
         .filter(|window| window.focused)
-        .find_map(|window| {
-            window.cursor_position().map(|mut cursor_pos| {
-                cursor_pos.y = window.height() - cursor_pos.y;
-                cursor_pos
-            })
-        })
+        .find_map(|window| window.cursor_position())
         .or_else(|| touches_input.first_pressed_position());
 
     if down {
@@ -442,6 +419,7 @@ pub struct Focus(bool);
 #[derive(Resource, Default)]
 pub struct Focused(Option<Entity>);
 
+#[derive(Debug, Event)]
 pub struct RequestFocus(Entity);
 
 pub fn focus_system(

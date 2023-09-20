@@ -8,9 +8,9 @@ use belly::widgets::common::Label;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_startup_system(setup)
-        .add_system(update_label)
+        .add_plugins(BellyPlugin)
+        .add_systems(Startup, setup)
+        .add_systems(Update, update_label)
         .run();
 }
 
@@ -24,7 +24,7 @@ fn setup(mut commands: Commands) {
     // spawn empty Entity to reference it in connections & widgets
     let counter = commands.spawn_empty().id();
     commands.add(eml! {
-        <body s:justify-content="center" s:align-items="center">
+        <body s:justify-content="center" s:align-items="center" s:align-content="center">
             // connect the press signal to closure executed on the Counter context
             <button on:press=run!(for counter |c: &mut Counter| c.count += 1)>"+"</button>
             <span s:width="150px" s:justify-content="center">

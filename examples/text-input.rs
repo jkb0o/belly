@@ -6,8 +6,8 @@ use belly::widgets::common::Label;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_startup_system(setup)
+        .add_plugins(BellyPlugin)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -29,22 +29,23 @@ fn setup(mut commands: Commands) {
     let input = commands.spawn_empty().id();
     let label = commands.spawn_empty().id();
     commands.add(eml! {
-        <body s:padding="50px">
-            <span>"Type input some text:"</span>
-            <textinput {input} bind:value=to!(label, Label:value | fmt.val("I'm bound to label, {val}!")) s:width="150px"/>
-            <brl/>
-
-            <span>"Bind input to label:"</span>
-            <label {label}/>
-            <br/>
-
-            <span>"Bind label from input:"</span>
-            <label bind:value=from!(input, TextInput:value | fmt.val("I'm bound from input, {val}!"))/>
-            <br/>
-
-            <span>"Bind content from input:"</span>
-            "I'm bound by content, "{from!(input, TextInput:value)}"!"
-            <br/>
+        <body s:padding="50px" s:flex-direction="column">
+            <div>
+                <span>"Type input some text:"</span>
+                <textinput {input} bind:value=to!(label, Label:value | fmt.val("I'm bound to label, {val}!")) s:width="150px"/>
+            </div>
+            <div>
+                <span>"Bind input to label:"</span>
+                <label {label}/>
+            </div>
+            <div>
+                <span>"Bind label from input:"</span>
+                <label bind:value=from!(input, TextInput:value | fmt.val("I'm bound from input, {val}!"))/>
+            </div>
+            <div>
+                <span>"Bind content from input:"</span>
+                "I'm bound by content, "{from!(input, TextInput:value)}"!"
+            </div>
 
         </body>
     });

@@ -723,7 +723,7 @@ mod test {
             ".red .red",
         ];
         for src in valid_selectors {
-            let selector: Selector = src.clone().into();
+            let selector: Selector = (*src).into();
             assert!(
                 selector.matches(&branch),
                 "Selector '{}' should be matched",
@@ -744,7 +744,7 @@ mod test {
             ".red .green :pressed",
         ];
         for src in invalid_selectors {
-            let selector: Selector = src.clone().into();
+            let selector: Selector = (*src).into();
             assert!(
                 !selector.matches(&branch),
                 "Selector '{}' shouldn't be matched",
@@ -764,7 +764,7 @@ mod test {
             "div > span > span",
         ];
         for src in valid_selectors {
-            let selector: Selector = src.clone().into();
+            let selector: Selector = (*src).into();
             assert!(
                 selector.matches(&branch),
                 "Selector '{}' should be matched",
@@ -773,7 +773,7 @@ mod test {
         }
         let invalid_selectors: &[&str] = &["div > .red", ".red > .green", ":pressed > .red"];
         for src in invalid_selectors {
-            let selector: Selector = src.clone().into();
+            let selector: Selector = (*src).into();
             assert!(
                 !selector.matches(&branch),
                 "Selector '{}' shouldn't be matched",

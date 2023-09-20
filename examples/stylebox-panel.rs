@@ -6,8 +6,8 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
-        .add_startup_system(setup)
+        .add_plugins(BellyPlugin)
+        .add_systems(Startup, setup)
         .run();
 }
 
@@ -21,6 +21,15 @@ fn setup(mut commands: Commands) {
             flex-grow: 1;
             color: black;
         }
+
+        .hbox {
+            flex-direction: row;
+        }
+        .vbox {
+            flex-direction: column;
+            width: 100%;
+        }
+
         .flat {
             stylebox: "circle.basis", 50%, 6px, 0px, #bfbfbf;
         }
@@ -57,18 +66,20 @@ fn setup(mut commands: Commands) {
     let styles = &["flat png", "flat basis", "flat big", "tex"];
     let colors = &["red", "green", "blue", "grey"];
     commands.add(eml! {
-        <body s:padding="20px">
-            "The varios styleboxes. Resize the window to see how it behaves."<br/>
+        <body s:padding="20px" c:vbox>
+            "The varios styleboxes. Resize the window to see how it behaves."
             <for style in=styles>
+            <div c:hbox>
                 <for color in=colors>
+                <div c:vbox>
                     <span class=style class=color>
                     {color}" "{style}
                     </span>
+                </div>
                 </for>
-                <br/>
+            </div>
             </for>
-            <brl/>
-            "The difference between png and basis:"<brl/>
+            "The difference between png and basis:"
             <img src="png-vs-basis.png" s:width="400px" s:height="400px"/>
         </body>
     });

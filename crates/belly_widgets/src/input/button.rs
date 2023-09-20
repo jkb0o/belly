@@ -30,25 +30,17 @@ impl Plugin for ButtonPlugin {
         app.init_resource::<BtnGroups>();
         app.register_widget::<ButtonWidget>();
         app.register_widget::<ButtongroupWidget>();
-        app.add_system(process_btngroups_system);
-        app.add_system(force_btngroups_reconfiguration_system);
-        app.add_system(
-            handle_input_system
-                .in_base_set(CoreSet::PreUpdate)
-                .in_set(Label::HandleInput)
-                .after(input::Label::Signals),
-        );
-        app.add_system(
-            handle_states_system
-                .in_base_set(CoreSet::PreUpdate)
-                .in_set(Label::HandleStates)
-                .after(Label::HandleInput),
-        );
-        app.add_system(
-            report_btngroup_changes
-                .in_base_set(CoreSet::PreUpdate)
-                .in_set(Label::ReportChanges)
-                .after(Label::HandleStates),
+        app.add_systems(Update, process_btngroups_system);
+        app.add_systems(Update, force_btngroups_reconfiguration_system);
+        app.add_systems(
+            PreUpdate,
+            (
+                handle_input_system,
+                handle_states_system,
+                report_btngroup_changes,
+            )
+                .chain()
+                .in_set(input::InputSystemsSet),
         );
     }
 }
@@ -87,7 +79,7 @@ fn buttongroup(ctx: &mut WidgetContext) {
 #[styles = BUTTON_STYLES]
 /// The `<button>` tag defines a clickable button.
 /// Inside a `<button>` widget you can put text (and tags
-/// like `<strong>`, `<br>`, `<img>`, etc.)
+/// like `<strong>`, `<img>`, etc.)
 /// A button can emit `pressed` and `released` signals.
 /// The button behaviour is defined by the `mode` param.
 /// When changing its pressed state, button adds `:pressed` ess
@@ -164,13 +156,7 @@ ess_define! {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, SystemSet)]
-enum Label {
-    HandleInput,
-    HandleStates,
-    ReportChanges,
-}
-
+#[derive(Event)]
 pub enum BtnEvent {
     Pressed(Entity),
     Released(Entity),
@@ -204,6 +190,7 @@ fn button_released(event: &BtnEvent) -> EventSource {
     }
 }
 
+#[derive(Event)]
 pub struct ValueChanged<T> {
     entity: Entity,
     old_value: T,

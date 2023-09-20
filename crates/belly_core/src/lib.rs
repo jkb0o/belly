@@ -77,12 +77,12 @@ pub mod build {
 pub struct ElementsCorePlugin;
 impl Plugin for ElementsCorePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ElementsPlugin)
-            .add_plugin(ElementsInputPlugin)
-            .add_plugin(RelationsPlugin)
-            .add_plugin(BuildPlugin)
-            .add_plugin(EssPlugin)
-            .add_plugin(EmlPlugin);
+        app.add_plugins(ElementsPlugin)
+            .add_plugins(ElementsInputPlugin)
+            .add_plugins(RelationsPlugin)
+            .add_plugins(BuildPlugin)
+            .add_plugins(EssPlugin)
+            .add_plugins(EmlPlugin);
     }
 }
 
@@ -101,6 +101,7 @@ pub enum ElementsError {
     InvalidSelector,
     /// An unexpected token was found on a style sheet rule.
     UnexpectedToken(String),
+    EndOfInput,
 }
 
 impl std::error::Error for ElementsError {}
@@ -115,6 +116,7 @@ impl std::fmt::Display for ElementsError {
             ElementsError::InvalidPropertyValue(p) => write!(f, "Invalid property value: {}", p),
             ElementsError::InvalidSelector => write!(f, "Invalid selector"),
             ElementsError::UnexpectedToken(t) => write!(f, "Unexpected token: {}", t),
+            ElementsError::EndOfInput => write!(f, "Unexpected end of input"),
         }
     }
 }

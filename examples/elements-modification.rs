@@ -6,13 +6,14 @@ use bevy::{ecs::event::Event, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(BellyPlugin)
+        .add_plugins(BellyPlugin)
         .add_event::<ToggleClass>()
-        .add_startup_system(setup)
-        .add_system(process_events)
+        .add_systems(Startup, setup)
+        .add_systems(Update, process_events)
         .run();
 }
 
+#[derive(Event)]
 pub struct ToggleClass(&'static str);
 
 fn process_events(mut elements: Elements, mut events: EventReader<ToggleClass>) {
@@ -46,31 +47,40 @@ fn setup(mut commands: Commands) {
             width: 400px;
             height: 70px;
         }
+        .vbox {
+            flex-direction: column;
+        }
+        .hbox {
+            flex-direction: row;
+        }
     "#,
     ));
     commands.add(eml! {
-        <body s:padding="50px">
-            <button on:press=|ctx| { ctx.send_event(ToggleClass("red")); }>
-                "Toggle .red class"
-            </button>
-            <button on:press=|ctx| { ctx.select(".box").add_class("hidden"); } >
-                "Hide boxes"
-            </button>
-            <button on:press=|ctx| { ctx.select(".box").remove_class("hidden"); }>
-                "Show boxes"
-            </button>
-            <button on:press=toggle_container>
-                "Toggle container visibility"
-            </button>
-            <button on:press=|ctx| { ctx.select("#container > *").toggle_class("hidden"); }>
-                "Toggle container children visibility"
-            </button>
-            <br/>
-            <span class="box target">"Target span"</span>
-            <span id="container">
+        <body s:padding="50px" c:vbox>
+            <div c:hbox>
+                <button on:press=|ctx| { ctx.send_event(ToggleClass("red")); }>
+                    "Toggle .red class"
+                </button>
+                <button on:press=|ctx| { ctx.select(".box").add_class("hidden"); } >
+                    "Hide boxes"
+                </button>
+                <button on:press=|ctx| { ctx.select(".box").remove_class("hidden"); }>
+                    "Show boxes"
+                </button>
+                <button on:press=toggle_container>
+                    "Toggle container visibility"
+                </button>
+                <button on:press=|ctx| { ctx.select("#container > *").toggle_class("hidden"); }>
+                    "Toggle container children visibility"
+                </button>
+            </div>
+            <div c:hbox>
                 <span class="box target">"Target span"</span>
-                <span class="box non-target">"Non-target span"</span>
-            </span>
+                <span id="container">
+                    <span class="box target">"Target span"</span>
+                    <span class="box non-target">"Non-target span"</span>
+                </span>
+            </div>
         </body>
     });
 }
