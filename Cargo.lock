@@ -370,7 +370,7 @@ dependencies = [
 
 [[package]]
 name = "belly"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "belly_core",
  "belly_macro",
@@ -392,7 +392,7 @@ dependencies = [
 
 [[package]]
 name = "belly_core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bevy",
  "bevy_stylebox",
@@ -406,7 +406,7 @@ dependencies = [
 
 [[package]]
 name = "belly_macro"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bevy",
  "proc-macro2",
@@ -419,7 +419,7 @@ dependencies = [
 
 [[package]]
 name = "belly_widgets"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ab_glyph",
  "belly_core",
@@ -997,7 +997,7 @@ dependencies = [
 
 [[package]]
 name = "bevy_stylebox"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bevy",
 ]
