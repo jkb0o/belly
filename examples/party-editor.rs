@@ -26,19 +26,13 @@
 
 use belly::build::*;
 use belly::widgets::input::button::ButtonWidget;
-use bevy::ecs::entity::Entities;
 use bevy::prelude::*;
-
-use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(BellyPlugin)
-        .add_plugins(LogDiagnosticsPlugin::default())
-        .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_systems(Startup, setup)
-        .add_systems(Update, debug_entities)
         .run();
 }
 
@@ -294,12 +288,4 @@ impl From<AnimalState> for Variant {
     fn from(value: AnimalState) -> Self {
         Variant::boxed(value)
     }
-}
-
-fn debug_entities(mut next: Local<f32>, time: Res<Time>, entities: &Entities) {
-    if *next > time.elapsed_seconds() {
-        return;
-    }
-    *next = time.elapsed_seconds() + 1.0;
-    info!("Num entities: {}", entities.len());
 }
