@@ -1,7 +1,7 @@
 use std::any::type_name;
 
 use crate::{
-    eml::Params,
+    eml::{Params, Eml},
     ess::{ColorFromHexExtension, StyleProperty, StylePropertyMethods},
     ElementsError,
 };
@@ -247,5 +247,12 @@ impl<T: Asset> TryFrom<Variant> for Handle<T> {
                 type_name::<T>()
             )),
         }
+    }
+}
+
+impl<T: 'static + Fn(Entity) -> Eml> From<T> for Variant {
+    fn from(value: T) -> Self {
+        let renderfunc: Box<dyn Fn(Entity) -> Eml> = Box::new(value);
+        Variant::boxed(renderfunc)
     }
 }
