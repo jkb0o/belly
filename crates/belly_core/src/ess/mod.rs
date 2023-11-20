@@ -4,7 +4,8 @@ pub mod property;
 mod selector;
 
 pub use self::parser::StyleSheetParser;
-use crate::{element::Elements, ess::defaults::Defaults};
+use crate::{element::Elements, eml::asset, ess::defaults::Defaults};
+use anyhow::Error;
 use bevy::{
     asset::{AssetLoader, LoadedAsset},
     ecs::system::Command,
@@ -65,8 +66,9 @@ impl AssetLoader for EssLoader {
     fn load<'a>(
         &'a self,
         bytes: &'a [u8],
+        settings: &'a Self::Settings,
         load_context: &'a mut bevy::asset::LoadContext,
-    ) -> bevy::utils::BoxedFuture<'a, Result<(), bevy::asset::Error>> {
+    ) -> bevy::utils::BoxedFuture<'a, Result<(), Error>> {
         Box::pin(async move {
             let source = std::str::from_utf8(bytes)?;
             let parser = StyleSheetParser::new(self.validator.clone(), self.extractor.clone());
@@ -81,7 +83,7 @@ impl AssetLoader for EssLoader {
     }
 }
 
-#[derive(Default, TypeUuid, TypePath)]
+#[derive(Default, TypeUuid, TypePath, Asset)]
 #[uuid = "93767098-caca-4f2b-b1d3-cdc91919be75"]
 pub struct StyleSheet {
     weight: usize,
@@ -241,6 +243,7 @@ impl Styles {
 }
 
 fn process_styles_system(
+    asset_server: Res<AssetServer>,
     mut styles: ResMut<Styles>,
     mut assets: ResMut<Assets<StyleSheet>>,
     mut events: EventReader<AssetEvent<StyleSheet>>,
@@ -248,22 +251,24 @@ fn process_styles_system(
     defaults: Res<Defaults>,
 ) {
     let mut styles_changed = false;
-    for event in events.iter() {
+    for event in events.read() {
         styles_changed = true;
         match event {
-            AssetEvent::Removed { handle: _ } => styles_changed = true,
-            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                if handle == &defaults.style_sheet {
-                    if assets.get(handle).unwrap().extra_weight() != 0 {
-                        assets.get_mut(handle).unwrap().set_extra_weight(0);
+            AssetEvent::Removed { id: _ } => styles_changed = true,
+            AssetEvent::Added { id } | AssetEvent::Modified { id } => {
+                if id.into() == &defaults.style_sheet {
+                    if assets.get(id.into()).unwrap().extra_weight() != 0 {
+                        assets.get_mut(id.into()).unwrap().set_extra_weight(0);
                     }
                 } else {
-                    let weight = styles.insert(handle.clone());
-                    if assets.get(handle).unwrap().extra_weight() != weight {
-                        assets.get_mut(handle).unwrap().set_extra_weight(weight);
+                    let handle = asset_server.get_id_handle(id).unwrap();
+                    let weight = styles.insert(handle);
+                    if assets.get(id.into()).unwrap().extra_weight() != weight {
+                        assets.get_mut(id.into()).unwrap().set_extra_weight(weight);
                     }
                 }
             }
+            _ => {}
         }
     }
     if styles_changed {

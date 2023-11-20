@@ -178,7 +178,7 @@ pub struct NodeQuery {
     interaction: Option<&'static mut Interaction>,
     focus_policy: Option<&'static FocusPolicy>,
     calculated_clip: Option<&'static CalculatedClip>,
-    computed_visibility: Option<&'static ComputedVisibility>,
+    view_visibility: Option<&'static ViewVisibility>,
 }
 
 // pointer_input_system is the rewriten bevy's ui_focus_system
@@ -241,8 +241,8 @@ pub fn pointer_input_system(
         .filter_map(|entity| {
             if let Ok(node) = node_query.get_mut(*entity) {
                 // Nodes that are not rendered should not be interactable
-                if let Some(computed_visibility) = node.computed_visibility {
-                    if !computed_visibility.is_visible() {
+                if let Some(view_visibility) = node.view_visibility {
+                    if !view_visibility.get() {
                         return None;
                     }
                 }
@@ -432,7 +432,7 @@ pub fn focus_system(
 ) {
     let mut target_focus = None;
     let mut update_required = false;
-    for signal in signals.iter().filter(|s| s.down()) {
+    for signal in signals.read().filter(|s| s.down()) {
         for entity in interactable.iter_many(&signal.entities) {
             update_required = true;
             if target_focus.is_none() {
@@ -440,7 +440,7 @@ pub fn focus_system(
             }
         }
     }
-    for RequestFocus(entity) in requests.iter() {
+    for RequestFocus(entity) in requests.read() {
         update_required = true;
         target_focus = Some(*entity);
     }
@@ -463,7 +463,7 @@ pub fn hover_system(
 ) {
     let mut any_motion = false;
     let new_hovered_entities: HashSet<_> = events
-        .iter()
+        .read()
         .filter(|e| e.motion() || e.dragging())
         .map(|e| {
             any_motion = true;
@@ -496,7 +496,7 @@ pub fn active_system(
 ) {
     add_active.clear();
     remove_active.clear();
-    for event in events.iter() {
+    for event in events.read() {
         match &event.data {
             PointerInputData::Drag { from } => {
                 if event.dragging_over_self() {

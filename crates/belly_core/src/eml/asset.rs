@@ -2,6 +2,7 @@ use crate::element::Element;
 use crate::eml::WidgetData;
 use crate::eml::{parse, Param, Slots};
 use crate::ess::{PropertyExtractor, PropertyTransformer};
+use anyhow::Error;
 use bevy::reflect::TypePath;
 use bevy::{
     asset::{AssetLoader, LoadedAsset},
@@ -44,7 +45,7 @@ impl EmlScene {
     }
 }
 
-#[derive(TypeUuid, Clone, TypePath)]
+#[derive(TypeUuid, Clone, TypePath, Asset)]
 #[uuid = "f8d22a65-d671-4fa6-ae8f-0dccdb387ddd"]
 pub struct EmlAsset {
     root: Arc<EmlNode>,
@@ -115,8 +116,9 @@ impl AssetLoader for EmlLoader {
     fn load<'a>(
         &'a self,
         bytes: &'a [u8],
+        settings: &'a Self::Settings,
         load_context: &'a mut bevy::asset::LoadContext,
-    ) -> bevy::utils::BoxedFuture<'a, Result<(), bevy::asset::Error>> {
+    ) -> bevy::utils::BoxedFuture<'a, Result<(), Error>> {
         Box::pin(async move {
             let source = std::str::from_utf8(bytes)?;
 
@@ -125,13 +127,13 @@ impl AssetLoader for EmlLoader {
                     let asset = EmlAsset {
                         root: Arc::new(root),
                     };
-                    load_context.set_default_asset(LoadedAsset::new(asset));
+                    load_context.add_labeled_asset("default".to_string(), LoadedAsset::from(asset));
                     Ok(())
                 }
                 Err(err) => {
                     let path = load_context.path();
                     error!("Error parsing {}:\n\n{}", path.to_str().unwrap(), err);
-                    Err(bevy::asset::Error::new(err)
+                    Err(Error::new(err)
                         .context(format!("Unable to parse {}", path.to_str().unwrap())))
                 }
             }
@@ -145,18 +147,18 @@ pub fn update_eml_scene(
     assets: Res<Assets<EmlAsset>>,
     mut commands: Commands,
 ) {
-    for event in events.iter() {
-        if let AssetEvent::Created { handle } = event {
-            let asset = assets.get(handle).unwrap();
-            for (entity, _, _) in scenes.iter().filter(|(_, s, _)| &s.asset == handle) {
+    for event in events.read() {
+        if let AssetEvent::Added { id } = event {
+            let asset = assets.get(id.into()).unwrap();
+            for (entity, _, _) in scenes.iter().filter(|(_, s, _)| &s.asset == id.into()) {
                 let asset = asset.clone();
                 commands.add(move |world: &mut World| {
                     asset.write(world, entity);
                 });
             }
-        } else if let AssetEvent::Modified { handle } = event {
-            let asset = assets.get(handle).unwrap();
-            for (entity, _, children) in scenes.iter().filter(|(_, s, _)| &s.asset == handle) {
+        } else if let AssetEvent::Modified { id } = event {
+            let asset = assets.get(id.into()).unwrap();
+            for (entity, _, children) in scenes.iter().filter(|(_, s, _)| &s.asset == id.into()) {
                 if let Some(children) = children {
                     for ch in children.iter() {
                         commands.entity(*ch).despawn_recursive();
