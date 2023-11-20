@@ -4,20 +4,21 @@ pub mod property;
 mod selector;
 
 pub use self::parser::StyleSheetParser;
-use crate::{element::Elements, eml::asset, ess::defaults::Defaults};
+use crate::{element::Elements, ess::defaults::Defaults};
 use anyhow::Error;
 use bevy::{
-    asset::{AssetLoader, LoadedAsset},
+    asset::{io::Reader, AssetLoader, AsyncReadExt},
     ecs::system::Command,
     prelude::*,
     reflect::{TypePath, TypeUuid},
-    utils::{hashbrown::hash_map::Keys, HashMap},
+    utils::{hashbrown::hash_map::Keys, BoxedFuture, HashMap},
 };
 pub use property::*;
 pub use selector::*;
 use smallvec::SmallVec;
 use std::ops::Deref;
 use tagstr::Tag;
+use thiserror::Error;
 
 #[derive(Default)]
 pub struct EssPlugin;
@@ -30,7 +31,7 @@ impl Plugin for EssPlugin {
         app.insert_resource(Defaults::default());
         app.add_systems(Startup, crate::ess::defaults::setup_defaults);
 
-        app.add_asset::<StyleSheet>();
+        app.init_asset::<StyleSheet>();
         let extractor = app
             .world
             .get_resource_or_insert_with(PropertyExtractor::default)
@@ -39,7 +40,7 @@ impl Plugin for EssPlugin {
             .world
             .get_resource_or_insert_with(PropertyTransformer::default)
             .clone();
-        app.add_asset_loader(EssLoader {
+        app.register_asset_loader(EssLoader {
             validator,
             extractor,
         });
@@ -52,6 +53,15 @@ impl Plugin for EssPlugin {
     }
 }
 
+/// Possible errors that can be produced by [`EssAssetLoaderError`]
+#[non_exhaustive]
+#[derive(Debug, Error)]
+pub enum EssAssetLoaderError {
+    /// EML parse error
+    #[error("Could not parse ess: {0}")]
+    ParseError(#[from] Error),
+}
+
 #[derive(Default)]
 struct EssLoader {
     validator: PropertyTransformer,
@@ -59,26 +69,31 @@ struct EssLoader {
 }
 
 impl AssetLoader for EssLoader {
+    type Settings = ();
+    type Error = EssAssetLoaderError;
+    type Asset = StyleSheet;
+
     fn extensions(&self) -> &[&str] {
         &["css", "ess"]
     }
 
     fn load<'a>(
         &'a self,
-        bytes: &'a [u8],
+        reader: &'a mut Reader,
         settings: &'a Self::Settings,
         load_context: &'a mut bevy::asset::LoadContext,
-    ) -> bevy::utils::BoxedFuture<'a, Result<(), Error>> {
+    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
         Box::pin(async move {
-            let source = std::str::from_utf8(bytes)?;
+            let mut source = String::new();
+            reader.read_to_string(&mut source);
             let parser = StyleSheetParser::new(self.validator.clone(), self.extractor.clone());
-            let rules = parser.parse(source);
+            let rules = parser.parse(source.as_str());
             let mut stylesheet = StyleSheet::default();
             for rule in rules {
                 stylesheet.add_rule(rule)
             }
-            load_context.set_default_asset(LoadedAsset::new(stylesheet));
-            Ok(())
+            // load_context.set_default_asset(LoadedAsset::new(stylesheet));
+            Ok(stylesheet)
         })
     }
 }
@@ -256,15 +271,16 @@ fn process_styles_system(
         match event {
             AssetEvent::Removed { id: _ } => styles_changed = true,
             AssetEvent::Added { id } | AssetEvent::Modified { id } => {
-                if id.into() == &defaults.style_sheet {
-                    if assets.get(id.into()).unwrap().extra_weight() != 0 {
-                        assets.get_mut(id.into()).unwrap().set_extra_weight(0);
+                let handle = asset_server.get_id_handle(*id).unwrap();
+                if handle == defaults.style_sheet {
+                    if assets.get(*id).unwrap().extra_weight() != 0 {
+                        assets.get_mut(*id).unwrap().set_extra_weight(0);
                     }
                 } else {
-                    let handle = asset_server.get_id_handle(id).unwrap();
+                    let handle = asset_server.get_id_handle(*id).unwrap();
                     let weight = styles.insert(handle);
-                    if assets.get(id.into()).unwrap().extra_weight() != weight {
-                        assets.get_mut(id.into()).unwrap().set_extra_weight(weight);
+                    if assets.get(*id).unwrap().extra_weight() != weight {
+                        assets.get_mut(*id).unwrap().set_extra_weight(weight);
                     }
                 }
             }

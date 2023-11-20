@@ -105,7 +105,7 @@ impl<'w, 's> WidgetContext<'w, 's> {
     pub fn this<'a>(&'a mut self) -> EntityCommands<'w, 's, 'a> {
         self.commands.entity(self.data.entity)
     }
-    pub fn load<T: Asset>(&self, path: &str) -> Handle<T> {
+    pub fn load<T: Asset>(&self, path: String) -> Handle<T> {
         self.asset_server.load(path)
     }
 

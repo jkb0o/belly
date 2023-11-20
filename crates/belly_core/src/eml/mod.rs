@@ -16,7 +16,7 @@ pub struct EmlPlugin;
 
 impl Plugin for EmlPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.add_asset::<EmlAsset>();
+        app.init_asset::<EmlAsset>();
         let extractor = app
             .world
             .get_resource_or_insert_with(PropertyExtractor::default)
@@ -29,7 +29,8 @@ impl Plugin for EmlPlugin {
             .world
             .get_resource_or_insert_with(WidgetRegistry::default)
             .clone();
-        app.add_asset_loader(EmlLoader {
+
+        app.register_asset_loader(EmlLoader {
             transformer: validator,
             extractor,
             registry,
