@@ -134,7 +134,7 @@ impl AssetLoader for EmlLoader {
     ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
         Box::pin(async move {
             let mut source = String::new();
-            reader.read_to_string(&mut source);
+            reader.read_to_string(&mut source).await.unwrap();
 
             match parse::parse(source.as_str(), self) {
                 Ok(root) => {

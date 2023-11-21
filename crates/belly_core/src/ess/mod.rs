@@ -85,7 +85,7 @@ impl AssetLoader for EssLoader {
     ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
         Box::pin(async move {
             let mut source = String::new();
-            reader.read_to_string(&mut source);
+            reader.read_to_string(&mut source).await.unwrap();
             let parser = StyleSheetParser::new(self.validator.clone(), self.extractor.clone());
             let rules = parser.parse(source.as_str());
             let mut stylesheet = StyleSheet::default();
@@ -270,17 +270,18 @@ fn process_styles_system(
         styles_changed = true;
         match event {
             AssetEvent::Removed { id: _ } => styles_changed = true,
-            AssetEvent::Added { id } | AssetEvent::Modified { id } => {
-                let handle = asset_server.get_id_handle(*id).unwrap();
-                if handle == defaults.style_sheet {
-                    if assets.get(*id).unwrap().extra_weight() != 0 {
-                        assets.get_mut(*id).unwrap().set_extra_weight(0);
-                    }
-                } else {
-                    let handle = asset_server.get_id_handle(*id).unwrap();
-                    let weight = styles.insert(handle);
-                    if assets.get(*id).unwrap().extra_weight() != weight {
-                        assets.get_mut(*id).unwrap().set_extra_weight(weight);
+            AssetEvent::Added { id } | AssetEvent::Modified { id } | AssetEvent::LoadedWithDependencies { id }=> {
+                if let Some(handle) = asset_server.get_id_handle(*id) {
+                    if handle == defaults.style_sheet {
+                        if assets.get(*id).unwrap().extra_weight() != 0 {
+                            assets.get_mut(*id).unwrap().set_extra_weight(0);
+                        }
+                    } else {
+                        let handle = asset_server.get_id_handle(*id).unwrap();
+                        let weight = styles.insert(handle);
+                        if assets.get(*id).unwrap().extra_weight() != weight {
+                            assets.get_mut(*id).unwrap().set_extra_weight(weight);
+                        }
                     }
                 }
             }

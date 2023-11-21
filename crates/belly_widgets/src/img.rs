@@ -286,32 +286,34 @@ fn update_img_size(
     for event in asset_events.read() {
         match event {
             AssetEvent::Removed { id } => {
-                let handle = asset_server.get_id_handle(*id).unwrap();
-                let Some(entities) = registry.remove(&handle) else {
-                    continue;
-                };
-                for entity in entities.iter() {
-                    let Ok(mut element) = elements.get_mut(*entity) else {
+                if let Some(handle) = asset_server.get_id_handle(*id) {
+                    let Some(entities) = registry.remove(&handle) else {
                         continue;
                     };
-                    element.size = Vec2::ZERO;
+                    for entity in entities.iter() {
+                        let Ok(mut element) = elements.get_mut(*entity) else {
+                            continue;
+                        };
+                        element.size = Vec2::ZERO;
+                    }
                 }
             }
-            AssetEvent::Added { id } | AssetEvent::Modified { id } => {
-                let handle = asset_server.get_id_handle(id.clone()).unwrap();
-                let Some(entities) = registry.get(&handle) else {
-                    continue;
-                };
-                for entity in entities.iter() {
-                    let Ok(mut element) = elements.get_mut(*entity) else {
+            AssetEvent::Added { id } | AssetEvent::Modified { id } | AssetEvent::LoadedWithDependencies { id } => {
+                if let Some(handle) = asset_server.get_id_handle(id.clone()) {
+                    let Some(entities) = registry.get(&handle) else {
                         continue;
                     };
-                    let Some(asset) = assets.get(handle.clone()) else {
-                        continue;
-                    };
-                    let asset_size = Vec2::new(asset.size().x as f32, asset.size().y as f32);
-                    if element.size != asset_size {
-                        element.size = asset_size;
+                    for entity in entities.iter() {
+                        let Ok(mut element) = elements.get_mut(*entity) else {
+                            continue;
+                        };
+                        let Some(asset) = assets.get(handle.clone()) else {
+                            continue;
+                        };
+                        let asset_size = Vec2::new(asset.size().x as f32, asset.size().y as f32);
+                        if element.size != asset_size {
+                            element.size = asset_size;
+                        }
                     }
                 }
             }
