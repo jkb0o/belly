@@ -27,7 +27,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         texture: asset_server.load("icon.png"),
         ..default()
     });
-    commands.insert_resource(UiScale { scale: 1. });
+    commands.insert_resource(UiScale(1.));
     commands.insert_resource(TextSettings {
         allow_dynamic_font_size: true,
         ..default()
@@ -48,7 +48,7 @@ pub fn scale(
     windows: Query<&Window, With<PrimaryWindow>>,
 ) {
     let Some(primary) = windows.iter().next() else {
-        return
+        return;
     };
     let ww = primary.width();
     let wh = primary.height();
@@ -60,5 +60,5 @@ pub fn scale(
 
     let scale_h = ww / 1024.0;
     let scale_w = wh / 768.0;
-    ui_scale.scale = scale_h.min(scale_w) as f64;
+    ui_scale.0 = scale_h.min(scale_w) as f64;
 }

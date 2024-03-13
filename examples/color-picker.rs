@@ -11,7 +11,7 @@ fn main() {
         .run();
 }
 
-const COLORS: &[&'static str] = &[
+const COLORS: &[&str] = &[
     // from https://colorswall.com/palette/105557
     // Red     Pink       Purple     Deep Purple
     "#f44336", "#e81e63", "#9c27b0", "#673ab7",

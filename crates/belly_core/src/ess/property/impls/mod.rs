@@ -39,7 +39,7 @@ impl PropertyParser<Option<ZIndex>> for OptionalZIndexParser {
         let Some(token) = value.first() else {
             return Err(ElementsError::InvalidPropertyValue(format!(
                 "Expected none|$local|$global, got nothing"
-            )))
+            )));
         };
         if let StylePropertyToken::Identifier(ident) = token {
             if ident == "auto" {
@@ -53,8 +53,9 @@ impl PropertyParser<Option<ZIndex>> for OptionalZIndexParser {
         }
         let StylePropertyToken::Dimension(num, unit) = token else {
             return Err(ElementsError::InvalidPropertyValue(format!(
-                "Expected auto|$local|$global, got `{}`", token.to_string()
-            )))
+                "Expected auto|$local|$global, got `{}`",
+                token.to_string()
+            )));
         };
         // Ok(None)
         match unit.as_str() {

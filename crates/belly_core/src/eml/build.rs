@@ -105,7 +105,7 @@ impl<'w, 's> WidgetContext<'w, 's> {
     pub fn this<'a>(&'a mut self) -> EntityCommands<'w, 's, 'a> {
         self.commands.entity(self.data.entity)
     }
-    pub fn load<T: Asset>(&self, path: &str) -> Handle<T> {
+    pub fn load<T: Asset>(&self, path: String) -> Handle<T> {
         self.asset_server.load(path)
     }
 
@@ -519,7 +519,7 @@ fn emit_ready_signal(
     mut requests: EventReader<RequestReadyEvent>,
     mut writer: EventWriter<ReadyEvent>,
 ) {
-    for req in requests.iter().unique() {
+    for req in requests.read().unique() {
         writer.send(ReadyEvent(req.0))
     }
 }

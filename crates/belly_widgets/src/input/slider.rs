@@ -60,14 +60,14 @@ fn handle_grabber_input(
     mut active_grabber: Local<Option<Entity>>,
     mut active_slider: Local<Option<Entity>>,
 ) {
-    for ev in events.iter() {
+    for ev in events.read() {
         // info!("{ev:?}, {active_grabber:?}");
         // if active_grabber.is_some() && ev.drag_stop() {
         if ev.drag_start() && active_grabber.is_none() {
-            let Some((entity, grabber, _)) = ev.entities
-                .iter()
-                .find_map(|e| grabbers.get(*e).ok())
-                else { return };
+            let Some((entity, grabber, _)) = ev.entities.iter().find_map(|e| grabbers.get(*e).ok())
+            else {
+                return;
+            };
             *active_grabber = Some(entity);
             *active_slider = Some(grabber.slider);
             // if let Ok((mut slider, _)) = sliders.get_mut(active_slider.unwrap()) {
@@ -75,12 +75,24 @@ fn handle_grabber_input(
             // }
         } else if active_grabber.is_some() && (ev.dragging() || ev.drag_stop()) {
             let entity = active_grabber.unwrap();
-            let Ok(mut range) = sliders.get_mut(active_slider.unwrap()) else { continue };
-            let Ok((_, _, gnode)) = grabbers.get(entity) else { continue };
-            let Ok((htr, holder_node)) = holders.get(range.holder) else { continue };
-            let Ok((_, high_node)) = holders.get(range.high_span) else { continue };
-            let Ok((_, low_node)) = holders.get(range.low_span) else { continue };
-            let Ok(mut style) = styles.get_mut(range.low_span) else { continue };
+            let Ok(mut range) = sliders.get_mut(active_slider.unwrap()) else {
+                continue;
+            };
+            let Ok((_, _, gnode)) = grabbers.get(entity) else {
+                continue;
+            };
+            let Ok((htr, holder_node)) = holders.get(range.holder) else {
+                continue;
+            };
+            let Ok((_, high_node)) = holders.get(range.high_span) else {
+                continue;
+            };
+            let Ok((_, low_node)) = holders.get(range.low_span) else {
+                continue;
+            };
+            let Ok(mut style) = styles.get_mut(range.low_span) else {
+                continue;
+            };
             let grabber_offset = gnode.size() * 0.5;
             let pos = ev.pos - htr.translation().truncate() + holder_node.size() * 0.5;
             let mut offset = (pos - grabber_offset).min(holder_node.size() - gnode.size());

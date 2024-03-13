@@ -58,7 +58,7 @@ pub struct StyleboxBundle {
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
-    pub computed_visibility: ComputedVisibility,
+    pub inherited_visibility: InheritedVisibility,
 }
 
 #[derive(Component, Clone, Debug)]
@@ -174,75 +174,79 @@ pub fn compute_stylebox_configuration(
             }
             Some(image) => {
                 let size = image.size();
+
+                let (size_x, size_y) = (size.x as f32, size.y as f32);
+
                 let region_left = match stylebox.region.left {
-                    Val::Percent(percent) => size.x * percent * 0.01,
+                    Val::Percent(percent) => size_x * percent * 0.01,
                     Val::Px(px) => px,
                     _ => 0.,
                 };
                 let region_right = match stylebox.region.right {
-                    Val::Percent(percent) => size.x * percent * 0.01,
+                    Val::Percent(percent) => size_x * percent * 0.01,
                     Val::Px(px) => px,
                     _ => 0.,
                 };
                 let region_top = match stylebox.region.top {
-                    Val::Percent(percent) => size.y * percent * 0.01,
+                    Val::Percent(percent) => size_y * percent * 0.01,
                     Val::Px(px) => px,
                     _ => 0.,
                 };
                 let region_bottom = match stylebox.region.bottom {
-                    Val::Percent(percent) => size.y * percent * 0.01,
+                    Val::Percent(percent) => size_y * percent * 0.01,
                     Val::Px(px) => px,
                     _ => 0.,
                 };
                 let region = Rect {
                     min: Vec2::new(region_left, region_top),
                     max: Vec2::new(
-                        (size.x - region_right).max(region_left),
-                        (size.y - region_bottom).max(region_top),
+                        (size_x - region_right).max(region_left),
+                        (size_y - region_bottom).max(region_top),
                     ),
                 };
                 let size = region.size();
+                let (size_x, size_y) = (size.x as f32, size.y as f32);
 
                 let slice_left = match stylebox.slice.left {
                     Val::Percent(percent) => percent * 0.01,
-                    Val::Px(px) => px / size.x,
+                    Val::Px(px) => px / size_x,
                     _ => 0.5,
                 };
                 let slice_right = match stylebox.slice.right {
                     Val::Percent(percent) => percent * 0.01,
-                    Val::Px(px) => px / size.x,
+                    Val::Px(px) => px / size_x,
                     _ => 0.5,
                 };
                 let slice_top = match stylebox.slice.top {
                     Val::Percent(percent) => percent * 0.01,
-                    Val::Px(px) => px / size.y,
+                    Val::Px(px) => px / size_y,
                     _ => 0.5,
                 };
                 let slice_bottom = match stylebox.slice.bottom {
                     Val::Percent(percent) => percent * 0.01,
-                    Val::Px(px) => px / size.y,
+                    Val::Px(px) => px / size_y,
                     _ => 0.5,
                 };
                 let slice = UiRectF32::new(slice_left, slice_right, slice_top, slice_bottom);
 
                 let width_left = match stylebox.width.left {
                     Val::Percent(percent) => percent * 0.01,
-                    Val::Px(px) => px / (size.x * slice.left),
+                    Val::Px(px) => px / (size_x * slice.left),
                     _ => 1.0,
                 };
                 let width_right = match stylebox.width.right {
                     Val::Percent(percent) => percent * 0.01,
-                    Val::Px(px) => px / (size.x * slice.right),
+                    Val::Px(px) => px / (size_x * slice.right),
                     _ => 1.0,
                 };
                 let width_top = match stylebox.width.top {
                     Val::Percent(percent) => percent * 0.01,
-                    Val::Px(px) => px / (size.y * slice.top),
+                    Val::Px(px) => px / (size_y * slice.top),
                     _ => 1.0,
                 };
                 let width_bottom = match stylebox.width.bottom {
                     Val::Percent(percent) => percent * 0.01,
-                    Val::Px(px) => px / (size.y * slice.bottom),
+                    Val::Px(px) => px / (size_y * slice.bottom),
                     _ => 1.0,
                 };
                 let width = UiRectF32::new(width_left, width_right, width_top, width_bottom);
@@ -400,16 +404,18 @@ pub fn extract_stylebox(
             &GlobalTransform,
             &Stylebox,
             &StyleboxSlices,
-            &ComputedVisibility,
+            &InheritedVisibility,
             Option<&CalculatedClip>,
         )>,
     >,
 ) {
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        let Ok((uinode, transform, stylebox, slices, visibility, clip)) = uinode_query.get(*entity) else {
-            continue
+        let Ok((uinode, transform, stylebox, slices, visibility, clip)) = uinode_query.get(*entity)
+        else {
+            continue;
         };
-        if !visibility.is_visible() {
+
+        if !visibility.get() {
             continue;
         }
         let image = stylebox.texture.clone_weak();
@@ -422,21 +428,30 @@ pub fn extract_stylebox(
             continue;
         }
 
+        // image.as
+
         let img = images.get(&image).unwrap();
         let tr = transform.compute_matrix();
+        let img_size = img.size();
+        let img_size = Vec2::new(img_size.x as f32, img_size.y as f32);
 
         for patch in slices.items.iter() {
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
-                transform: tr * patch.transform,
-                color: stylebox.modulate,
-                rect: patch.region,
-                image: image.clone_weak(),
-                atlas_size: Some(img.size()),
-                clip: clip.map(|clip| clip.clip),
-                stack_index,
-                flip_x: false,
-                flip_y: false,
-            });
+            extracted_uinodes.uinodes.insert(
+                *entity,
+                ExtractedUiNode {
+                    transform: tr * patch.transform,
+                    color: stylebox.modulate,
+                    rect: patch.region,
+                    image: image.clone_weak().into(),
+                    atlas_size: Some(img_size),
+                    clip: clip.map(|clip| clip.clip),
+                    stack_index: stack_index as u32,
+                    flip_x: false,
+                    flip_y: false,
+                },
+            );
+
+            // extracted_uinodes.uinodes();
         }
     }
 }

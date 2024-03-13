@@ -1,8 +1,8 @@
 pub mod common;
+pub mod follow;
 pub mod img;
 pub mod input;
 pub mod range;
-pub mod follow;
 use bevy::prelude::Plugin;
 
 #[derive(Default)]
@@ -20,9 +20,9 @@ impl Plugin for WidgetsPlugin {
 
 pub mod prelude {
     pub use crate::common::prelude::*;
+    pub use crate::follow::prelude::*;
     pub use crate::img::prelude::*;
     pub use crate::input::prelude::*;
-    pub use crate::follow::prelude::*;
 }
 
 pub mod tags {

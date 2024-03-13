@@ -1,7 +1,7 @@
-use bevy::prelude::*;
+use super::common::*;
 use belly_core::build::*;
 use belly_macro::*;
-use super::common::*;
+use bevy::prelude::*;
 
 pub mod prelude {
     pub use super::Follow;
@@ -18,13 +18,15 @@ impl Plugin for FollowPlugin {
 
 #[derive(Component)]
 pub struct Follow {
-    target: Entity
+    target: Entity,
 }
 
 impl FromWorldAndParams for Follow {
     fn from_world_and_params(_: &mut World, params: &mut belly_core::eml::Params) -> Self {
         Follow {
-            target: params.try_get("target").expect("Missing required `target` param")
+            target: params
+                .try_get("target")
+                .expect("Missing required `target` param"),
         }
     }
 }
@@ -49,9 +51,9 @@ fn follow_system(
     for window in windows.iter() {
         for (entity, follow, mut style, node) in follows.iter_mut() {
             let Ok(tr) = transforms.get(follow.target) else {
-            commands.entity(entity).despawn_recursive();
-            continue
-        };
+                commands.entity(entity).despawn_recursive();
+                continue;
+            };
             let pos = tr.translation();
             style.left = Val::Px((pos.x + window.width() * 0.5 - 0.5 * node.size().x).round());
             style.top = Val::Px((window.height() * 0.5 - pos.y - 0.5 * node.size().y).round());

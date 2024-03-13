@@ -5,18 +5,20 @@ mod selector;
 
 pub use self::parser::StyleSheetParser;
 use crate::{element::Elements, ess::defaults::Defaults};
+use anyhow::Error;
 use bevy::{
-    asset::{AssetLoader, LoadedAsset},
+    asset::{io::Reader, AssetLoader, AsyncReadExt},
     ecs::system::Command,
     prelude::*,
     reflect::{TypePath, TypeUuid},
-    utils::{hashbrown::hash_map::Keys, HashMap},
+    utils::{hashbrown::hash_map::Keys, BoxedFuture, HashMap},
 };
 pub use property::*;
 pub use selector::*;
 use smallvec::SmallVec;
 use std::ops::Deref;
 use tagstr::Tag;
+use thiserror::Error;
 
 #[derive(Default)]
 pub struct EssPlugin;
@@ -29,7 +31,7 @@ impl Plugin for EssPlugin {
         app.insert_resource(Defaults::default());
         app.add_systems(Startup, crate::ess::defaults::setup_defaults);
 
-        app.add_asset::<StyleSheet>();
+        app.init_asset::<StyleSheet>();
         let extractor = app
             .world
             .get_resource_or_insert_with(PropertyExtractor::default)
@@ -38,7 +40,7 @@ impl Plugin for EssPlugin {
             .world
             .get_resource_or_insert_with(PropertyTransformer::default)
             .clone();
-        app.add_asset_loader(EssLoader {
+        app.register_asset_loader(EssLoader {
             validator,
             extractor,
         });
@@ -51,6 +53,15 @@ impl Plugin for EssPlugin {
     }
 }
 
+/// Possible errors that can be produced by [`EssAssetLoaderError`]
+#[non_exhaustive]
+#[derive(Debug, Error)]
+pub enum EssAssetLoaderError {
+    /// EML parse error
+    #[error("Could not parse ess: {0}")]
+    ParseError(#[from] Error),
+}
+
 #[derive(Default)]
 struct EssLoader {
     validator: PropertyTransformer,
@@ -58,30 +69,36 @@ struct EssLoader {
 }
 
 impl AssetLoader for EssLoader {
+    type Settings = ();
+    type Error = EssAssetLoaderError;
+    type Asset = StyleSheet;
+
     fn extensions(&self) -> &[&str] {
         &["css", "ess"]
     }
 
     fn load<'a>(
         &'a self,
-        bytes: &'a [u8],
-        load_context: &'a mut bevy::asset::LoadContext,
-    ) -> bevy::utils::BoxedFuture<'a, Result<(), bevy::asset::Error>> {
+        reader: &'a mut Reader,
+        _: &'a Self::Settings,
+        _: &'a mut bevy::asset::LoadContext,
+    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
         Box::pin(async move {
-            let source = std::str::from_utf8(bytes)?;
+            let mut source = String::new();
+            reader.read_to_string(&mut source).await.unwrap();
             let parser = StyleSheetParser::new(self.validator.clone(), self.extractor.clone());
-            let rules = parser.parse(source);
+            let rules = parser.parse(source.as_str());
             let mut stylesheet = StyleSheet::default();
             for rule in rules {
                 stylesheet.add_rule(rule)
             }
-            load_context.set_default_asset(LoadedAsset::new(stylesheet));
-            Ok(())
+            // load_context.set_default_asset(LoadedAsset::new(stylesheet));
+            Ok(stylesheet)
         })
     }
 }
 
-#[derive(Default, TypeUuid, TypePath)]
+#[derive(Default, TypeUuid, TypePath, Asset)]
 #[uuid = "93767098-caca-4f2b-b1d3-cdc91919be75"]
 pub struct StyleSheet {
     weight: usize,
@@ -241,6 +258,7 @@ impl Styles {
 }
 
 fn process_styles_system(
+    asset_server: Res<AssetServer>,
     mut styles: ResMut<Styles>,
     mut assets: ResMut<Assets<StyleSheet>>,
     mut events: EventReader<AssetEvent<StyleSheet>>,
@@ -248,19 +266,24 @@ fn process_styles_system(
     defaults: Res<Defaults>,
 ) {
     let mut styles_changed = false;
-    for event in events.iter() {
+    for event in events.read() {
         styles_changed = true;
         match event {
-            AssetEvent::Removed { handle: _ } => styles_changed = true,
-            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                if handle == &defaults.style_sheet {
-                    if assets.get(handle).unwrap().extra_weight() != 0 {
-                        assets.get_mut(handle).unwrap().set_extra_weight(0);
-                    }
-                } else {
-                    let weight = styles.insert(handle.clone());
-                    if assets.get(handle).unwrap().extra_weight() != weight {
-                        assets.get_mut(handle).unwrap().set_extra_weight(weight);
+            AssetEvent::Removed { id: _ } => styles_changed = true,
+            AssetEvent::Added { id }
+            | AssetEvent::Modified { id }
+            | AssetEvent::LoadedWithDependencies { id } => {
+                if let Some(handle) = asset_server.get_id_handle(*id) {
+                    if handle == defaults.style_sheet {
+                        if assets.get(*id).unwrap().extra_weight() != 0 {
+                            assets.get_mut(*id).unwrap().set_extra_weight(0);
+                        }
+                    } else {
+                        let handle = asset_server.get_id_handle(*id).unwrap();
+                        let weight = styles.insert(handle);
+                        if assets.get(*id).unwrap().extra_weight() != weight {
+                            assets.get_mut(*id).unwrap().set_extra_weight(weight);
+                        }
                     }
                 }
             }

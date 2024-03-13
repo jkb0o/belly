@@ -2,7 +2,7 @@ use crate::eml::ApplyCommands;
 use crate::eml::Variant;
 use crate::ess::*;
 use crate::tags;
-use bevy::prelude::error;
+use bevy::log::error;
 use bevy::prelude::Deref;
 use bevy::prelude::DerefMut;
 use bevy::{

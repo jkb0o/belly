@@ -253,8 +253,10 @@ fn load_img(
             img.handle = handle.clone();
         }
         if let Some(asset) = assets.get(&img.handle) {
-            if img.size != asset.size() {
-                img.size = asset.size();
+            let asset_size = Vec2::new(asset.size().x as f32, asset.size().y as f32);
+
+            if img.size != asset_size {
+                img.size = asset_size;
             }
         }
         let (mut image, mut style) = images.get_mut(img.entity).unwrap();
@@ -263,9 +265,7 @@ fn load_img(
         // force inner image size recalculation if Image asset already loaded
         if assets.contains(&handle) {
             style.display = Display::Flex;
-            events.send(AssetEvent::Modified {
-                handle: handle.clone_weak(),
-            });
+            events.send(AssetEvent::Modified { id: handle.id() });
             signals.send(ImgEvent::Loaded(vec![entity]));
         } else {
             if img.size != Vec2::ZERO {
@@ -281,23 +281,41 @@ fn update_img_size(
     assets: Res<Assets<Image>>,
     mut asset_events: EventReader<AssetEvent<Image>>,
     mut registry: ResMut<ImageRegistry>,
+    asset_server: Res<AssetServer>,
 ) {
-    for event in asset_events.iter() {
+    for event in asset_events.read() {
         match event {
-            AssetEvent::Removed { handle } => {
-                let Some(entities) = registry.remove(&handle) else { continue };
-                for entity in entities.iter() {
-                    let Ok(mut element) = elements.get_mut(*entity) else { continue };
-                    element.size = Vec2::ZERO;
+            AssetEvent::Removed { id } => {
+                if let Some(handle) = asset_server.get_id_handle(*id) {
+                    let Some(entities) = registry.remove(&handle) else {
+                        continue;
+                    };
+                    for entity in entities.iter() {
+                        let Ok(mut element) = elements.get_mut(*entity) else {
+                            continue;
+                        };
+                        element.size = Vec2::ZERO;
+                    }
                 }
             }
-            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                let Some(entities) = registry.get(&handle) else { continue };
-                for entity in entities.iter() {
-                    let Ok(mut element) = elements.get_mut(*entity) else { continue };
-                    let Some(asset) = assets.get(handle) else { continue };
-                    if element.size != asset.size() {
-                        element.size = asset.size();
+            AssetEvent::Added { id }
+            | AssetEvent::Modified { id }
+            | AssetEvent::LoadedWithDependencies { id } => {
+                if let Some(handle) = asset_server.get_id_handle(id.clone()) {
+                    let Some(entities) = registry.get(&handle) else {
+                        continue;
+                    };
+                    for entity in entities.iter() {
+                        let Ok(mut element) = elements.get_mut(*entity) else {
+                            continue;
+                        };
+                        let Some(asset) = assets.get(handle.clone()) else {
+                            continue;
+                        };
+                        let asset_size = Vec2::new(asset.size().x as f32, asset.size().y as f32);
+                        if element.size != asset_size {
+                            element.size = asset_size;
+                        }
                     }
                 }
             }
@@ -311,7 +329,7 @@ fn update_img_layout(
 ) {
     for (element, node) in elements.iter() {
         let Ok(mut style) = styles.get_mut(element.entity) else {
-            continue
+            continue;
         };
         if element.size.x.abs() < f32::EPSILON
             || element.size.y.abs() < f32::EPSILON

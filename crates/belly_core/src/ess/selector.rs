@@ -329,7 +329,7 @@ pub trait EmlNode: Sized {
     fn fits(&self, selector: &SelectorEntry) -> Option<u8> {
         if selector.is_direct_child() {
             let Some(next_selector) = selector.next() else {
-                return None
+                return None;
             };
             if let Some(weight) = self.fits(&next_selector) {
                 Some(weight + 1)

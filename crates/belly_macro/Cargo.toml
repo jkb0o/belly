@@ -1,6 +1,6 @@
 [package]
 name = "belly_macro"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 
 [lib]
@@ -9,7 +9,7 @@ proc-macro = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = "0.11"
+bevy = "0.12"
 quote = "1.0.21"
 syn-rsx = { git = "https://github.com/stoically/syn-rsx.git" }
 # syn-rsx = { git = "https://github.com/jkb0o/syn-rsx.git", branch = "add_syn_printing_feature" }

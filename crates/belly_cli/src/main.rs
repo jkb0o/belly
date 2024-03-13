@@ -164,9 +164,14 @@ fn fetch_parsers(crt: &Crate) -> HashMap<String, String> {
             eprintln!("Looks like implementation defined in outer crate");
             continue;
         };
-        let ItemEnum::Impl(imp) = &item.inner else { continue };
+        let ItemEnum::Impl(imp) = &item.inner else {
+            continue;
+        };
         let Type::ResolvedPath(path) = &imp.for_ else {
-            eprintln!("Don't know how to handle PropertyParser implementation {:?}", imp.for_);
+            eprintln!(
+                "Don't know how to handle PropertyParser implementation {:?}",
+                imp.for_
+            );
             continue;
         };
         let Some(impl_item) = crt.index.get(&path.id) else {
@@ -285,7 +290,12 @@ fn fetch_widget_extends<'a>(crt: &'a Crate, for_item: &Item) -> Vec<&'a Item> {
                         .filter(|i| i.name == Some("Extends".into()))
                         .next()
                         .unwrap();
-                    let ItemEnum::AssocType { generics: _, bounds: _, default: Some(extends) } = &extends.inner else {
+                    let ItemEnum::AssocType {
+                        generics: _,
+                        bounds: _,
+                        default: Some(extends),
+                    } = &extends.inner
+                    else {
                         panic!("Expected assoc type")
                     };
                     let Type::ResolvedPath(extends) = extends else {
@@ -343,24 +353,31 @@ fn fetch_properties(crt: &Crate) -> Vec<Property> {
             eprintln!("Looks like implementation defined in outer crate");
             continue;
         };
-        let ItemEnum::Impl(imp) = &item.inner else { continue };
+        let ItemEnum::Impl(imp) = &item.inner else {
+            continue;
+        };
         let Type::ResolvedPath(path) = &imp.for_ else {
-            eprintln!("Don't know how to handle Property implementation {:?}", imp.for_);
+            eprintln!(
+                "Don't know how to handle Property implementation {:?}",
+                imp.for_
+            );
             continue;
         };
         let Some(impl_item) = crt.index.get(&path.id) else {
             eprintln!("Looks like {} implemented in outer crate", path.name);
             continue;
         };
-        let Some(parser_assoc) = imp.items
+        let Some(parser_assoc) = imp
+            .items
             .iter()
             .filter_map(|id| crt.index.get(id))
             .filter(|p| p.name.is_some())
             .filter(|p| p.name.as_ref().unwrap() == "Parser")
-            .next() else {
-                eprintln!("Can't find Parser associated type");
-                continue;
-            };
+            .next()
+        else {
+            eprintln!("Can't find Parser associated type");
+            continue;
+        };
         let parser_path = if let ItemEnum::AssocType {
             generics: _,
             bounds: _,
@@ -396,7 +413,7 @@ fn fetch_properties(crt: &Crate) -> Vec<Property> {
 
         let Some(docs) = &impl_item.docs else {
             eprintln!("Property without docs");
-            continue
+            continue;
         };
         let Some(prop_name) = docattr("property-name", docs) else {
             eprintln!("Missed @property-name doc attribute");
@@ -440,13 +457,21 @@ fn fetch_compound_properties(crt: &Crate) -> Vec<Property> {
             eprintln!("Looks like CompoundProperty implementation defined in outer crate");
             continue;
         };
-        let ItemEnum::Impl(imp) = &item.inner else { continue };
+        let ItemEnum::Impl(imp) = &item.inner else {
+            continue;
+        };
         let Type::ResolvedPath(path) = &imp.for_ else {
-            eprintln!("Don't know how to handle CompoundProperty implementation {:?}", imp.for_);
+            eprintln!(
+                "Don't know how to handle CompoundProperty implementation {:?}",
+                imp.for_
+            );
             continue;
         };
         let Some(impl_item) = crt.index.get(&path.id) else {
-            eprintln!("Looks like CompoundProperty for {} implemented in outer crate", path.name);
+            eprintln!(
+                "Looks like CompoundProperty for {} implemented in outer crate",
+                path.name
+            );
             continue;
         };
         let docs = if let Some(docs) = &impl_item.docs {
@@ -464,7 +489,10 @@ fn fetch_compound_properties(crt: &Crate) -> Vec<Property> {
             continue;
         };
         let Some(prop_name) = docs.attr("property-name") else {
-            eprintln!("Can't fetch @property-name from {} docs", impl_item.name.as_ref().unwrap());
+            eprintln!(
+                "Can't fetch @property-name from {} docs",
+                impl_item.name.as_ref().unwrap()
+            );
             continue;
         };
         result.push(Property {

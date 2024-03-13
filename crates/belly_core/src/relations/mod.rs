@@ -56,7 +56,7 @@ pub fn process_signals_system<P: 'static + WorldQuery, E: Event>(
     mut events: EventReader<E>,
     mut components: Query<P>,
 ) {
-    for signal in events.iter() {
+    for signal in events.read() {
         let mut context = EventContext {
             source_event: signal,
             time_resource: &time,
@@ -67,7 +67,7 @@ pub fn process_signals_system<P: 'static + WorldQuery, E: Event>(
             for (target, group) in &handlers.iter().group_by(|(target, _)| target) {
                 if let Some(target) = target {
                     let Ok(mut args) = components.get_mut(*target) else {
-                        continue
+                        continue;
                     };
                     for (_, handler) in group {
                         handler.run(&mut context, &mut args);

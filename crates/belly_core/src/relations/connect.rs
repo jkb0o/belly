@@ -143,7 +143,7 @@ impl<'a, 'w, 's, E: Event> EventContext<'a, 'w, 's, E> {
     pub fn entity<'x>(&'x mut self, entity: Entity) -> EntityCommands<'w, 's, 'x> {
         self.elements.commands.entity(entity)
     }
-    pub fn load<T: Asset>(&self, path: &str) -> Handle<T> {
+    pub fn load<T: Asset>(&self, path: String) -> Handle<T> {
         self.asset_server.load(path)
     }
     pub fn add<C: Command>(&mut self, command: C) {
@@ -318,9 +318,7 @@ impl<Q: 'static + WorldQuery, E: Event> Connections<Q, E> {
             });
 
             connections.targets.retain(|entity, targets| {
-                let Some(entity) = entity else {
-                    return true
-                };
+                let Some(entity) = entity else { return true };
                 if !func(*entity) {
                     return true;
                 }

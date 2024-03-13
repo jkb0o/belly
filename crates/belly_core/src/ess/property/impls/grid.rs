@@ -1,11 +1,10 @@
 use super::parse;
 use crate::build::StyleProperty;
-use crate::ElementsError;
-use crate::ess::{StylePropertyToken, PropertyParser};
+use crate::ess::{PropertyParser, StylePropertyToken};
 use crate::style_property;
+use crate::ElementsError;
 use bevy::prelude::*;
 use smallvec::smallvec;
-
 
 style_property! {
     #[doc = " Controls whether automatically placed grid items are placed row-wise or"]
@@ -47,151 +46,154 @@ pub fn grid_track(token: &StylePropertyToken) -> Result<GridTrack, ElementsError
     match token {
         StylePropertyToken::Dimension(val, dim) if dim.as_str() == "px" => {
             Ok(GridTrack::px(val.to_float()))
-        },
+        }
         StylePropertyToken::Dimension(val, dim) if dim.as_str() == "fr" => {
             Ok(GridTrack::fr(val.to_float()))
-        },
-        StylePropertyToken::Percentage(val) => {
-            Ok(GridTrack::percent(val.to_float()))
-        },
-        StylePropertyToken::Identifier(ident) if ident.as_str() == "auto" => {
-            Ok(GridTrack::auto())
-        },
+        }
+        StylePropertyToken::Percentage(val) => Ok(GridTrack::percent(val.to_float())),
+        StylePropertyToken::Identifier(ident) if ident.as_str() == "auto" => Ok(GridTrack::auto()),
         StylePropertyToken::Identifier(ident) if ident.as_str() == "min-content" => {
             Ok(GridTrack::min_content())
-        },
+        }
         StylePropertyToken::Identifier(ident) if ident.as_str() == "max-content" => {
             Ok(GridTrack::max_content())
-        },
-        StylePropertyToken::Function(func) => {
-            match func.name.as_str() {
-                "flex" => {
-                    if func.args.len() != 1 {
-                        return Err(ElementsError::InvalidPropertyValue(format!(
-                            "flex($num) supports only single argument"
-                        )));
+        }
+        StylePropertyToken::Function(func) => match func.name.as_str() {
+            "flex" => {
+                if func.args.len() != 1 {
+                    return Err(ElementsError::InvalidPropertyValue(format!(
+                        "flex($num) supports only single argument"
+                    )));
+                }
+                let StylePropertyToken::Number(val) = func.args[0] else {
+                    return Err(ElementsError::InvalidPropertyValue(format!(
+                        "flex($num) supports only single argument"
+                    )));
+                };
+                Ok(GridTrack::flex(val.to_float()))
+            }
+            "fit-content" => {
+                if func.args.len() != 1 {
+                    return Err(ElementsError::InvalidPropertyValue(format!(
+                        "fit-content($val) supports only single px or % argument"
+                    )));
+                }
+                match &func.args[0] {
+                    StylePropertyToken::Dimension(val, dim) if dim.as_str() == "px" => {
+                        Ok(GridTrack::fit_content_px(val.to_float()))
                     }
-                    let StylePropertyToken::Number(val) = func.args[0] else {
-                        return Err(ElementsError::InvalidPropertyValue(format!(
-                            "flex($num) supports only single argument"
-                        )));
-                    };
-                    Ok(GridTrack::flex(val.to_float()))
-                },
-                "fit-content" => {
-                    if func.args.len() != 1 {
-                        return Err(ElementsError::InvalidPropertyValue(format!(
-                            "fit-content($val) supports only single px or % argument"
-                        )));
+                    StylePropertyToken::Percentage(val) => {
+                        Ok(GridTrack::fit_content_percent(val.to_float()))
                     }
-                    match &func.args[0] {
-                        StylePropertyToken::Dimension(val, dim) if dim.as_str() == "px" => {
-                            Ok(GridTrack::fit_content_px(val.to_float()))
-                        },
-                        StylePropertyToken::Percentage(val) => {
-                            Ok(GridTrack::fit_content_percent(val.to_float()))
-                        },
-                        token => {
-                            return Err(ElementsError::InvalidPropertyValue(format!(
-                                "fit-content($val) supports only single px or % argument, got: `{}`",
-                                token.to_string()
-                            )))
-                        }
-                    }
-                },
-                "minmax" => {
-                    if func.args.len() != 2 {
+                    token => {
                         return Err(ElementsError::InvalidPropertyValue(format!(
-                            "minmax(a, b) only supports exactly two arguments"
-                        )));
+                            "fit-content($val) supports only single px or % argument, got: `{}`",
+                            token.to_string()
+                        )))
                     }
-                    let min_sizing = match &func.args[0] {
-                        StylePropertyToken::Dimension(val, dim) if dim.as_str() == "px" => {
-                            MinTrackSizingFunction::Px(val.to_float())
-                        },
-                        StylePropertyToken::Percentage(val) => {
-                            MinTrackSizingFunction::Percent(val.to_float())
-                        },
-                        StylePropertyToken::Identifier(ident) if ident.as_str() == "auto" => {
-                            MinTrackSizingFunction::Auto
-                        },
-                        StylePropertyToken::Identifier(ident) if ident.as_str() == "min-content" => {
-                            MinTrackSizingFunction::MinContent
-                        },
-                        StylePropertyToken::Identifier(ident) if ident.as_str() == "max-content" => {
-                            MinTrackSizingFunction::MaxContent
-                        },
-                        token => return Err(ElementsError::InvalidPropertyValue(format!(
+                }
+            }
+            "minmax" => {
+                if func.args.len() != 2 {
+                    return Err(ElementsError::InvalidPropertyValue(format!(
+                        "minmax(a, b) only supports exactly two arguments"
+                    )));
+                }
+                let min_sizing = match &func.args[0] {
+                    StylePropertyToken::Dimension(val, dim) if dim.as_str() == "px" => {
+                        MinTrackSizingFunction::Px(val.to_float())
+                    }
+                    StylePropertyToken::Percentage(val) => {
+                        MinTrackSizingFunction::Percent(val.to_float())
+                    }
+                    StylePropertyToken::Identifier(ident) if ident.as_str() == "auto" => {
+                        MinTrackSizingFunction::Auto
+                    }
+                    StylePropertyToken::Identifier(ident) if ident.as_str() == "min-content" => {
+                        MinTrackSizingFunction::MinContent
+                    }
+                    StylePropertyToken::Identifier(ident) if ident.as_str() == "max-content" => {
+                        MinTrackSizingFunction::MaxContent
+                    }
+                    token => {
+                        return Err(ElementsError::InvalidPropertyValue(format!(
                             "invalid value for the first argument of minmax(a, b): `{}`",
                             token.to_string(),
                         )))
-                    };
-                    let max_sizing = match &func.args[1] {
-                        StylePropertyToken::Dimension(val, dim) if dim.as_str() == "px" => {
-                            MaxTrackSizingFunction::Px(val.to_float())
-                        },
-                        StylePropertyToken::Dimension(val, dim) if dim.as_str() == "fr" => {
-                            MaxTrackSizingFunction::Fraction(val.to_float())
-                        },
-                        StylePropertyToken::Percentage(val) => {
-                            MaxTrackSizingFunction::Percent(val.to_float())
-                        },
-                        StylePropertyToken::Identifier(ident) if ident.as_str() == "auto" => {
-                            MaxTrackSizingFunction::Auto
-                        },
-                        StylePropertyToken::Identifier(ident) if ident.as_str() == "min-content" => {
-                            MaxTrackSizingFunction::MinContent
-                        },
-                        StylePropertyToken::Identifier(ident) if ident.as_str() == "max-content" => {
-                            MaxTrackSizingFunction::MaxContent
-                        },
-                        StylePropertyToken::Identifier(ident) if ident.as_str() == "max-content" => {
-                            MaxTrackSizingFunction::MaxContent
-                        },
-                        StylePropertyToken::Function(func) if func.name.as_str() == "fit-content" => {
-                            if func.args.len() != 1 {
-                                return Err(ElementsError::InvalidPropertyValue(format!(
-                                    "fit-content($val) only supports exactly single argument"
-                                )))
+                    }
+                };
+                let max_sizing = match &func.args[1] {
+                    StylePropertyToken::Dimension(val, dim) if dim.as_str() == "px" => {
+                        MaxTrackSizingFunction::Px(val.to_float())
+                    }
+                    StylePropertyToken::Dimension(val, dim) if dim.as_str() == "fr" => {
+                        MaxTrackSizingFunction::Fraction(val.to_float())
+                    }
+                    StylePropertyToken::Percentage(val) => {
+                        MaxTrackSizingFunction::Percent(val.to_float())
+                    }
+                    StylePropertyToken::Identifier(ident) if ident.as_str() == "auto" => {
+                        MaxTrackSizingFunction::Auto
+                    }
+                    StylePropertyToken::Identifier(ident) if ident.as_str() == "min-content" => {
+                        MaxTrackSizingFunction::MinContent
+                    }
+                    StylePropertyToken::Identifier(ident) if ident.as_str() == "max-content" => {
+                        MaxTrackSizingFunction::MaxContent
+                    }
+                    StylePropertyToken::Identifier(ident) if ident.as_str() == "max-content" => {
+                        MaxTrackSizingFunction::MaxContent
+                    }
+                    StylePropertyToken::Function(func) if func.name.as_str() == "fit-content" => {
+                        if func.args.len() != 1 {
+                            return Err(ElementsError::InvalidPropertyValue(format!(
+                                "fit-content($val) only supports exactly single argument"
+                            )));
+                        }
+                        match &func.args[0] {
+                            StylePropertyToken::Dimension(val, dim) if dim == "px" => {
+                                MaxTrackSizingFunction::FitContentPx(val.to_float())
                             }
-                            match &func.args[0] {
-                                StylePropertyToken::Dimension(val, dim) if dim == "px" => {
-                                    MaxTrackSizingFunction::FitContentPx(val.to_float())
-                                },
-                                StylePropertyToken::Percentage(val) => {
-                                    MaxTrackSizingFunction::FitContentPercent(val.to_float())
-                                },
-                                token => return Err(ElementsError::InvalidPropertyValue(format!(
+                            StylePropertyToken::Percentage(val) => {
+                                MaxTrackSizingFunction::FitContentPercent(val.to_float())
+                            }
+                            token => {
+                                return Err(ElementsError::InvalidPropertyValue(format!(
                                     "unsupported argument for fit-content($val): `{}`",
                                     token.to_string(),
                                 )))
                             }
-                        },
-                        token => return Err(ElementsError::InvalidPropertyValue(format!(
+                        }
+                    }
+                    token => {
+                        return Err(ElementsError::InvalidPropertyValue(format!(
                             "invalid value for the second argument of minmax(a, b): `{}`",
                             token.to_string(),
                         )))
-                    };
-                    Ok(GridTrack::minmax(min_sizing, max_sizing))
-
-                }
-                _ => return Err(ElementsError::InvalidPropertyValue(format!(
+                    }
+                };
+                Ok(GridTrack::minmax(min_sizing, max_sizing))
+            }
+            _ => {
+                return Err(ElementsError::InvalidPropertyValue(format!(
                     "unsupported value for $gridtracks property: `{}`",
                     token.to_string(),
                 )))
             }
         },
-        token => return Err(ElementsError::InvalidPropertyValue(format!(
-            "invalid value for $gridtracks property: `{}`",
-            token.to_string()
-        )))
+        token => {
+            return Err(ElementsError::InvalidPropertyValue(format!(
+                "invalid value for $gridtracks property: `{}`",
+                token.to_string()
+            )))
+        }
     }
 }
 
 pub fn grid_tracks(prop: &StyleProperty) -> Result<Vec<GridTrack>, ElementsError> {
     let mut result = vec![];
     if prop.len() == 1 && prop[0].is_ident("none") {
-        return Ok(vec![])
+        return Ok(vec![]);
     }
     for token in prop.iter() {
         result.push(grid_track(token)?)
@@ -256,7 +258,8 @@ pub fn grid_tracks_repeated(prop: &StyleProperty) -> Result<Vec<RepeatedGridTrac
         return Ok(vec![]);
     }
     let mut result = vec![];
-    for token in prop.iter() { result.push(match token {
+    for token in prop.iter() {
+        result.push(match token {
         StylePropertyToken::Function(func) if func.name.as_str() == "repeat" => {
             if func.args.len() != 2 {
                 return Err(ElementsError::InvalidPropertyValue(format!(
@@ -285,9 +288,9 @@ pub fn grid_tracks_repeated(prop: &StyleProperty) -> Result<Vec<RepeatedGridTrac
             RepeatedGridTrack::repeat_many(repeat_func, repeat_args)
         },
         token => RepeatedGridTrack::repeat_many(1, grid_track(token)?)
-    })};
+    })
+    }
     Ok(result)
-
 }
 
 /// <!-- @property-type=$gridtracksrepeated
@@ -345,7 +348,6 @@ style_property! {
     }
 }
 
-
 pub fn grid_placement(prop: &StyleProperty) -> Result<GridPlacement, ElementsError> {
     let mut placement = GridPlacement::default();
     let mut parsing_start = true;
@@ -355,11 +357,13 @@ pub fn grid_placement(prop: &StyleProperty) -> Result<GridPlacement, ElementsErr
         match token {
             StylePropertyToken::Number(num) if parsed_value.is_none() => {
                 parsed_value = Some(num.to_int());
-            },
+            }
             StylePropertyToken::Identifier(ident) if ident == "span" => {
                 parsed_is_span = true;
-            },
-            StylePropertyToken::Identifier(ident) if ident == "auto" && !parsed_is_span && parsed_value.is_none() => {
+            }
+            StylePropertyToken::Identifier(ident)
+                if ident == "auto" && !parsed_is_span && parsed_value.is_none() =>
+            {
                 parsing_start = false;
             }
             StylePropertyToken::Slash if parsing_start => {
@@ -373,17 +377,21 @@ pub fn grid_placement(prop: &StyleProperty) -> Result<GridPlacement, ElementsErr
                 parsing_start = false;
                 parsed_value = None;
                 parsed_is_span = false;
-            },
-            _ => return Err(ElementsError::InvalidPropertyValue(format!("Invalid format for GridPlacement value")))
+            }
+            _ => {
+                return Err(ElementsError::InvalidPropertyValue(format!(
+                    "Invalid format for GridPlacement value"
+                )))
+            }
         };
     }
     match (parsing_start, parsed_value, parsed_is_span) {
         (_, Some(num), true) => placement = placement.set_span(num as u16),
         (true, Some(num), false) => placement = placement.set_start(num as i16),
         (false, Some(num), false) => placement = placement.set_end(num as i16),
-        _ => ()
+        _ => (),
     };
-    
+
     Ok(placement)
 }
 
@@ -474,7 +482,6 @@ style_property! {
     }
 }
 
-
 style_property! {
     #[doc = " For Flexbox containers:"]
     #[doc = " - This property has no effect. See `justify-content` for main-axis alignment of flex items."]
@@ -510,8 +517,8 @@ style_property! {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
     use bevy::prelude::*;
+    use std::str::FromStr;
 
     use super::*;
 
@@ -540,19 +547,13 @@ mod tests {
     fn parse_grid_track_repeated() {
         let p = StyleProperty::from_str("auto flex(1.0) 20px").unwrap();
         let g = RepeatedGridTrackParser::parse(&p).unwrap();
-        let r: Vec<RepeatedGridTrack> = vec![
-            GridTrack::auto(),
-            GridTrack::flex(1.0),
-            GridTrack::px(20.),
-        ];
+        let r: Vec<RepeatedGridTrack> =
+            vec![GridTrack::auto(), GridTrack::flex(1.0), GridTrack::px(20.)];
         assert_eq!(g, r);
 
         let p = StyleProperty::from_str("min-content flex(1.0)").unwrap();
         let g = RepeatedGridTrackParser::parse(&p).unwrap();
-        let r: Vec<RepeatedGridTrack> = vec![
-            GridTrack::min_content(), 
-            GridTrack::flex(1.0)
-        ];
+        let r: Vec<RepeatedGridTrack> = vec![GridTrack::min_content(), GridTrack::flex(1.0)];
         assert_eq!(g, r);
 
         let p = StyleProperty::from_str("repeat(4, flex(1.0)").unwrap();
@@ -562,11 +563,8 @@ mod tests {
 
         let p = StyleProperty::from_str("auto auto 1fr").unwrap();
         let g = RepeatedGridTrackParser::parse(&p).unwrap();
-        let r: Vec<RepeatedGridTrack> =  vec![
-            GridTrack::auto(),
-            GridTrack::auto(),
-            GridTrack::fr(1.0)
-        ];
+        let r: Vec<RepeatedGridTrack> =
+            vec![GridTrack::auto(), GridTrack::auto(), GridTrack::fr(1.0)];
         assert_eq!(g, r);
 
         // This test failes. I'm not sure are this tracks the same or not
@@ -580,7 +578,7 @@ mod tests {
 
         // left:
         // [
-        //  RepeatedGridTrack { repetition: Count(1), tracks: [GridTrack { min_sizing_function: Auto, max_sizing_function: Auto }] }, 
+        //  RepeatedGridTrack { repetition: Count(1), tracks: [GridTrack { min_sizing_function: Auto, max_sizing_function: Auto }] },
         //  RepeatedGridTrack { repetition: Count(1), tracks: [GridTrack { min_sizing_function: Auto, max_sizing_function: Auto }] },
         //  RepeatedGridTrack { repetition: Count(1), tracks: [GridTrack { min_sizing_function: Auto, max_sizing_function: Fraction(1.0) }] }
         // ]

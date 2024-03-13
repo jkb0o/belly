@@ -34,7 +34,7 @@ impl Run {
         let mut sys_args = quote! {};
         for arg in self.system_args.iter() {
             let syn::FnArg::Typed(arg) = arg else {
-                continue
+                continue;
             };
             let arg_pat = &arg.pat;
             let arg_type = &arg.ty;

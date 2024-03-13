@@ -8,9 +8,9 @@ use std::sync::{Arc, RwLock};
 
 pub use self::colors::*;
 pub use self::style::StyleProperty;
+pub use self::style::StylePropertyFunction;
 pub use self::style::StylePropertyMethods;
 pub use self::style::StylePropertyToken;
-pub use self::style::StylePropertyFunction;
 pub use self::style::ToRectMap;
 use crate::tags::*;
 use crate::{
@@ -108,7 +108,6 @@ impl Plugin for PropertyPlugin {
         app.register_property::<impls::grid::GridAutoFlowProperty>();
         app.register_property::<impls::grid::JustifyItemsProperty>();
         app.register_property::<impls::grid::JustifySelfProperty>();
-        
     }
 }
 
@@ -289,7 +288,9 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
         rules.sort_by_key(|r| -r.selector.weight);
 
         for (entity, components) in components.iter_mut() {
-            let Ok(element) = elements.get(entity) else { continue };
+            let Ok(element) = elements.get(entity) else {
+                continue;
+            };
             if element.is_virtual() && !Self::affects_virtual_elements() {
                 continue;
             }

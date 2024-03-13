@@ -1,4 +1,4 @@
-use bevy::prelude::{error, warn};
+use bevy::log::*;
 use smallvec::{smallvec, SmallVec};
 
 use cssparser::*;
@@ -9,8 +9,8 @@ use crate::{
     ess::SelectorElement, ess::StyleProperty, ess::StyleRule, ElementsError,
 };
 
-use super::StylePropertyToken;
 use super::StylePropertyFunction;
+use super::StylePropertyToken;
 
 pub struct StyleSheetParser {
     transformer: PropertyTransformer,
@@ -217,7 +217,10 @@ impl<'i> DeclarationParser<'i> for PropertyParser {
         name: cssparser::CowRcStr<'i>,
         parser: &mut Parser<'i, 't>,
     ) -> Result<Self::Declaration, ParseError<'i, ElementsError>> {
-        Ok((name.to_string().as_tag(), StyleProperty(parse_values(parser)?)))
+        Ok((
+            name.to_string().as_tag(),
+            StyleProperty(parse_values(parser)?),
+        ))
     }
 }
 
@@ -234,10 +237,11 @@ fn parse_values<'i, 'tt>(
     loop {
         match parse_value(parser) {
             Ok(token) => values.push(token),
-            Err(
-                ParseError { kind: ParseErrorKind::Custom(ElementsError::EndOfInput), .. }
-            ) => return Ok(values),
-            Err(err) => return Err(err)
+            Err(ParseError {
+                kind: ParseErrorKind::Custom(ElementsError::EndOfInput),
+                ..
+            }) => return Ok(values),
+            Err(err) => return Err(err),
         }
     }
 }
@@ -260,7 +264,8 @@ fn parse_value<'i, 'tt>(
                     })
                 })?;
                 Ok(StylePropertyToken::Function(StylePropertyFunction {
-                    name: func.to_string(), args
+                    name: func.to_string(),
+                    args,
                 }))
             }
             Token::Ident(val) => Ok(StylePropertyToken::Identifier(val.to_string())),
@@ -271,19 +276,19 @@ fn parse_value<'i, 'tt>(
             Token::Percentage { unit_value, .. } => {
                 Ok(StylePropertyToken::Percentage((unit_value * 100.0).into()))
             }
-            Token::Dimension { value, unit, .. } => {
-                Ok(StylePropertyToken::Dimension(value.into(), unit.to_string()))
-            }
+            Token::Dimension { value, unit, .. } => Ok(StylePropertyToken::Dimension(
+                value.into(),
+                unit.to_string(),
+            )),
             Token::Comma => Ok(StylePropertyToken::Comma),
             Token::Delim(d) if d == '/' => Ok(StylePropertyToken::Slash),
-            token => Err(loc.new_custom_error(
-                ElementsError::UnexpectedToken(format!("Invalid token: {:?}", token))
-            ))
+            token => Err(loc.new_custom_error(ElementsError::UnexpectedToken(format!(
+                "Invalid token: {:?}",
+                token
+            )))),
         }
     } else {
-        Err(loc.new_custom_error(
-            ElementsError::EndOfInput
-        ))
+        Err(loc.new_custom_error(ElementsError::EndOfInput))
     }
 }
 
@@ -292,14 +297,14 @@ pub fn parse_style_property_value<T: AsRef<str>>(value: T) -> Result<StyleProper
     let mut parser = cssparser::Parser::new(&mut input);
     match parse_values(&mut parser) {
         Ok(tokens) => Ok(StyleProperty(tokens)),
-        Err(ParseError { kind: ParseErrorKind::Custom(err), .. }) =>  Err(err),
-        Err(ParseError { location, .. }) => {
-            Err(ElementsError::UnsupportedProperty(format!(
-                "Unesupported property value at {}:{}",
-                location.line,
-                location.column,
-            )))
-        }
+        Err(ParseError {
+            kind: ParseErrorKind::Custom(err),
+            ..
+        }) => Err(err),
+        Err(ParseError { location, .. }) => Err(ElementsError::UnsupportedProperty(format!(
+            "Unesupported property value at {}:{}",
+            location.line, location.column,
+        ))),
     }
 }
 
@@ -699,31 +704,33 @@ mod tests {
             .unwrap();
         assert_eq!(value.len(), 1, "Should have a single token (func minmax)");
         let func = value.get(0).unwrap();
-        assert_eq!(func, &StylePropertyToken::Function(
-            StylePropertyFunction {
+        assert_eq!(
+            func,
+            &StylePropertyToken::Function(StylePropertyFunction {
                 name: "minmax".into(),
                 args: vec![
                     StylePropertyToken::new_number(1.0),
                     StylePropertyToken::new_string("23"),
                     StylePropertyToken::new_dimension(4., "px")
                 ]
-            }
-        ));
+            })
+        );
 
         let func = StyleProperty::from_str("minmax(1, \"23\", 4px)");
         assert!(func.is_ok());
         let func = func.unwrap();
         assert_eq!(func.len(), 1);
         let func = func.get(0).unwrap();
-        assert_eq!(func, &StylePropertyToken::Function(
-            StylePropertyFunction {
+        assert_eq!(
+            func,
+            &StylePropertyToken::Function(StylePropertyFunction {
                 name: "minmax".into(),
                 args: vec![
                     StylePropertyToken::new_number(1.0),
                     StylePropertyToken::new_string("23"),
                     StylePropertyToken::new_dimension(4., "px")
                 ]
-            }
-        ));
+            })
+        );
     }
 }
