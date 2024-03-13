@@ -265,14 +265,20 @@ impl<'w, 's> Elements<'w, 's> {
     }
 
     pub fn set_state(&mut self, entity: Entity, state: Tag, value: bool) {
-        let Some(old_value) = self.states
-                .get(&entity)
-                .and_then(|s| s.get(&state).copied())
-                .or_else(|| if let Ok(element) = self.elements.get(entity) {
+        let Some(old_value) = self
+            .states
+            .get(&entity)
+            .and_then(|s| s.get(&state).copied())
+            .or_else(|| {
+                if let Ok(element) = self.elements.get(entity) {
                     Some(element.state.contains(&state))
                 } else {
                     None
-                }) else { return };
+                }
+            })
+        else {
+            return;
+        };
         if value == old_value {
             return;
         }

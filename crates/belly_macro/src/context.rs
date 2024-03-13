@@ -14,19 +14,32 @@ impl Context {
         };
         let Some(manifest_path) = std::env::var_os("CARGO_MANIFEST_DIR")
             .map(std::path::PathBuf::from)
-            .map(|mut path| { path.push("Cargo.toml"); path })
-            else { return context };
+            .map(|mut path| {
+                path.push("Cargo.toml");
+                path
+            })
+        else {
+            return context;
+        };
         let Ok(manifest) = std::fs::read_to_string(&manifest_path) else {
-            return context
+            return context;
         };
         let Ok(manifest) = toml::from_str::<toml::map::Map<String, toml::Value>>(&manifest) else {
-            return context
+            return context;
         };
 
-        let Some(pkg) = manifest.get("package") else { return context };
-        let Some(pkg) = pkg.as_table() else { return context };
-        let Some(pkg) = pkg.get("name") else { return context };
-        let Some(pkg) = pkg.as_str() else { return context };
+        let Some(pkg) = manifest.get("package") else {
+            return context;
+        };
+        let Some(pkg) = pkg.as_table() else {
+            return context;
+        };
+        let Some(pkg) = pkg.get("name") else {
+            return context;
+        };
+        let Some(pkg) = pkg.as_str() else {
+            return context;
+        };
         if pkg.trim() == "belly_widgets" {
             context.core_path = quote! { ::belly_core };
         } else {

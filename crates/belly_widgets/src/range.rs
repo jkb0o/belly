@@ -268,9 +268,15 @@ pub fn update_range_representation(
     {
         let low_span = range.low_span;
         let high_span = range.high_span;
-        let Ok(low) = nodes.get(low_span) else { continue };
-        let Ok(high) = nodes.get(high_span) else { continue };
-        let Ok(mut style) = styles.get_mut(low_span) else { continue };
+        let Ok(low) = nodes.get(low_span) else {
+            continue;
+        };
+        let Ok(high) = nodes.get(high_span) else {
+            continue;
+        };
+        let Ok(mut style) = styles.get_mut(low_span) else {
+            continue;
+        };
         let size = low.size() + high.size();
         let offset = size * range.value.relative();
         match range.mode {
@@ -305,14 +311,18 @@ pub fn configure_range_layout(
             }
         }
         {
-            let Ok(mut holder) = styles.get_mut(progress.holder) else { continue };
+            let Ok(mut holder) = styles.get_mut(progress.holder) else {
+                continue;
+            };
             holder.flex_direction = match mode {
                 LayoutMode::Horizontal => FlexDirection::Row,
                 LayoutMode::Vertical => FlexDirection::ColumnReverse,
             }
         }
         {
-            let Ok(mut low) = styles.get_mut(progress.low_span) else { continue };
+            let Ok(mut low) = styles.get_mut(progress.low_span) else {
+                continue;
+            };
             match mode {
                 LayoutMode::Horizontal => low.min_height = Val::Px(0.),
                 LayoutMode::Vertical => low.min_width = Val::Px(0.),

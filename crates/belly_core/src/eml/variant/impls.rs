@@ -121,14 +121,13 @@ impl From<Entity> for Variant {
 impl TryFrom<Variant> for Entity {
     type Error = String;
     fn try_from(value: Variant) -> Result<Self, Self::Error> {
-        match  value {
+        match value {
             Variant::Entity(e) => Ok(e),
             Variant::Boxed(v) => v
                 .downcast::<Entity>()
                 .map(|v| *v)
                 .map_err(|e| format!("Can't extract Entity from {:?}", e)),
-            e => Err(format!("Can't extract Entity from {:?}", e))
-            
+            e => Err(format!("Can't extract Entity from {:?}", e)),
         }
     }
 }

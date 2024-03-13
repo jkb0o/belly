@@ -56,7 +56,7 @@ impl From<&Number> for f32 {
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Hash)]
 pub struct StylePropertyFunction {
     pub name: String,
-    pub args: Vec<StylePropertyToken>
+    pub args: Vec<StylePropertyToken>,
 }
 
 /// A property value token which was parsed from a CSS rule.
@@ -103,7 +103,11 @@ impl StylePropertyToken {
             StylePropertyToken::Identifier(v) => format!("{}", v),
             StylePropertyToken::Hash(v) => format!("#{}", v),
             StylePropertyToken::String(v) => format!("\"{}\"", v),
-            StylePropertyToken::Function(f) => format!("{}({})", f.name, f.args.iter().map(|a| a.to_string()).join(", ")),
+            StylePropertyToken::Function(f) => format!(
+                "{}({})",
+                f.name,
+                f.args.iter().map(|a| a.to_string()).join(", ")
+            ),
             StylePropertyToken::Tokens(t) => t.iter().map(|t| t.to_string()).join(" "),
             StylePropertyToken::Slash => format!("/"),
             StylePropertyToken::Comma => format!(","),
@@ -134,11 +138,10 @@ impl StylePropertyToken {
     pub fn is_ident<T: AsRef<str>>(&self, ident: T) -> bool {
         match self {
             Self::Identifier(i) if i.as_str() == ident.as_ref() => true,
-            _ => false
+            _ => false,
         }
     }
 }
-
 
 pub type StylePropertyTokens = SmallVec<[StylePropertyToken; 8]>;
 
@@ -210,7 +213,9 @@ pub trait StylePropertyMethods {
     /// Tries to parses the current values as a single [`String`].
     fn string(&self) -> Result<String, ElementsError> {
         let Some(token) = self.tokens().iter().next() else {
-            return Err(ElementsError::InvalidPropertyValue(format!("Expected string literal, got nothing")));
+            return Err(ElementsError::InvalidPropertyValue(format!(
+                "Expected string literal, got nothing"
+            )));
         };
         match token {
             StylePropertyToken::String(id) => Ok(id.clone()),
@@ -223,7 +228,9 @@ pub trait StylePropertyMethods {
 
     fn option_string(&self) -> Result<Option<String>, ElementsError> {
         let Some(token) = self.tokens().iter().next() else {
-            return Err(ElementsError::InvalidPropertyValue(format!("Expected string literal, got nothing")));
+            return Err(ElementsError::InvalidPropertyValue(format!(
+                "Expected string literal, got nothing"
+            )));
         };
         match token {
             StylePropertyToken::Identifier(ident) if ident == "none" => Ok(None),
@@ -323,7 +330,9 @@ pub trait StylePropertyMethods {
     /// where former is converted to [`Val::Percent`] and latter is converted to [`Val::Px`].
     fn val(&self) -> Result<Val, ElementsError> {
         let Some(prop) = self.tokens().iter().next() else {
-            return Err(ElementsError::InvalidPropertyValue(format!("Expected Val, found none")))
+            return Err(ElementsError::InvalidPropertyValue(format!(
+                "Expected Val, found none"
+            )));
         };
         match prop {
             StylePropertyToken::Percentage(val) => Ok(Val::Percent(val.into())),
@@ -343,7 +352,9 @@ pub trait StylePropertyMethods {
     /// are considered valid values.
     fn f32(&self) -> Result<f32, ElementsError> {
         let Some(prop) = self.tokens().iter().next() else {
-            return Err(ElementsError::InvalidPropertyValue(format!("Expected f32, found none")))
+            return Err(ElementsError::InvalidPropertyValue(format!(
+                "Expected f32, found none"
+            )));
         };
         match prop {
             StylePropertyToken::Percentage(val)
@@ -367,7 +378,9 @@ pub trait StylePropertyMethods {
     /// If there is a identifier with a `none` value, then [`Option::Some`] with [`None`] is returned.
     fn option_f32(&self) -> Result<Option<f32>, ElementsError> {
         let Some(prop) = self.tokens().iter().next() else {
-            return Err(ElementsError::InvalidPropertyValue(format!("Expected Option<f32>, found none")))
+            return Err(ElementsError::InvalidPropertyValue(format!(
+                "Expected Option<f32>, found none"
+            )));
         };
         match prop {
             StylePropertyToken::Percentage(val)

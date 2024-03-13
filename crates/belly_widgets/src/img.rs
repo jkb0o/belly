@@ -298,7 +298,9 @@ fn update_img_size(
                     }
                 }
             }
-            AssetEvent::Added { id } | AssetEvent::Modified { id } | AssetEvent::LoadedWithDependencies { id } => {
+            AssetEvent::Added { id }
+            | AssetEvent::Modified { id }
+            | AssetEvent::LoadedWithDependencies { id } => {
                 if let Some(handle) = asset_server.get_id_handle(id.clone()) {
                     let Some(entities) = registry.get(&handle) else {
                         continue;
@@ -317,7 +319,6 @@ fn update_img_size(
                     }
                 }
             }
-            _ => {}
         }
     }
 }

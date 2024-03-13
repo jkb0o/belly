@@ -13,7 +13,6 @@ use thiserror::Error;
 
 use super::build::WidgetRegistry;
 use super::parse::ParseError;
-use super::Eml;
 
 pub enum EmlNode {
     Element(EmlElement),
@@ -129,7 +128,7 @@ impl AssetLoader for EmlLoader {
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
-        settings: &'a Self::Settings,
+        _: &'a Self::Settings,
         load_context: &'a mut bevy::asset::LoadContext,
     ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
         Box::pin(async move {

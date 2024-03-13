@@ -30,11 +30,9 @@ fn main() {
         .run();
 }
 
-
-
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
-    
+
     commands.add(ess! {
         body {
             // Use the CSS Grid algorithm for laying out this node
@@ -109,7 +107,7 @@ fn setup(mut commands: Commands) {
             grid-column: span 2;
         }
     });
-    
+
     commands.add(eml! {
         <body>
             <span c:header>"Belly ESS Grid Layout Example"</span>

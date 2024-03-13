@@ -220,17 +220,21 @@ fn process_keyboard_input(
     mut styles: Query<&mut Style>,
     texts: Query<&Text>,
 ) {
-    let Some((entity, mut input)) = inputs.iter_mut()
+    let Some((entity, mut input)) = inputs
+        .iter_mut()
         .filter(|(_, _, e)| e.focused())
         .map(|(e, i, _)| (e, i))
         .next()
-        else { return };
+    else {
+        return;
+    };
     if characters.is_empty() && keyboard_input.is_empty() && !changed_elements.contains(entity) {
         return;
     }
 
-    let Ok(text) = texts.get(input.text)
-        else { return };
+    let Ok(text) = texts.get(input.text) else {
+        return;
+    };
 
     // not shure how it behaves on Windows or *nix,
     // may be platform dependent compilation here?
@@ -240,13 +244,11 @@ fn process_keyboard_input(
     let mut selected = input.selected.clone();
 
     let mut chars: Vec<_> = input.value.chars().collect();
-    for ch in keyboard_input.iter() {
+    for ch in keyboard_input.read() {
         if !ch.state.is_pressed() {
             continue;
         }
-        let Some(code) = ch.key_code else {
-            continue
-        };
+        let Some(code) = ch.key_code else { continue };
         match code {
             KeyCode::Left if !cmd => {
                 if !shift {
@@ -324,7 +326,7 @@ fn process_keyboard_input(
         }
     }
     for ch in characters
-        .iter()
+        .read()
         .map(|c| c.char)
         .filter(|c| !c.is_control())
     {
@@ -341,13 +343,17 @@ fn process_keyboard_input(
     if let Ok(mut cursor) = cursors.get_mut(input.cursor) {
         cursor.state = 1.;
     }
-    let Ok(node) = nodes.get(input.container) else { return };
+    let Ok(node) = nodes.get(input.container) else {
+        return;
+    };
     let container_width = node.size().x;
     let mut position_from_start = 0.;
     let mut selection_from = 0.;
     let mut selection_to = 0.;
     let mut text_width = 0.;
-    let Some(font) = fonts.get(&text.sections[0].style.font) else { return };
+    let Some(font) = fonts.get(&text.sections[0].style.font) else {
+        return;
+    };
     let font_size = text.sections[0].style.font_size;
     for (idx, ch) in chars.iter().enumerate() {
         let advance = get_char_advance(*ch, font, font_size);
@@ -447,7 +453,7 @@ fn process_mouse(
     keyboard: Res<Input<KeyCode>>,
 ) {
     for evt in events
-        .iter()
+        .read()
         .filter(|s| s.down() || s.dragging() || s.drag_stop())
     {
         for (entity, mut input, mut element) in inputs.iter_mut() {
@@ -462,14 +468,20 @@ fn process_mouse(
             if evt.dragging() && !evt.is_dragging_from(entity) {
                 continue;
             }
-            let Ok((container, tr, node)) = styles.get(input.container) else { continue };
+            let Ok((container, tr, node)) = styles.get(input.container) else {
+                continue;
+            };
             let mut offset = if let Val::Px(offset) = container.padding.left {
                 offset
             } else {
                 0.
             };
-            let Ok(text) = texts.get(input.text) else { continue };
-            let Some(font) = fonts.get(&text.sections[0].style.font) else { continue };
+            let Ok(text) = texts.get(input.text) else {
+                continue;
+            };
+            let Some(font) = fonts.get(&text.sections[0].style.font) else {
+                continue;
+            };
             let font_size = text.sections[0].style.font_size;
             let pos = (evt.pos - tr.translation().truncate() + node.size() * 0.5).x;
             let mut index = 0;

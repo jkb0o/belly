@@ -55,7 +55,7 @@ impl Tag {
 
 impl PartialEq for Tag {
     fn eq(&self, other: &Self) -> bool {
-        self.0 as *const _ == other.0 as *const _
+        std::ptr::addr_eq(self.0 as *const _, other.0 as *const _)
     }
 }
 

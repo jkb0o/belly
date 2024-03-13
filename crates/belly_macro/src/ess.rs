@@ -204,7 +204,7 @@ pub enum StyleValueToken {
     Values(Vec<StyleValueToken>),
     Function(String, Vec<StyleValueToken>),
     Comma,
-    Slash
+    Slash,
 }
 
 impl StyleValueToken {
@@ -218,12 +218,18 @@ impl StyleValueToken {
             Self::Color(s) => format!("#{s}"),
             Self::Values(v) => format!(
                 "{}",
-                v.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(" "),
+                v.iter()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<_>>()
+                    .join(" "),
             ),
             Self::Function(name, args) => format!(
                 "{}({})",
                 name,
-                args.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(", "),
+                args.iter()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", "),
             ),
             Self::Comma => format!(", "),
             Self::Slash => format!("/"),
@@ -236,7 +242,8 @@ pub struct StyleValue(Vec<StyleValueToken>);
 
 impl std::fmt::Display for StyleValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let result = self.0
+        let result = self
+            .0
             .iter()
             .map(|v| v.to_string())
             .collect::<Vec<_>>()
@@ -342,19 +349,26 @@ impl syn::parse::Parse for StyleValue {
                 }
             } else {
                 let ident = parse_ident(&mut input)?;
-                if !input.peek(syn::token::Paren) { // just an ident
+                if !input.peek(syn::token::Paren) {
+                    // just an ident
                     value.push(StyleValueToken::Ident(ident))
-                } else { // function
+                } else {
+                    // function
                     let content;
                     syn::parenthesized!(content in input);
-                    let args: Punctuated<StyleValue, Token![,]> = content.parse_terminated(StyleValue::parse)?;
+                    let args: Punctuated<StyleValue, Token![,]> =
+                        content.parse_terminated(StyleValue::parse)?;
                     value.push(StyleValueToken::Function(
                         ident,
-                        args.into_iter().map(|mut value| if value.len() == 1 {
-                            value.0.pop().unwrap()
-                        } else {
-                            StyleValueToken::Values(value.0)
-                        }).collect()
+                        args.into_iter()
+                            .map(|mut value| {
+                                if value.len() == 1 {
+                                    value.0.pop().unwrap()
+                                } else {
+                                    StyleValueToken::Values(value.0)
+                                }
+                            })
+                            .collect(),
                     ));
                 }
             }

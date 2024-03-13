@@ -80,8 +80,8 @@ impl AssetLoader for EssLoader {
     fn load<'a>(
         &'a self,
         reader: &'a mut Reader,
-        settings: &'a Self::Settings,
-        load_context: &'a mut bevy::asset::LoadContext,
+        _: &'a Self::Settings,
+        _: &'a mut bevy::asset::LoadContext,
     ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
         Box::pin(async move {
             let mut source = String::new();
@@ -270,7 +270,9 @@ fn process_styles_system(
         styles_changed = true;
         match event {
             AssetEvent::Removed { id: _ } => styles_changed = true,
-            AssetEvent::Added { id } | AssetEvent::Modified { id } | AssetEvent::LoadedWithDependencies { id }=> {
+            AssetEvent::Added { id }
+            | AssetEvent::Modified { id }
+            | AssetEvent::LoadedWithDependencies { id } => {
                 if let Some(handle) = asset_server.get_id_handle(*id) {
                     if handle == defaults.style_sheet {
                         if assets.get(*id).unwrap().extra_weight() != 0 {
@@ -285,7 +287,6 @@ fn process_styles_system(
                     }
                 }
             }
-            _ => {}
         }
     }
     if styles_changed {

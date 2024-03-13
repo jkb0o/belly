@@ -26,7 +26,9 @@ where
 
 pub fn val(prop: &StyleProperty) -> Result<Val, ElementsError> {
     let Some(prop) = prop.first() else {
-        return Err(ElementsError::InvalidPropertyValue(format!("Expected $val, found nothing")))
+        return Err(ElementsError::InvalidPropertyValue(format!(
+            "Expected $val, found nothing"
+        )));
     };
     match prop {
         StylePropertyToken::Percentage(val) => Ok(Val::Percent(val.into())),
@@ -57,7 +59,9 @@ impl PropertyParser<Val> for ValParser {
 
 pub fn overflow(prop: &StyleProperty) -> Result<Overflow, ElementsError> {
     let Some(prop) = prop.first() else {
-        return Err(ElementsError::InvalidPropertyValue(format!("Expected $val, found nothing")))
+        return Err(ElementsError::InvalidPropertyValue(format!(
+            "Expected $val, found nothing"
+        )));
     };
     match prop {
         StylePropertyToken::Identifier(val) if val.as_str() == "visible" => Ok(Overflow::visible()),
@@ -165,7 +169,9 @@ impl PropertyParser<Color> for ColorParser {
 
 pub fn string(prop: &StyleProperty) -> Result<String, ElementsError> {
     let Some(token) = prop.first() else {
-        return Err(ElementsError::InvalidPropertyValue(format!("Expected $string, got nothing")));
+        return Err(ElementsError::InvalidPropertyValue(format!(
+            "Expected $string, got nothing"
+        )));
     };
     match token {
         StylePropertyToken::String(id) => Ok(id.clone()),
@@ -190,7 +196,9 @@ impl PropertyParser<String> for StringParser {
 
 pub fn optional_string(prop: &StyleProperty) -> Result<Option<String>, ElementsError> {
     let Some(token) = prop.first() else {
-        return Err(ElementsError::InvalidPropertyValue(format!("Expected none|$string, got nothing")));
+        return Err(ElementsError::InvalidPropertyValue(format!(
+            "Expected none|$string, got nothing"
+        )));
     };
     match token {
         StylePropertyToken::Identifier(ident) if ident == "none" => Ok(None),
@@ -212,7 +220,9 @@ impl PropertyParser<Option<String>> for OptionalStringParser {
 
 pub fn num(prop: &StyleProperty) -> Result<f32, ElementsError> {
     let Some(prop) = prop.first() else {
-        return Err(ElementsError::InvalidPropertyValue(format!("Expected $num, got nothing")))
+        return Err(ElementsError::InvalidPropertyValue(format!(
+            "Expected $num, got nothing"
+        )));
     };
     match prop {
         StylePropertyToken::Percentage(val)
@@ -238,7 +248,9 @@ impl PropertyParser<f32> for NumParser {
 
 pub fn optional_num(prop: &StyleProperty) -> Result<Option<f32>, ElementsError> {
     let Some(prop) = prop.first() else {
-        return Err(ElementsError::InvalidPropertyValue(format!("Expected none|$num, got nothing")))
+        return Err(ElementsError::InvalidPropertyValue(format!(
+            "Expected none|$num, got nothing"
+        )));
     };
     match prop {
         StylePropertyToken::Percentage(val)

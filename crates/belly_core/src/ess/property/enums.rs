@@ -128,7 +128,6 @@ prop_to_enum! { AlignSelf,
     "stretch" => Stretch,
 }
 
-
 prop_to_enum! { GridAutoFlow,
     "row" => Row,
     "column" => Column,

@@ -12,7 +12,7 @@ fn main() {
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
     commands.add(eml! {
-        <body 
+        <body
             s:padding="50px"
             s:flex-direction="column"
             s:align-items="start"

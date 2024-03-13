@@ -22,9 +22,9 @@ pub struct FontParser;
 impl PropertyParser<FontPath> for FontParser {
     fn parse(prop: &StyleProperty) -> Result<FontPath, ElementsError> {
         let Some(token) = prop.first() else {
-            return Err(ElementsError::InvalidPropertyValue(
-                format!("Expected regular|bold|italic|bold-italic|$string, got nothing")
-            ));
+            return Err(ElementsError::InvalidPropertyValue(format!(
+                "Expected regular|bold|italic|bold-italic|$string, got nothing"
+            )));
         };
         match token {
             StylePropertyToken::String(id) => Ok(FontPath::Custom(id.clone())),

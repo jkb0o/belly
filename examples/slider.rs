@@ -17,7 +17,7 @@ fn setup(mut commands: Commands) {
     commands.add(eml! {
         <body s:padding="50px" s:flex-direction="column" s:justify-content="center" s:align-items="center">
             <label {label}/>
-            <slider 
+            <slider
                 s:width="400px"
                 minimum=-2.0 value=1. maximum=12.0
                 bind:value=to!(label, Label:value|fmt.v("Slider value: {v:0.2}"))

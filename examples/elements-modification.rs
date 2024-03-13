@@ -17,7 +17,7 @@ fn main() {
 pub struct ToggleClass(&'static str);
 
 fn process_events(mut elements: Elements, mut events: EventReader<ToggleClass>) {
-    for event in events.iter() {
+    for event in events.read() {
         for entity in elements.select(".target").entities() {
             elements.toggle_class(entity, event.0.into())
         }

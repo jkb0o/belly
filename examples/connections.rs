@@ -210,7 +210,7 @@ impl<'a, 'w, 's, E: Event> SuperContext for EventContext<'a, 'w, 's, E> {
         let btn = self.commands().spawn_empty();
         let btnid = btn.id();
         let name = pick_name_for(btnid);
-        let font = self.load("FiraMono-Medium.ttf");
+        let font = self.load("FiraMono-Medium.ttf".into());
         self.commands().entity(parent).add_child(btnid);
         self.commands()
             .entity(btnid)

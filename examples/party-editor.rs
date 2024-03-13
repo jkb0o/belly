@@ -159,8 +159,12 @@ fn Animal(ctx: &mut WidgetContext, ch: &mut AnimalState) {
 ///
 #[widget]
 fn AnimalEditor(ctx: &mut WidgetContext) {
-    let Some(animal) = ctx.required_param::<Entity>("animal") else { return };
-    let Some(data) = ctx.required_param::<AnimalState>("data") else { return };
+    let Some(animal) = ctx.required_param::<Entity>("animal") else {
+        return;
+    };
+    let Some(data) = ctx.required_param::<AnimalState>("data") else {
+        return;
+    };
     // The eml! macro expands into somethins like `move |world| { ... }`,
     // so you have to create 'static values to pass them to eml! macro.
     let imgsrc = data.avatar.image().clone();

@@ -519,7 +519,7 @@ fn emit_ready_signal(
     mut requests: EventReader<RequestReadyEvent>,
     mut writer: EventWriter<ReadyEvent>,
 ) {
-    for req in requests.iter().unique() {
+    for req in requests.read().unique() {
         writer.send(ReadyEvent(req.0))
     }
 }

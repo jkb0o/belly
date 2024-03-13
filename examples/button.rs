@@ -165,7 +165,7 @@ fn greet(mut greets: Query<&mut Greet, Changed<Greet>>) {
 }
 
 fn debug_my_event(mut events: EventReader<MyEvent>) {
-    for event in events.iter() {
+    for event in events.read() {
         info!("MyEvent emitted at {:0.2}", event.emited_at);
     }
 }
