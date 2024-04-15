@@ -6,7 +6,7 @@ use bevy::asset::io::Reader;
 use bevy::asset::AsyncReadExt;
 use bevy::reflect::TypePath;
 use bevy::utils::BoxedFuture;
-use bevy::{asset::AssetLoader, prelude::*, reflect::TypeUuid, utils::HashMap};
+use bevy::{asset::AssetLoader, prelude::*, utils::HashMap};
 use std::sync::Arc;
 use tagstr::*;
 use thiserror::Error;
@@ -44,8 +44,8 @@ impl EmlScene {
     }
 }
 
-#[derive(TypeUuid, Clone, TypePath, Asset)]
-#[uuid = "f8d22a65-d671-4fa6-ae8f-0dccdb387ddd"]
+#[derive(Clone, TypePath, Asset)]
+// #[uuid = "f8d22a65-d671-4fa6-ae8f-0dccdb387ddd"]
 pub struct EmlAsset {
     root: Arc<EmlNode>,
 }

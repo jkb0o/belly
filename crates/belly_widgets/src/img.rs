@@ -1,11 +1,7 @@
-use belly_core::{build::*, relations::connect::EventSource};
+use belly_core::build::*;
 use belly_macro::*;
 
-use bevy::{
-    asset::Asset,
-    prelude::*,
-    // utils::{HashMap, HashSet},
-};
+use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
@@ -297,7 +293,7 @@ fn update_img_size(
                         element.size = Vec2::ZERO;
                     }
                 }
-            }
+            },
             AssetEvent::Added { id }
             | AssetEvent::Modified { id }
             | AssetEvent::LoadedWithDependencies { id } => {
@@ -318,7 +314,8 @@ fn update_img_size(
                         }
                     }
                 }
-            }
+            },
+            AssetEvent::Unused { id: _ } => { },
         }
     }
 }

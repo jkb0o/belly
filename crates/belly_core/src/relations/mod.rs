@@ -8,7 +8,7 @@ use crate::{element::Elements, eml::ReadySystemSet, input::InputSystemsSet};
 use self::bind::{BindableSource, BindableTarget, ChangesState};
 pub use self::connect::{Connections, EventContext, Handler};
 use bevy::{
-    ecs::{entity::Entities, event::Event, query::WorldQuery},
+    ecs::{entity::Entities, query::{QueryData, WorldQuery}},
     log::Level,
     prelude::*,
     utils::{tracing::span, HashSet},
@@ -48,7 +48,7 @@ pub fn process_relations_system_b(world: &mut World) {
     relations.run(world);
 }
 
-pub fn process_signals_system<P: 'static + WorldQuery, E: Event>(
+pub fn process_signals_system<P: 'static + QueryData, E: Event>(
     asset_server: Res<AssetServer>,
     connections: Res<Connections<P, E>>,
     time: Res<Time>,
@@ -105,7 +105,7 @@ pub struct BindingSystemsInternal {
 }
 
 impl BindingSystemsInternal {
-    pub fn add_signals_processor<P: 'static + WorldQuery, E: Event>(&self) {
+    pub fn add_signals_processor<P: 'static + QueryData, E: Event>(&self) {
         let entry = (TypeId::of::<P>(), TypeId::of::<E>());
         if self.processors.read().unwrap().contains(&entry) {
             return;

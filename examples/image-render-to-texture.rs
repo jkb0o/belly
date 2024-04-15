@@ -7,15 +7,12 @@
 use belly::prelude::*;
 use bevy::prelude::*;
 
-use bevy::{
-    core_pipeline::clear_color::ClearColorConfig,
-    render::{
-        camera::RenderTarget,
-        render_resource::{
-            Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-        },
-        view::RenderLayers,
+use bevy::render::{
+    camera::RenderTarget,
+    render_resource::{
+        Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     },
+    view::RenderLayers,
 };
 
 fn main() {
@@ -83,8 +80,8 @@ fn setup_viewport(
 
     let image_handle = images.add(image);
     viewport.image_handle = Some(image_handle.clone());
-
-    let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 4.0 }));
+    
+    let cube_handle = meshes.add(Mesh::from(Cuboid::new(4.0, 4.0, 4.0)));
     let cube_material_handle = materials.add(StandardMaterial {
         base_color: Color::rgb(0.8, 0.7, 0.6),
         reflectance: 0.02,
@@ -114,12 +111,10 @@ fn setup_viewport(
         ..default()
     });
 
+    commands.insert_resource(ClearColor(Color::WHITE));
     commands
         .spawn(Camera3dBundle {
-            camera_3d: Camera3d {
-                clear_color: ClearColorConfig::Custom(Color::WHITE),
-                ..default()
-            },
+            camera_3d: Camera3d::default(),
             camera: Camera {
                 // render before the "main pass" camera
                 order: -1,
@@ -131,7 +126,8 @@ fn setup_viewport(
             ..default()
         })
         .insert(viewport_pass_layer)
-        .insert(UiCameraConfig { show_ui: false });
+        // .insert(UiCameraConfig { show_ui: false })
+        ;
 }
 
 fn setup_ui(mut commands: Commands, asset_server: Res<AssetServer>, viewport: ResMut<Viewport>) {

@@ -1,7 +1,7 @@
 [package]
 name = "belly"
-version = "0.4.0"
-edition = "2021"
+version = { workspace = true }
+edition = { workspace = true }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -15,13 +15,29 @@ members = [
     "crates/tagstr",
 ]
 
-[dependencies]
-bevy = "0.13"
-embed-doc-image = "0.1"
+[workspace.package]
+edition = "2021"
+version = "0.4.0"
+
+
+[workspace.dependencies]
+bevy = { version = "0.13" }
+itertools = { version = "0.10.5" }
+
 tagstr = { path = "crates/tagstr" }
 belly_macro = { path = "crates/belly_macro" }
 belly_core = { path = "crates/belly_core" }
 belly_widgets = { path = "crates/belly_widgets" }
+bevy_stylebox = { path = "crates/bevy_stylebox" }
+
+
+[dependencies]
+bevy = { workspace = true }
+embed-doc-image = "0.1"
+tagstr = { workspace = true }
+belly_macro = { workspace = true }
+belly_core = { workspace = true }
+belly_widgets = { workspace = true }
 
 [[example]]
 name = "text_input"

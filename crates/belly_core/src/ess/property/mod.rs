@@ -19,9 +19,10 @@ use crate::{
     ess::{ElementsBranch, StyleSheet, Styles},
     ElementsError,
 };
+use bevy::ecs::query::{QueryData, QueryFilter};
 use bevy::ui::UiSystem;
 use bevy::{
-    ecs::query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
+    ecs::query::QueryItem,
     prelude::*,
     utils::HashMap,
 };
@@ -199,9 +200,9 @@ pub trait Property: Default + Sized + Send + Sync + 'static {
     /// The item value type to be applied by property.
     type Item: Default + Any + Send + Sync;
     /// Which components should be queried when applying the modification. Check [`WorldQuery`] for more.
-    type Components: WorldQuery;
+    type Components: QueryData;
     /// Filters conditions to be applied when querying entities by this property. Check [`WorldQuery`] for more.
-    type Filters: ReadOnlyWorldQuery;
+    type Filters: QueryFilter;
     /// Associate [`PropertyParser`] with [`Property`]
     type Parser: PropertyParser<Self::Item>;
 

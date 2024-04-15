@@ -1,5 +1,5 @@
 use bevy::ecs::component::Tick;
-use bevy::ecs::query::WorldQuery;
+use bevy::ecs::query::QueryData;
 use bevy::ecs::system::{Command, CommandQueue, SystemMeta, SystemParam};
 use bevy::ecs::world::unsafe_world_cell::UnsafeWorldCell;
 use bevy::ui::UiSystem;
@@ -133,7 +133,7 @@ impl Element {
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct ElementIdIndex(HashMap<Tag, Entity>);
 
-#[derive(WorldQuery)]
+#[derive(QueryData)]
 pub struct ElementsQuery {
     pub entity: Entity,
     element: &'static Element,
@@ -153,7 +153,7 @@ impl Deref for ElementsQueryItem<'_> {
     }
 }
 
-#[derive(WorldQuery)]
+#[derive(QueryData)]
 pub struct ChildrenQuery {
     children: &'static Children,
 }

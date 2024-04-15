@@ -34,15 +34,6 @@ impl Neg for SelectorWeight {
     }
 }
 
-#[derive(Default, Debug)]
-pub struct SelectorIndex(usize);
-
-impl SelectorIndex {
-    pub fn new(value: usize) -> SelectorIndex {
-        SelectorIndex(value)
-    }
-}
-
 #[derive(Debug)]
 pub enum SelectorElement {
     AnyChild,
@@ -244,7 +235,6 @@ impl<'a> SelectorEntry<'a> {
 
 #[derive(Default, Debug)]
 pub struct Selector {
-    pub index: SelectorIndex,
     pub weight: SelectorWeight,
     pub elements: SelectorElements,
 }

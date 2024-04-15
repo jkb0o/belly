@@ -3,7 +3,7 @@
 use std::{collections::HashMap, fs::File, io::BufReader};
 
 use clap::{Parser, Subcommand};
-use rustdoc_json;
+
 use rustdoc_types::{Crate, Id, Item, ItemEnum, ItemKind, Module, Type};
 use serde_json::from_reader;
 

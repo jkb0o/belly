@@ -60,5 +60,5 @@ pub fn scale(
 
     let scale_h = ww / 1024.0;
     let scale_w = wh / 768.0;
-    ui_scale.0 = scale_h.min(scale_w) as f64;
+    ui_scale.0 = scale_h.min(scale_w) as f32;
 }
