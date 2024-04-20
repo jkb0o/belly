@@ -106,7 +106,8 @@ pub mod prelude {
     pub struct BellyPlugin;
     impl Plugin for BellyPlugin {
         fn build(&self, app: &mut App) {
-            app.add_plugins((ElementsCorePlugin, WidgetsPlugin));
+            app.add_plugins(ElementsCorePlugin);
+            app.add_plugins(WidgetsPlugin);
         }
     }
 }

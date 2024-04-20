@@ -10,7 +10,7 @@ use bevy::{
     asset::{io::Reader, AssetLoader, AsyncReadExt},
     ecs::system::Command,
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     utils::{hashbrown::hash_map::Keys, BoxedFuture, HashMap},
 };
 pub use property::*;
@@ -98,8 +98,8 @@ impl AssetLoader for EssLoader {
     }
 }
 
-#[derive(Default, TypeUuid, TypePath, Asset)]
-#[uuid = "93767098-caca-4f2b-b1d3-cdc91919be75"]
+#[derive(Default, TypePath, Asset)]
+// #[uuid = "93767098-caca-4f2b-b1d3-cdc91919be75"]
 pub struct StyleSheet {
     weight: usize,
     rules: Vec<StyleRule>,
@@ -200,8 +200,8 @@ impl StyleSheet {
             default: true,
         }
     }
-    pub fn add_rule(&mut self, mut rule: StyleRule) {
-        rule.selector.index = SelectorIndex::new(self.rules.len());
+    pub fn add_rule(&mut self, rule: StyleRule) {
+        // rule.selector.index = SelectorIndex::new(self.rules.len());
         self.rules.push(rule);
     }
 
@@ -286,7 +286,8 @@ fn process_styles_system(
                         }
                     }
                 }
-            }
+            },
+            _ => { info!("Unused") }
         }
     }
     if styles_changed {

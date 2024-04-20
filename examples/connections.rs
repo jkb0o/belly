@@ -35,7 +35,7 @@ enum ButtonEvent {
 // It is possible to connect to this events with
 // commands.connect().event(space_key_released)
 fn space_key_released(event: &KeyboardInput) -> bool {
-    if event.key_code == Some(KeyCode::Space) {
+    if event.key_code == KeyCode::Space {
         match event.state {
             bevy::input::ButtonState::Released => true,
             _ => false,
@@ -127,8 +127,8 @@ fn emit_button_events(
 ) {
     for (entity, interaction) in interactions.iter() {
         match interaction {
-            Interaction::Pressed => events.send(ButtonEvent::Press(entity)),
-            Interaction::Hovered => events.send(ButtonEvent::Hover(entity)),
+            Interaction::Pressed => { events.send(ButtonEvent::Press(entity)); },
+            Interaction::Hovered => { events.send(ButtonEvent::Hover(entity)); },
             _ => {}
         }
     }

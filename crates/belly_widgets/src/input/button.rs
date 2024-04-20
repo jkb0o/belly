@@ -2,7 +2,6 @@ use crate::common::prelude::*;
 use crate::tags;
 use belly_core::build::*;
 use belly_core::input;
-use belly_core::relations::connect::EventSource;
 use belly_macro::*;
 
 use bevy::{
@@ -332,8 +331,6 @@ impl TryFrom<&str> for BtnModeGroup {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
-struct FloatSequence(Vec<f32>);
 
 #[derive(PartialEq, Clone, Debug, Deref)]
 /// <!-- @type-alias=$repeat -->

@@ -12,28 +12,28 @@ use bevy_stylebox::*;
 use tagstr::tag;
 
 compound_style_property! {
-    #[doc = " Specify how to fill the element with region of image sliced by 9 parts."]
-    #[doc = " The `stylebox` property is shorthand property for:"]
-    #[doc = " - `stylebox-source` specifies the source of the image"]
-    #[doc = " - `stylebox-slice` specifies how to slice the image"]
-    #[doc = " - `stylebox-region` specifies the region of the image"]
-    #[doc = " - `stylebox-width` specifies how to resize edges"]
-    #[doc = " - `stylebox-modulate` specifies what color the image should be multiplied by"]
-    #[doc = " "]
-    #[doc = " The format of property is:"]
-    #[doc = " ```css"]
-    #[doc = " source, slice, width, region, modulate"]
-    #[doc = " ```"]
-    #[doc = " Every tail element is optional (you can omit `modulate` for example. If you do,"]
-    #[doc = " you can ompit `region` then. And so on.)"]
-    #[doc = " "]
-    #[doc = " Example:"]
-    #[doc = " ```css"]
-    #[doc = "   stylebox: \"background.png\", 16px 12px, 100%, 0px, blue"]
-    #[doc = "   stylebox: \"background.png\", 5px 20%"]
-    #[doc = " ```"]
-    #[doc = " <!-- @property-type=source, slice, region, width, modulate -->"]
-    #[doc = " <!-- @property-category=Stylebox -->"]
+    /// Specify how to fill the element with region of image sliced by 9 parts.
+    /// The `stylebox` property is shorthand property for:
+    /// - `stylebox-source` specifies the source of the image
+    /// - `stylebox-slice` specifies how to slice the image
+    /// - `stylebox-region` specifies the region of the image
+    /// - `stylebox-width` specifies how to resize edges
+    /// - `stylebox-modulate` specifies what color the image should be multiplied by
+    /// 
+    /// The format of property is:
+    /// ```css
+    /// source, slice, width, region, modulate
+    /// ```
+    /// Every tail element is optional (you can omit `modulate` for example. If you do,
+    /// you can ompit `region` then. And so on.)
+    /// 
+    /// Example:
+    /// ```css
+    ///   stylebox: "background.png", 16px 12px, 100%, 0px, blue
+    ///   stylebox: "background.png", 5px 20%
+    /// ```
+    /// <!-- @property-type=source, slice, region, width, modulate -->
+    /// <!-- @property-category=Stylebox -->
     StyleboxProperty("stylebox", value) {
         let props = match value {
             Variant::String(unparsed) => StyleProperty::try_from(unparsed)?,

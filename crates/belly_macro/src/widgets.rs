@@ -2,7 +2,7 @@ use super::context::Context;
 use super::ess::StyleSheet;
 use super::ext::*;
 use bevy::utils::HashMap;
-use proc_macro2::{Span, TokenStream, TokenTree};
+use proc_macro2::{TokenStream, TokenTree};
 use quote::*;
 use syn::spanned::Spanned;
 
@@ -353,24 +353,6 @@ impl DefaultStyles {
                 quote!(#value)
             }
         }
-    }
-}
-
-pub trait SpanPos {
-    fn pos(&self) -> usize;
-}
-
-impl SpanPos for Span {
-    fn pos(&self) -> usize {
-        format!("{self:?}")
-            .split("(")
-            .nth(1)
-            .expect("[span] start not splited by (")
-            .split("..")
-            .next()
-            .expect("[span] start not splited by ..")
-            .parse()
-            .unwrap()
     }
 }
 

@@ -1,9 +1,7 @@
 use crate::{element::Elements, relations::RelationsSystems};
 use bevy::{
-    asset::Asset,
     ecs::{
-        event::Event,
-        query::{QueryItem, WorldQuery},
+        query::{QueryData, QueryItem, WorldQuery},
         system::{Command, EntityCommands},
     },
     prelude::*,
@@ -140,7 +138,7 @@ impl<'a, 'w, 's, E: Event> EventContext<'a, 'w, 's, E> {
     pub fn event(&self) -> &'a E {
         self.source_event
     }
-    pub fn entity<'x>(&'x mut self, entity: Entity) -> EntityCommands<'w, 's, 'x> {
+    pub fn entity<'x>(&'x mut self, entity: Entity) -> EntityCommands<'x> {
         self.elements.commands.entity(entity)
     }
     pub fn load<T: Asset>(&self, path: String) -> Handle<T> {
@@ -211,7 +209,7 @@ pub struct Connection<Q: WorldQuery, E: Event> {
     pub(crate) filter: EventFilter<E>,
 }
 
-impl<Q: 'static + WorldQuery, E: Event> Connection<Q, E> {
+impl<Q: 'static + QueryData, E: Event> Connection<Q, E> {
     // pub fn handles(&self, event: &E) -> bool {
     //     (self.filter)(event)
     // }
@@ -230,7 +228,7 @@ impl<Q: 'static + WorldQuery, E: Event> Connection<Q, E> {
     }
 }
 
-impl<Q: 'static + WorldQuery, E: Event> Command for Connection<Q, E> {
+impl<Q: 'static + QueryData, E: Event> Command for Connection<Q, E> {
     fn apply(self, world: &mut World) {
         self.write(world);
     }
@@ -469,7 +467,7 @@ impl<'w, 's, 'a, E: Event> ConnectCommands<'w, 's, 'a, WorldEvent<E>> {
         })
     }
     pub fn to_handler<
-        Q: 'static + WorldQuery,
+        Q: 'static + QueryData,
         F: 'static + Fn(&mut EventContext<E>, &mut QueryItem<Q>),
     >(
         self,
@@ -509,7 +507,7 @@ impl<'w, 's, 'a, E: Event> ConnectCommands<'w, 's, 'a, (Entity, EventFilter<E>)>
     }
 
     pub fn handle<
-        Q: 'static + WorldQuery,
+        Q: 'static + QueryData,
         F: 'static + Fn(&mut EventContext<E>, &mut QueryItem<Q>),
     >(
         self,

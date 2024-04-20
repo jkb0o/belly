@@ -5,7 +5,7 @@ use crate::{
     ess::{ColorFromHexExtension, StyleProperty, StylePropertyMethods},
     ElementsError,
 };
-use bevy::{asset::Asset, prelude::*};
+use bevy::prelude::*;
 
 use super::{ApplyCommands, Variant};
 

@@ -8,7 +8,7 @@ use crate::{
     to,
 };
 use bevy::{
-    ecs::query::{QueryItem, WorldQuery},
+    ecs::query::{QueryItem, QueryData},
     prelude::*,
 };
 use std::any::TypeId;
@@ -18,7 +18,7 @@ pub trait IntoContent: Sized {
 }
 
 pub trait UpdateContent: Sized {
-    type Query: WorldQuery;
+    type Query: QueryData;
     fn update_content(item: QueryItem<Self::Query>, value: &Self);
 }
 

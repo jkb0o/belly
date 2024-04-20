@@ -211,7 +211,7 @@ fn get_char_advance(ch: char, font: &Font, font_size: f32) -> f32 {
 fn process_keyboard_input(
     changed_elements: Query<(), Changed<Element>>,
     mut keyboard_input: EventReader<KeyboardInput>,
-    keyboard: Res<Input<KeyCode>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     fonts: Res<Assets<Font>>,
     nodes: Query<&Node>,
     mut characters: EventReader<ReceivedCharacter>,
@@ -248,9 +248,9 @@ fn process_keyboard_input(
         if !ch.state.is_pressed() {
             continue;
         }
-        let Some(code) = ch.key_code else { continue };
-        match code {
-            KeyCode::Left if !cmd => {
+
+        match ch.key_code {
+            KeyCode::ArrowLeft if !cmd => {
                 if !shift {
                     selected.stop();
                 }
@@ -262,7 +262,7 @@ fn process_keyboard_input(
                     }
                 }
             }
-            KeyCode::Right if !cmd => {
+            KeyCode::ArrowRight if !cmd => {
                 if !shift {
                     selected.stop();
                 }
@@ -275,7 +275,7 @@ fn process_keyboard_input(
                 }
             }
 
-            KeyCode::Up | KeyCode::Home | KeyCode::Left => {
+            KeyCode::ArrowUp | KeyCode::Home | KeyCode::ArrowLeft => {
                 if !shift {
                     selected.stop();
                 }
@@ -286,7 +286,7 @@ fn process_keyboard_input(
                     selected.extend(index);
                 }
             }
-            KeyCode::Down | KeyCode::End | KeyCode::Right => {
+            KeyCode::ArrowDown | KeyCode::End | KeyCode::ArrowRight => {
                 if !shift {
                     selected.stop();
                 }
@@ -297,7 +297,7 @@ fn process_keyboard_input(
                     selected.extend(index);
                 }
             }
-            KeyCode::Back => {
+            KeyCode::Backspace => {
                 if !selected.is_empty() {
                     chars.drain(selected.range());
                     index = selected.min;
@@ -327,7 +327,8 @@ fn process_keyboard_input(
     }
     for ch in characters
         .read()
-        .map(|c| c.char)
+        .map(|c| c.char.chars())
+        .flatten()
         .filter(|c| !c.is_control())
     {
         if !selected.is_empty() {
@@ -450,7 +451,7 @@ fn process_mouse(
     texts: Query<&Text>,
     styles: Query<(&Style, &GlobalTransform, &Node)>,
     fonts: Res<Assets<Font>>,
-    keyboard: Res<Input<KeyCode>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     for evt in events
         .read()

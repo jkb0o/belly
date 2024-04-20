@@ -312,7 +312,7 @@ pub fn parse_style_property_value<T: AsRef<str>>(value: T) -> Result<StyleProper
 mod tests {
     use std::str::FromStr;
 
-    use crate::ess::{ExtractProperty, PropertyValue, StylePropertyToken, TransformProperty};
+    use crate::ess::{ExtractProperty, PropertyValue, TransformProperty};
 
     use super::*;
     use bevy::utils::HashMap;

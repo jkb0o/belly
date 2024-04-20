@@ -1,18 +1,18 @@
 [package]
 name = "belly_core"
-version = "0.4.0"
-edition = "2021"
+version = { workspace = true }
+edition = { workspace = true }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = "1.0"
-bevy = "0.12"
-bevy_stylebox = { path = "../bevy_stylebox" }
+bevy = { workspace = true }
+bevy_stylebox = { workspace = true }
 cssparser = "0.29.6"
-itertools = "0.10.5"
+itertools = { workspace = true }
 lazy_static = "1.4.0"
 roxmltree = "0.16.0"
 smallvec = "1.10.0"
 thiserror = "1.0.50"
-tagstr = { path = "../tagstr" }
+tagstr = { workspace = true }

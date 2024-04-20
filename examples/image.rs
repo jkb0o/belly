@@ -42,6 +42,7 @@ fn setup(mut commands: Commands) {
         }
         buttongroup button {
             flex-grow: 1.0;
+            color: black;
         }
         .red .range-low {
             background-color: #F54C36;

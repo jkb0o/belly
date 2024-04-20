@@ -24,7 +24,7 @@ fn setup(mut commands: Commands) {
 }
 
 fn spawn_sprites(
-    keys: Res<Input<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut elements: Elements,
     mut commands: Commands,
     assets: Res<AssetServer>,

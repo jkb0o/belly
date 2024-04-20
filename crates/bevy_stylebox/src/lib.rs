@@ -4,7 +4,6 @@
 /// generates more vertices in the rendering system. Only `stretch` mode is
 /// supported for now for drawing edges, `repeat` & `round` coming soon.
 use bevy::{
-    math::Rect,
     prelude::*,
     render::{Extract, RenderApp},
     ui::{ExtractedUiNode, ExtractedUiNodes, FocusPolicy, RenderUiSystem, UiStack},
@@ -448,6 +447,7 @@ pub fn extract_stylebox(
                     stack_index: stack_index as u32,
                     flip_x: false,
                     flip_y: false,
+                    camera_entity: Entity::PLACEHOLDER
                 },
             );
 

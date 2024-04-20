@@ -1,14 +1,14 @@
 [package]
 name = "belly_widgets"
-version = "0.4.0"
-edition = "2021"
+version = { workspace = true }
+edition = { workspace = true }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = "0.12"
-belly_core = { path = "../belly_core" }
-belly_macro = { path = "../belly_macro" }
-tagstr = { path = "../tagstr" }
-itertools = "0.10.5"
+bevy = { workspace = true }
+belly_core = { workspace = true }
+belly_macro = { workspace = true }
+tagstr = { workspace = true }
+itertools = { workspace = true }
 ab_glyph = "0.2.18"
